@@ -46,7 +46,7 @@ export default async function ParametresPage() {
               <div className="grid sm:grid-cols-3 gap-4">
                 <div><Label htmlFor="phone">Téléphone</Label><Input id="phone" name="phone" type="tel" defaultValue={s.phone ?? ""} /></div>
                 <div><Label htmlFor="email">Email</Label><Input id="email" name="email" type="email" defaultValue={s.email ?? ""} /></div>
-                <div><Label htmlFor="website">Site web</Label><Input id="website" name="website" type="url" defaultValue={s.website ?? ""} /></div>
+                <div><Label htmlFor="website">Site web</Label><Input id="website" name="website" type="text" defaultValue={s.website ?? ""} placeholder="hiritours.ma" /></div>
               </div>
             </div>
 
@@ -59,8 +59,12 @@ export default async function ParametresPage() {
                 <div><Label htmlFor="patente">Patente</Label><Input id="patente" name="patente" defaultValue={s.patente ?? ""} /></div>
                 <div><Label htmlFor="cnss">CNSS</Label><Input id="cnss" name="cnss" defaultValue={s.cnss ?? ""} /></div>
                 <div>
-                  <Label htmlFor="tva_default_rate">Taux TVA par défaut</Label>
-                  <Input id="tva_default_rate" name="tva_default_rate" type="number" step="0.001" min="0" max="1" defaultValue={Number(s.tva_default_rate).toFixed(3)} required />
+                  <Label htmlFor="tva_default_rate">Taux TVA par défaut (%)</Label>
+                  <div className="relative">
+                    <Input id="tva_default_rate" name="tva_default_rate" type="number" step="0.1" min="0" max="100" defaultValue={(Number(s.tva_default_rate) * 100).toFixed(1).replace(/\.0$/, "")} required className="pr-8" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sand-600 text-sm pointer-events-none">%</span>
+                  </div>
+                  <p className="text-xs text-sand-600 mt-1">Ex : 20 pour 20% (standard), 10 pour 10% (tourisme)</p>
                 </div>
               </div>
             </div>

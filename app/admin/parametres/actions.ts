@@ -19,7 +19,7 @@ export async function updateCompanySettings(id: string, formData: FormData) {
     if_number: ((formData.get("if_number") as string) || "").trim() || null,
     patente: ((formData.get("patente") as string) || "").trim() || null,
     cnss: ((formData.get("cnss") as string) || "").trim() || null,
-    tva_default_rate: parseFloat(formData.get("tva_default_rate") as string) || 0.20,
+    tva_default_rate: (parseFloat(formData.get("tva_default_rate") as string) || 20) / 100,
     iban: ((formData.get("iban") as string) || "").trim() || null,
     bank_name: ((formData.get("bank_name") as string) || "").trim() || null,
   };

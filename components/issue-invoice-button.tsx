@@ -27,9 +27,12 @@ export function IssueInvoiceButton({ reservationId, defaultTvaRate }: { reservat
         </button>
       </div>
       <div>
-        <Label htmlFor="tva_rate">Taux de TVA</Label>
-        <Input id="tva_rate" name="tva_rate" type="number" step="0.001" min="0" max="1" defaultValue={defaultTvaRate.toFixed(3)} required />
-        <p className="text-xs text-sand-600 mt-1">Ex : 0.20 = 20% (standard), 0.10 = 10% (tourisme)</p>
+        <Label htmlFor="tva_rate">Taux de TVA (%)</Label>
+        <div className="relative">
+          <Input id="tva_rate" name="tva_rate" type="number" step="0.1" min="0" max="100" defaultValue={(defaultTvaRate * 100).toFixed(1).replace(/\.0$/, "")} required className="pr-8" />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sand-600 text-sm pointer-events-none">%</span>
+        </div>
+        <p className="text-xs text-sand-600 mt-1">Ex : 20 pour standard, 10 pour tourisme</p>
       </div>
       <div>
         <Label htmlFor="notes">Notes sur la facture (optionnel)</Label>

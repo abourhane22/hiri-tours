@@ -24,7 +24,8 @@ export async function createInvoice(reservationId: string, formData: FormData) {
   const { data: company } = await supabase.from("company_settings").select("*").limit(1).single();
   if (!company) throw new Error("Paramètres société non configurés.");
 
-  const tvaRate = parseFloat(formData.get("tva_rate") as string) || Number(company.tva_default_rate);
+  const tvaInput = parseFloat(formData.get("tva_rate") as string);
+  const tvaRate = !isNaN(tvaInput) ? tvaInput / 100 : Number(company.tva_default_rate);
   const totalTtc = Number((reservation as any).total_amount_mad);
   const totalHt = +(totalTtc / (1 + tvaRate)).toFixed(2);
   const tvaAmount = +(totalTtc - totalHt).toFixed(2);
