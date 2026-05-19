@@ -115,3 +115,12 @@ export type Payment = {
   paid_at: string;
   created_at: string;
 };
+
+export type CircuitSeason = {
+  id: string;
+  circuit_id: string;
+  name: string;
+  starts_on: string;
+  ends_on: string;
+  price_multiplier: number;
+};
