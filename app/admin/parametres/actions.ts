@@ -30,5 +30,6 @@ export async function updateCompanySettings(id: string, formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath("/admin/parametres");
-  redirect("/admin/parametres?saved=1");
+  revalidatePath("/admin/parametres/societe");
+  redirect("/admin/parametres/societe?saved=1");
 }
