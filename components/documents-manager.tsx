@@ -3,7 +3,8 @@
 import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input, Label } from "@/components/ui/input";
-import { X, Loader2, FileText, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { X, Loader2, FileText, Download, Upload } from "lucide-react";
 
 type Doc = { name: string; url: string; uploaded_at: string };
 type Props = { name: string; defaultValue?: Doc[] | null; bucket?: string; label?: string };
@@ -11,8 +12,9 @@ type Props = { name: string; defaultValue?: Doc[] | null; bucket?: string; label
 export function DocumentsManager({ name, defaultValue, bucket = "staff-documents", label = "Documents" }: Props) {
   const supabase = createClient();
   const [docs, setDocs] = useState<Doc[]>(defaultValue || []);
-  const [uploading, setUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [docName, setDocName] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -20,27 +22,37 @@ export function DocumentsManager({ name, defaultValue, bucket = "staff-documents
     setDocs(docs.filter((_, i) => i !== index));
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!docName.trim()) {
-      setError("Veuillez d'abord saisir le nom du document avant de choisir un fichier.");
-      if (fileRef.current) fileRef.current.value = "";
-      return;
-    }
     if (file.size > 10 * 1024 * 1024) {
       setError("Le fichier ne doit pas dépasser 10 Mo.");
+      e.target.value = "";
       return;
     }
+    setError(null);
+    setPendingFile(file);
+    const nameWithoutExt = file.name.replace(/\.[^.]+$/, "");
+    setDocName(nameWithoutExt);
+  }
 
+  function cancelPending() {
+    setPendingFile(null);
+    setDocName("");
+    setError(null);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function confirmUpload() {
+    if (!pendingFile || !docName.trim()) return;
     setUploading(true);
     setError(null);
 
-    const ext = file.name.split(".").pop()?.toLowerCase() || "pdf";
+    const ext = pendingFile.name.split(".").pop()?.toLowerCase() || "pdf";
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
     const filePath = `documents/${fileName}`;
 
-    const { error: upErr } = await supabase.storage.from(bucket).upload(filePath, file, { cacheControl: "3600", upsert: false });
+    const { error: upErr } = await supabase.storage.from(bucket).upload(filePath, pendingFile, { cacheControl: "3600", upsert: false });
     if (upErr) {
       setError(`Échec upload : ${upErr.message}`);
       setUploading(false);
@@ -49,9 +61,8 @@ export function DocumentsManager({ name, defaultValue, bucket = "staff-documents
 
     const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
     setDocs([...docs, { name: docName.trim(), url: urlData.publicUrl, uploaded_at: new Date().toISOString() }]);
-    setDocName("");
     setUploading(false);
-    if (fileRef.current) fileRef.current.value = "";
+    cancelPending();
   }
 
   return (
@@ -81,13 +92,33 @@ export function DocumentsManager({ name, defaultValue, bucket = "staff-documents
 
       {error && <div className="mb-2 p-2 text-xs text-red-800 bg-red-50 border border-red-200 rounded">{error}</div>}
 
-      <div className="border border-dashed border-sand-300 rounded-md p-3 bg-sand-50 space-y-2">
-        <Input value={docName} onChange={(e) => setDocName(e.target.value)} placeholder="Nom du document (CIN, Permis, Diplôme...)" disabled={uploading} />
-        <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={handleFileChange} disabled={uploading || !docName.trim()}
-          className="block w-full text-sm text-sand-800 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:bg-terracotta-600 file:text-white hover:file:bg-terracotta-700 file:cursor-pointer disabled:opacity-50" />
-        {uploading && <div className="flex items-center gap-2 text-sm text-terracotta-700"><Loader2 className="size-4 animate-spin" /> Upload en cours...</div>}
-        <p className="text-xs text-sand-600">Saisissez d&apos;abord le nom du document, puis choisissez le fichier. Formats : PDF, JPG, PNG, WEBP — 10 Mo max.</p>
-      </div>
+      {pendingFile ? (
+        <div className="border border-sand-300 rounded-md p-3 bg-sand-50 space-y-3">
+          <div className="flex items-center gap-2">
+            <FileText className="size-4 text-sand-600 shrink-0" />
+            <span className="text-sm text-ink truncate flex-1">{pendingFile.name}</span>
+            <span className="text-xs text-sand-600 shrink-0">{(pendingFile.size / 1024).toFixed(0)} Ko</span>
+          </div>
+          <div>
+            <Label htmlFor={`${name}-doc-name`}>Nom du document *</Label>
+            <Input id={`${name}-doc-name`} value={docName} onChange={(e) => setDocName(e.target.value)} placeholder="Carte grise, Assurance, Visite technique..." disabled={uploading} autoFocus />
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" size="sm" onClick={confirmUpload} disabled={!docName.trim() || uploading}>
+              {uploading ? (<><Loader2 className="size-3.5 animate-spin" /> Upload...</>) : "Confirmer l'ajout"}
+            </Button>
+            <button type="button" onClick={cancelPending} disabled={uploading} className="px-3 py-1.5 text-sm text-sand-700 hover:text-ink disabled:opacity-50">Annuler</button>
+          </div>
+        </div>
+      ) : (
+        <div className="border border-dashed border-sand-300 rounded-md p-4 bg-sand-50 text-center">
+          <label htmlFor={`${name}-file`} className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 text-sm bg-terracotta-600 text-white rounded hover:bg-terracotta-700">
+            <Upload className="size-4" /> Choisir un fichier
+          </label>
+          <input ref={fileRef} id={`${name}-file`} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={handleFileSelect} className="hidden" />
+          <p className="text-xs text-sand-600 mt-2">PDF, JPG, PNG ou WEBP — 10 Mo max</p>
+        </div>
+      )}
     </div>
   );
 }

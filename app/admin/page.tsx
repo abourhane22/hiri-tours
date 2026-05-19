@@ -121,7 +121,7 @@ export default async function AdminDashboard() {
                       <span className="text-xs font-medium text-amber-700">Bientôt</span>
                     )}
                     <span className="text-xs text-sand-600">
-                      {alert.deadlines.filter((d) => d.status !== "ok").map((d) => d.label).join(", ")}
+                      {alert.deadlines.filter((d) => d.status === "expired" || d.status === "soon").map((d) => d.label).join(", ")}
                     </span>
                   </div>
                 </div>

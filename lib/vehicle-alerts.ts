@@ -1,11 +1,11 @@
 import type { Vehicle } from "@/lib/types";
 
-export type DeadlineStatus = "expired" | "soon" | "ok";
+export type DeadlineStatus = "expired" | "soon" | "ok" | "none";
 export type VehicleAlertStatus = "expired" | "soon" | "ok" | "none";
 
 export type DeadlineEntry = {
   label: string;
-  date: string;
+  date: string | null;
   status: DeadlineStatus;
 };
 
@@ -27,21 +27,21 @@ export function getVehicleAlertStatus(v: Pick<Vehicle, "next_maintenance_date" |
     { label: "Vignette", date: v.vignette_expires_on },
   ];
 
-  const deadlines: DeadlineEntry[] = checks
-    .filter((c): c is { label: string; date: string } => !!c.date)
-    .map((c) => {
-      const d = new Date(c.date);
-      d.setHours(0, 0, 0, 0);
-      let status: DeadlineStatus = "ok";
-      if (d < today) status = "expired";
-      else if (d < in30) status = "soon";
-      return { label: c.label, date: c.date, status };
-    });
+  const deadlines: DeadlineEntry[] = checks.map((c) => {
+    if (!c.date) return { label: c.label, date: null, status: "none" as DeadlineStatus };
+    const d = new Date(c.date);
+    d.setHours(0, 0, 0, 0);
+    let status: DeadlineStatus = "ok";
+    if (d < today) status = "expired";
+    else if (d < in30) status = "soon";
+    return { label: c.label, date: c.date, status };
+  });
 
+  const settled = deadlines.filter((d) => d.status !== "none");
   let status: VehicleAlertStatus = "none";
-  if (deadlines.some((d) => d.status === "expired")) status = "expired";
-  else if (deadlines.some((d) => d.status === "soon")) status = "soon";
-  else if (deadlines.length > 0) status = "ok";
+  if (settled.some((d) => d.status === "expired")) status = "expired";
+  else if (settled.some((d) => d.status === "soon")) status = "soon";
+  else if (settled.length > 0) status = "ok";
 
   return { status, deadlines };
 }
