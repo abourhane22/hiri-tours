@@ -22,6 +22,11 @@ export default function InviterPage() {
         <CardBody>
           <form action={inviteUser} className="space-y-5">
             <div>
+              <Label htmlFor="full_name">Nom complet *</Label>
+              <Input id="full_name" name="full_name" required placeholder="Prénom Nom" autoFocus />
+            </div>
+
+            <div>
               <Label htmlFor="email">Adresse email *</Label>
               <Input id="email" name="email" type="email" required placeholder="prenom.nom@hiritours.ma" />
             </div>

@@ -11,9 +11,9 @@ import { updateUserRole, toggleUserActive } from "./actions";
 export default async function UtilisateursPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invited?: string }>;
+  searchParams: Promise<{ invited?: string; resent?: string }>;
 }) {
-  const { invited } = await searchParams;
+  const { invited, resent } = await searchParams;
   const supabase = await createClient();
   const adminClient = createAdminClient();
 
@@ -49,7 +49,9 @@ export default async function UtilisateursPage({
 
       {invited && (
         <div className="mb-6 p-4 rounded-md bg-emerald-50 border border-emerald-200 text-sm text-emerald-900">
-          Invitation envoyée. L&apos;utilisateur recevra un email pour créer son mot de passe.
+          ✅ {resent
+            ? "Cet utilisateur existait déjà. Un email de réinitialisation lui a été renvoyé pour qu'il puisse (re)définir son mot de passe. Le rôle a été mis à jour."
+            : "Invitation envoyée. L'utilisateur recevra un email pour définir son mot de passe."}
         </div>
       )}
 
