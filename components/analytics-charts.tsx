@@ -25,8 +25,8 @@ export function RevenueChart({ data }: { data: { month: string; revenue: number 
       <LineChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e5d6c0" vertical={false} />
         <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#7a6a55" }} axisLine={{ stroke: "#e5d6c0" }} tickLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: "#7a6a55" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatMAD(v), "Revenu"]} />
+        <YAxis tick={{ fontSize: 11, fill: "#7a6a55" }} axisLine={false} tickLine={false} tickFormatter={(v: any) => `${(Number(v) / 1000).toFixed(0)}k`} />
+        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value: any) => [formatMAD(Number(value)), "Revenu"]} />
         <Line type="monotone" dataKey="revenue" stroke="#d97757" strokeWidth={2.5} dot={{ fill: "#d97757", r: 4 }} activeDot={{ r: 6 }} />
       </LineChart>
     </ResponsiveContainer>
@@ -41,9 +41,9 @@ export function TopCircuitsChart({ data }: { data: { title: string; revenue: num
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={data} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e5d6c0" horizontal={false} />
-        <XAxis type="number" tick={{ fontSize: 11, fill: "#7a6a55" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+        <XAxis type="number" tick={{ fontSize: 11, fill: "#7a6a55" }} axisLine={false} tickLine={false} tickFormatter={(v: any) => `${(Number(v) / 1000).toFixed(0)}k`} />
         <YAxis type="category" dataKey="title" tick={{ fontSize: 11, fill: "#3a2e22" }} axisLine={false} tickLine={false} width={130} />
-        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatMAD(v), "Revenu"]} />
+        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value: any) => [formatMAD(Number(value)), "Revenu"]} />
         <Bar dataKey="revenue" fill="#5b9aae" radius={[0, 4, 4, 0]} />
       </BarChart>
     </ResponsiveContainer>
@@ -57,10 +57,10 @@ export function SourcesChart({ data }: { data: { source: string; count: number }
   return (
     <ResponsiveContainer width="100%" height={300}>
       <PieChart>
-        <Pie data={data} dataKey="count" nameKey="source" cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} label={({ percent }: { percent?: number }) => `${(((percent as number) ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
+        <Pie data={data} dataKey="count" nameKey="source" cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} label={(props: any) => `${((props.percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
           {data.map((entry, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
         </Pie>
-        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number, n: string) => [`${v} réservation(s)`, n]} />
+        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value: any, name: any) => [`${value} réservation(s)`, String(name)]} />
         <Legend wrapperStyle={{ fontSize: 12, paddingTop: 10 }} iconType="circle" />
       </PieChart>
     </ResponsiveContainer>
