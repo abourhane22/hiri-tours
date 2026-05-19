@@ -6,7 +6,8 @@ import { updateCompanySettings } from "./actions";
 import { CreditCard, Wrench, Globe } from "lucide-react";
 import type { CompanySettings } from "@/lib/types";
 
-export default async function ParametresPage() {
+export default async function ParametresPage({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
+  const { saved } = await searchParams;
   const supabase = await createClient();
   const { data: settings } = await supabase.from("company_settings").select("*").limit(1).single();
   const s = settings as CompanySettings;
@@ -18,6 +19,12 @@ export default async function ParametresPage() {
         <p className="eyebrow mb-2">Configuration</p>
         <h1 className="font-display text-3xl text-ink">Paramètres</h1>
       </div>
+
+      {saved && (
+        <div className="mb-6 p-4 rounded-md bg-emerald-50 border border-emerald-200 text-sm text-emerald-900">
+          ✅ Paramètres enregistrés avec succès.
+        </div>
+      )}
 
       <Card className="mb-8">
         <div className="px-5 py-4 border-b border-sand-200">
