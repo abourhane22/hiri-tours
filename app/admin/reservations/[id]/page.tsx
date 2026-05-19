@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Card, CardBody, Badge } from "@/components/ui/card";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
-import { ArrowLeft, Plus, Mail, Phone } from "lucide-react";
+import { ArrowLeft, Plus, Mail, Phone, FileText } from "lucide-react";
 import {
   updateStatus,
   addPayment,
@@ -89,6 +89,11 @@ export default async function ReservationDetailPage({
           Créée le {formatDate(reservation.created_at)} · Dernière mise à jour{" "}
           {formatDate(reservation.updated_at)}
         </p>
+        <div className="mt-4">
+          <Link href={`/admin/reservations/${id}/voucher`} target="_blank">
+            <Button variant="secondary" size="sm"><FileText className="size-3.5" />Générer le voucher PDF</Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">

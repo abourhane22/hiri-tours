@@ -45,3 +45,8 @@
     @apply text-xs uppercase tracking-[0.2em] font-medium text-terracotta-600;
   }
 }
+
+@media print {
+  @page { margin: 1.5cm; }
+  body { background: white !important; }
+}
