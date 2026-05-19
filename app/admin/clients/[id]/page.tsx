@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Card, CardBody, Badge } from "@/components/ui/card";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Trophy } from "lucide-react";
 import { updateCustomer, deleteCustomer } from "../actions";
 import type { ReservationWithCircuit } from "@/lib/types";
+import { WhatsAppButton } from "@/components/whatsapp-button";
+import { computeLoyaltyPoints, getLoyaltyTier, getNextTier } from "@/lib/loyalty";
 
 const STATUS_CONFIG: Record<
   string,
@@ -57,6 +59,10 @@ export default async function ClientDetailPage({
     .eq("customer_id", id)
     .order("departure_date", { ascending: false });
 
+  const loyaltyPoints = computeLoyaltyPoints((reservations || []) as any[]);
+  const tier = getLoyaltyTier(loyaltyPoints);
+  const next = getNextTier(loyaltyPoints);
+
   const updateCustomerBound = updateCustomer.bind(null, id);
   const deleteCustomerBound = deleteCustomer.bind(null, id);
 
@@ -72,9 +78,16 @@ export default async function ClientDetailPage({
       <div className="mb-8">
         <p className="eyebrow mb-2">Module 3 — Base clients</p>
         <h1 className="font-display text-3xl text-ink">{customer.full_name}</h1>
-        <p className="text-sm text-sand-700 mt-2">
-          Client depuis le {formatDate(customer.created_at)}
-        </p>
+        <div className="flex items-center gap-3 mt-2 flex-wrap">
+          <p className="text-sm text-sand-700">Client depuis le {formatDate(customer.created_at)}</p>
+          {customer.phone && (
+            <WhatsAppButton
+              phone={customer.phone}
+              message={`Bonjour ${customer.full_name}, c'est l'équipe Hiri Tours.`}
+              variant="compact"
+            />
+          )}
+        </div>
       </div>
 
       {(created || updated) && (
@@ -279,6 +292,35 @@ export default async function ClientDetailPage({
                   <div className="text-ink">{customer.nationality}</div>
                 </div>
               )}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <div className="px-5 py-4 border-b border-sand-200 flex items-center gap-2">
+              <Trophy className="size-4 text-amber-600" />
+              <h2 className="font-display text-lg text-ink">Fidélité</h2>
+            </div>
+            <CardBody>
+              <div className="text-center mb-4">
+                <div className="font-display text-3xl text-ink tabular-nums">{loyaltyPoints}</div>
+                <div className="text-xs text-sand-600 uppercase tracking-wide mt-1">points fidélité</div>
+              </div>
+              <div className="text-center mb-3">
+                <span className={
+                  tier.color === "amber" ? "inline-block px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-900 border border-amber-300" :
+                  tier.color === "sand" ? "inline-block px-3 py-1 rounded-full text-xs font-medium bg-sand-200 text-sand-800 border border-sand-300" :
+                  tier.color === "terracotta" ? "inline-block px-3 py-1 rounded-full text-xs font-medium bg-terracotta-100 text-terracotta-800 border border-terracotta-300" :
+                  "inline-block px-3 py-1 rounded-full text-xs font-medium bg-sand-100 text-sand-600 border border-sand-200"
+                }>
+                  Niveau {tier.name}
+                </span>
+              </div>
+              {next ? (
+                <p className="text-xs text-sand-700 text-center">Plus que <strong>{next.pointsNeeded} points</strong> pour passer au niveau {next.name}</p>
+              ) : (
+                <p className="text-xs text-amber-700 text-center font-medium">Niveau maximum atteint 🏆</p>
+              )}
+              <p className="text-[10px] text-sand-500 text-center mt-3 pt-3 border-t border-sand-200">1 point = 100 MAD dépensés sur réservations payées</p>
             </CardBody>
           </Card>
 

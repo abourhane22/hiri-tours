@@ -10,6 +10,7 @@ import { CustomerPicker } from "@/components/customer-picker";
 import { formatMAD } from "@/lib/utils";
 import { ArrowLeft, Info } from "lucide-react";
 import type { Circuit, Customer, CircuitSeason } from "@/lib/types";
+import { sendBookingConfirmationAction } from "@/app/admin/reservations/[id]/email-actions";
 
 type CircuitWithSeasons = Circuit & { circuit_seasons: CircuitSeason[] };
 
@@ -66,8 +67,9 @@ export default function NewReservationPage() {
       status: formData.get("status") as string,
       notes: (formData.get("notes") as string) || null,
     };
-    const { data, error: insErr } = await supabase.from("reservations").insert(payload).select("reference").single();
+    const { data, error: insErr } = await supabase.from("reservations").insert(payload).select("id, reference").single();
     if (insErr) { setError(insErr.message); setSubmitting(false); return; }
+    if (data?.id) sendBookingConfirmationAction(data.id).catch(() => {});
     router.push(`/admin/reservations?created=${data?.reference}`);
   }
 

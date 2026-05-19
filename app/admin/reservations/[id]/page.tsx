@@ -14,6 +14,8 @@ import {
 } from "./actions";
 import { IssueInvoiceButton } from "@/components/issue-invoice-button";
 import { AffectationForm } from "@/components/affectation-form";
+import { SendVoucherEmailButton } from "@/components/send-voucher-email-button";
+import { WhatsAppButton } from "@/components/whatsapp-button";
 import type { Invoice, CompanySettings } from "@/lib/types";
 
 const STATUS_CONFIG: Record<
@@ -130,10 +132,16 @@ export default async function ReservationDetailPage({
           Créée le {formatDate(reservation.created_at)} · Dernière mise à jour{" "}
           {formatDate(reservation.updated_at)}
         </p>
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <Link href={`/admin/reservations/${id}/voucher`} target="_blank">
             <Button variant="secondary" size="sm"><FileText className="size-3.5" />Générer le voucher PDF</Button>
           </Link>
+          <SendVoucherEmailButton reservationId={id} customerEmail={(reservation as any).customers?.email ?? null} />
+          <WhatsAppButton
+            phone={(reservation as any).customers?.phone ?? null}
+            message={`Bonjour ${(reservation as any).customers?.full_name ?? ""}, voici votre référence de réservation Hiri Tours : ${(reservation as any).reference}. Date de départ : ${(reservation as any).departure_date}.`}
+            label="Envoyer par WhatsApp"
+          />
           {(reservation.status === "paid" || reservation.status === "completed") && (
             existingInvoice ? (
               <Link href={`/admin/factures/${(existingInvoice as any).id}`} target="_blank" className="inline-block ml-2">
