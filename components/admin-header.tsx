@@ -16,11 +16,10 @@ const navigation = [
   { href: "/admin/circuits", label: "Catalogue", icon: Map },
   { href: "/admin/clients", label: "Clients", icon: Users },
   { href: "/admin/logistique", label: "Logistique", icon: Truck },
+  { href: "/admin/rapports", label: "Rapports", icon: BarChart3 },
 ];
 
-const navigationSoon = [
-  { href: "#", label: "Rapports", icon: BarChart3 },
-];
+const navigationSoon: { href: string; label: string; icon: any }[] = [];
 
 export function AdminHeader({ userEmail }: { userEmail?: string }) {
   const pathname = usePathname();
