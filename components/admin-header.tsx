@@ -101,7 +101,7 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
             return (
               <Link key={item.href} href={item.href} className={cn(
                 "px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-2",
-                isActive ? "bg-navy-600 text-white border border-navy-400/40" : "text-navy-100 hover:bg-navy-600 hover:text-white"
+                isActive ? "bg-terracotta-600 text-white shadow-sm" : "text-navy-100 hover:bg-navy-600 hover:text-white"
               )}>
                 <Icon className="size-4" />
                 <span>{item.label}</span>
@@ -120,7 +120,7 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
                   onClick={() => setOpenMenu(isOpen ? null : group.label)}
                   className={cn(
                     "px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-2 cursor-pointer",
-                    isActive ? "bg-navy-600 text-white border border-navy-400/40" : "text-navy-100 hover:bg-navy-600 hover:text-white"
+                    isActive ? "bg-terracotta-600 text-white shadow-sm" : "text-navy-100 hover:bg-navy-600 hover:text-white"
                   )}
                 >
                   <Icon className="size-4" />
@@ -158,7 +158,7 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
             return (
               <Link key={item.href} href={item.href} className={cn(
                 "px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-2",
-                isActive ? "bg-navy-600 text-white border border-navy-400/40" : "text-navy-100 hover:bg-navy-600 hover:text-white"
+                isActive ? "bg-terracotta-600 text-white shadow-sm" : "text-navy-100 hover:bg-navy-600 hover:text-white"
               )}>
                 <Icon className="size-4" />
                 <span>{item.label}</span>
@@ -171,7 +171,7 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
           {userEmail && <span className="hidden lg:inline text-xs text-navy-200 truncate max-w-[180px]">{userEmail}</span>}
           <Link href="/admin/parametres" className={cn(
             "size-8 rounded-md border flex items-center justify-center transition-colors",
-            pathname.startsWith("/admin/parametres") ? "bg-navy-600 border-navy-400" : "border-navy-400/50 text-navy-100 hover:bg-navy-600"
+            pathname.startsWith("/admin/parametres") ? "bg-terracotta-600 border-terracotta-700 text-white" : "border-navy-400/50 text-navy-100 hover:bg-navy-600"
           )} title="Paramètres">
             <Settings className="size-4" />
           </Link>
@@ -192,7 +192,7 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
             return (
               <Link key={item.href} href={item.href} className={cn(
                 "px-3 py-1.5 rounded-md text-xs whitespace-nowrap transition-colors flex items-center gap-1.5",
-                isActive ? "bg-navy-600 text-white" : "text-navy-100 hover:bg-navy-600"
+                isActive ? "bg-terracotta-600 text-white" : "text-navy-100 hover:bg-navy-600"
               )}>
                 <Icon className="size-3.5" />
                 {item.label}
@@ -201,7 +201,7 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
           })}
           <Link href="/admin/parametres" className={cn(
             "px-3 py-1.5 rounded-md text-xs whitespace-nowrap transition-colors flex items-center gap-1.5",
-            pathname.startsWith("/admin/parametres") ? "bg-navy-600 text-white" : "text-navy-100 hover:bg-navy-600"
+            pathname.startsWith("/admin/parametres") ? "bg-terracotta-600 text-white" : "text-navy-100 hover:bg-navy-600"
           )}>
             <Settings className="size-3.5" />
             Paramètres
