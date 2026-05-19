@@ -11,9 +11,13 @@ export default async function AdminLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).single()
+    : { data: null };
+
   return (
     <div className="bg-sand-50 min-h-screen">
-      <AdminHeader userEmail={user?.email} />
+      <AdminHeader userEmail={user?.email} userRole={profile?.role ?? undefined} />
       <main>{children}</main>
     </div>
   );

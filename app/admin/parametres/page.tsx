@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Card, CardBody } from "@/components/ui/card";
 import { updateCompanySettings } from "./actions";
-import { CreditCard, Wrench, Globe } from "lucide-react";
+import { CreditCard, Wrench, Globe, Users, ArrowRight } from "lucide-react";
 import type { CompanySettings } from "@/lib/types";
 
 export default async function ParametresPage({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
@@ -12,6 +13,12 @@ export default async function ParametresPage({ searchParams }: { searchParams: P
   const { data: settings } = await supabase.from("company_settings").select("*").limit(1).single();
   const s = settings as CompanySettings;
   const updateBound = updateCompanySettings.bind(null, s.id);
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).single()
+    : { data: null };
+  const isAdmin = profile?.role === "admin";
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -90,6 +97,29 @@ export default async function ParametresPage({ searchParams }: { searchParams: P
           </form>
         </CardBody>
       </Card>
+
+      {isAdmin && (
+        <Card className="mb-8">
+          <div className="px-5 py-4 border-b border-sand-200 flex items-center justify-between">
+            <div>
+              <h2 className="font-display text-lg text-ink">Utilisateurs &amp; accès</h2>
+              <p className="text-xs text-sand-700 mt-1">Gérez les comptes backoffice, les rôles et les invitations.</p>
+            </div>
+            <Link href="/admin/parametres/utilisateurs">
+              <Button variant="secondary" size="sm">
+                <Users className="size-4" />
+                Gérer
+                <ArrowRight className="size-3.5" />
+              </Button>
+            </Link>
+          </div>
+          <CardBody>
+            <div className="flex items-center gap-4 text-sm text-sand-700">
+              <span className="flex items-center gap-1.5"><Users className="size-4 text-terracotta-600" />4 rôles : Administrateur, Commercial, Comptable, Guide</span>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       <Card>
         <div className="px-5 py-4 border-b border-sand-200">

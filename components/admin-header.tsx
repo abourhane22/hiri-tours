@@ -7,25 +7,27 @@ import {
   LayoutDashboard, Calendar, Map, Users, Receipt, FileText, BarChart3, LogOut, Settings, Truck, Wallet, ChevronDown, Package, Compass, Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { userCan, type Permission } from "@/lib/permissions";
 
-type NavItem = { href: string; label: string; icon: any; exact?: boolean };
-type NavGroup = { label: string; icon: any; match: string[]; items: NavItem[] };
+type NavItem = { href: string; label: string; icon: any; exact?: boolean; permission?: Permission };
+type NavGroup = { label: string; icon: any; match: string[]; items: NavItem[]; permission?: Permission };
 
 const topLevelStart: NavItem[] = [
-  { href: "/admin", label: "Tableau de bord", icon: LayoutDashboard, exact: true },
-  { href: "/admin/reservations", label: "Réservations", icon: Calendar },
-  { href: "/admin/calendrier", label: "Calendrier", icon: Calendar },
-  { href: "/admin/manifestes", label: "Manifestes", icon: FileText },
-  { href: "/admin/clients", label: "Clients", icon: Users },
+  { href: "/admin", label: "Tableau de bord", icon: LayoutDashboard, exact: true, permission: "viewDashboard" },
+  { href: "/admin/reservations", label: "Réservations", icon: Calendar, permission: "viewReservations" },
+  { href: "/admin/calendrier", label: "Calendrier", icon: Calendar, permission: "viewCalendrier" },
+  { href: "/admin/manifestes", label: "Manifestes", icon: FileText, permission: "viewManifestes" },
+  { href: "/admin/clients", label: "Clients", icon: Users, permission: "viewClients" },
 ];
 
 const ressourcesGroup: NavGroup = {
   label: "Ressources",
   icon: Package,
   match: ["/admin/circuits", "/admin/logistique"],
+  permission: "viewCircuits",
   items: [
-    { href: "/admin/circuits", label: "Catalogue", icon: Map },
-    { href: "/admin/logistique", label: "Logistique", icon: Truck },
+    { href: "/admin/circuits", label: "Catalogue", icon: Map, permission: "viewCircuits" },
+    { href: "/admin/logistique", label: "Logistique", icon: Truck, permission: "viewLogistique" },
   ],
 };
 
@@ -33,6 +35,7 @@ const financeGroup: NavGroup = {
   label: "Finance",
   icon: Wallet,
   match: ["/admin/factures", "/admin/finance"],
+  permission: "viewFinance",
   items: [
     { href: "/admin/factures", label: "Factures", icon: Receipt },
     { href: "/admin/finance/depenses", label: "Dépenses", icon: Wallet },
@@ -45,13 +48,19 @@ const financeGroup: NavGroup = {
 const groups = [ressourcesGroup, financeGroup];
 
 const topLevelEnd: NavItem[] = [
-  { href: "/admin/rapports", label: "Rapports", icon: BarChart3 },
+  { href: "/admin/rapports", label: "Rapports", icon: BarChart3, permission: "viewRapports" },
 ];
 
-export function AdminHeader({ userEmail }: { userEmail?: string }) {
+export function AdminHeader({ userEmail, userRole }: { userEmail?: string; userRole?: string }) {
   const pathname = usePathname();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const role = userRole ?? "admin";
+
+  function can(permission?: Permission): boolean {
+    if (!permission) return true;
+    return userCan(role, permission);
+  }
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -79,11 +88,16 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
     return pathname === item.href || pathname.startsWith(item.href + "/");
   }
 
+  const visibleTopStart = topLevelStart.filter((item) => can(item.permission));
+  const visibleGroups = groups
+    .filter((g) => can(g.permission))
+    .map((g) => ({ ...g, items: g.items.filter((item) => can(item.permission)) }));
+  const visibleTopEnd = topLevelEnd.filter((item) => can(item.permission));
+
   const allMobileItems: NavItem[] = [
-    ...topLevelStart,
-    ...ressourcesGroup.items,
-    ...financeGroup.items,
-    ...topLevelEnd,
+    ...visibleTopStart,
+    ...visibleGroups.flatMap((g) => g.items),
+    ...visibleTopEnd,
   ];
 
   return (
@@ -95,7 +109,7 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
         </Link>
 
         <nav className="hidden md:flex items-center gap-1 flex-1 justify-center flex-wrap">
-          {topLevelStart.map((item) => {
+          {visibleTopStart.map((item) => {
             const Icon = item.icon;
             const isActive = isItemActive(item);
             return (
@@ -109,7 +123,7 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
             );
           })}
 
-          {groups.map((group) => {
+          {visibleGroups.map((group) => {
             const Icon = group.icon;
             const isActive = isGroupActive(group);
             const isOpen = openMenu === group.label;
@@ -152,7 +166,7 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
             );
           })}
 
-          {topLevelEnd.map((item) => {
+          {visibleTopEnd.map((item) => {
             const Icon = item.icon;
             const isActive = isItemActive(item);
             return (
@@ -169,12 +183,14 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
 
         <div className="flex items-center gap-2 shrink-0">
           {userEmail && <span className="hidden lg:inline text-xs text-navy-200 truncate max-w-[180px]">{userEmail}</span>}
-          <Link href="/admin/parametres" className={cn(
-            "size-8 rounded-md border flex items-center justify-center transition-colors",
-            pathname.startsWith("/admin/parametres") ? "bg-terracotta-600 border-terracotta-700 text-white" : "border-navy-400/50 text-navy-100 hover:bg-navy-600"
-          )} title="Paramètres">
-            <Settings className="size-4" />
-          </Link>
+          {can("viewParametres") && (
+            <Link href="/admin/parametres" className={cn(
+              "size-8 rounded-md border flex items-center justify-center transition-colors",
+              pathname.startsWith("/admin/parametres") ? "bg-terracotta-600 border-terracotta-700 text-white" : "border-navy-400/50 text-navy-100 hover:bg-navy-600"
+            )} title="Paramètres">
+              <Settings className="size-4" />
+            </Link>
+          )}
           <form action="/auth/signout" method="post">
             <button type="submit" className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-navy-400/50 text-sm text-white hover:bg-navy-600 transition-colors">
               <LogOut className="size-3.5" />
@@ -199,13 +215,15 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
               </Link>
             );
           })}
-          <Link href="/admin/parametres" className={cn(
-            "px-3 py-1.5 rounded-md text-xs whitespace-nowrap transition-colors flex items-center gap-1.5",
-            pathname.startsWith("/admin/parametres") ? "bg-terracotta-600 text-white" : "text-navy-100 hover:bg-navy-600"
-          )}>
-            <Settings className="size-3.5" />
-            Paramètres
-          </Link>
+          {can("viewParametres") && (
+            <Link href="/admin/parametres" className={cn(
+              "px-3 py-1.5 rounded-md text-xs whitespace-nowrap transition-colors flex items-center gap-1.5",
+              pathname.startsWith("/admin/parametres") ? "bg-terracotta-600 text-white" : "text-navy-100 hover:bg-navy-600"
+            )}>
+              <Settings className="size-3.5" />
+              Paramètres
+            </Link>
+          )}
         </nav>
       </div>
     </header>

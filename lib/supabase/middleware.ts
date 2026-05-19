@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { userCan, ROUTE_PERMISSIONS } from "@/lib/permissions";
 
 type CookieToSet = { name: string; value: string; options?: Record<string, unknown> };
 
@@ -42,15 +43,30 @@ export async function updateSession(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, is_active")
       .eq("id", user.id)
       .single();
 
-    const staffRoles = ["admin", "commercial", "comptable"];
+    const staffRoles = ["admin", "commercial", "comptable", "guide"];
     if (!profile || !staffRoles.includes(profile.role)) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/";
       return NextResponse.redirect(redirectUrl);
+    }
+
+    if (profile.is_active === false) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/compte-desactive";
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    for (const { prefix, permission } of ROUTE_PERMISSIONS) {
+      if (request.nextUrl.pathname.startsWith(prefix)) {
+        if (!userCan(profile.role, permission)) {
+          return NextResponse.redirect(new URL("/admin", request.url));
+        }
+        break;
+      }
     }
   }
 
