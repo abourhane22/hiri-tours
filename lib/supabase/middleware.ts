@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+type CookieToSet = { name: string; value: string; options?: Record<string, unknown> };
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -12,26 +14,24 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: CookieToSet[]) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            response.cookies.set(name, value, options as any)
           );
         },
       },
     }
   );
 
-  // IMPORTANT: this call refreshes the session if expired.
-  // Do not remove it.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Protect /admin routes — must be logged in AND staff
   if (request.nextUrl.pathname.startsWith("/admin")) {
     if (!user) {
       const redirectUrl = request.nextUrl.clone();
@@ -40,7 +40,6 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Verify staff role
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
