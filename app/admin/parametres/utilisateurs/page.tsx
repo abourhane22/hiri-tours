@@ -7,6 +7,7 @@ import { Select } from "@/components/ui/input";
 import { ArrowLeft, UserPlus, CheckCircle2, XCircle } from "lucide-react";
 import { ROLE_LABELS, BACKOFFICE_ROLES, PERMISSIONS_MATRIX, userCan } from "@/lib/permissions";
 import { updateUserRole, toggleUserActive } from "./actions";
+import { DeleteUserButton } from "./delete-user-button";
 
 export default async function UtilisateursPage({
   searchParams,
@@ -19,7 +20,7 @@ export default async function UtilisateursPage({
 
   const { data: { user: currentUser } } = await supabase.auth.getUser();
   const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers({ perPage: 100 });
-  const { data: profiles } = await supabase.from("profiles").select("id, role, is_active, updated_at");
+  const { data: profiles } = await supabase.from("profiles").select("id, role, is_active, full_name, updated_at");
 
   const rows = (authUsers ?? [])
     .map((u) => ({
@@ -95,15 +96,18 @@ export default async function UtilisateursPage({
                   </td>
                   <td className="px-5 py-3 text-right">
                     {!isCurrentUser && (
-                      <form action={toggleBound} className="inline">
-                        <Button type="submit" variant="secondary" size="sm">
-                          {isActive ? (
-                            <><XCircle className="size-3.5" />Désactiver</>
-                          ) : (
-                            <><CheckCircle2 className="size-3.5" />Activer</>
-                          )}
-                        </Button>
-                      </form>
+                      <div className="flex items-center gap-2 justify-end">
+                        <form action={toggleBound}>
+                          <Button type="submit" variant="secondary" size="sm">
+                            {isActive ? (
+                              <><XCircle className="size-3.5" />Désactiver</>
+                            ) : (
+                              <><CheckCircle2 className="size-3.5" />Activer</>
+                            )}
+                          </Button>
+                        </form>
+                        <DeleteUserButton userId={u.id} userName={u.profile?.full_name || u.email} />
+                      </div>
                     )}
                   </td>
                 </tr>

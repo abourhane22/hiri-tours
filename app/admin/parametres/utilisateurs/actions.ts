@@ -78,6 +78,36 @@ export async function updateUserRole(userId: string, formData: FormData) {
   revalidatePath("/admin/parametres/utilisateurs");
 }
 
+export async function deleteUser(userId: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { user: caller } = await requireAdmin();
+    if (caller.id === userId) {
+      return { ok: false, error: "Vous ne pouvez pas supprimer votre propre compte" };
+    }
+
+    const admin = createAdminClient();
+
+    const { data: target } = await admin.from("profiles").select("role").eq("id", userId).single();
+    if (target?.role === "admin") {
+      const { count } = await admin.from("profiles").select("*", { count: "exact", head: true })
+        .eq("role", "admin").eq("is_active", true);
+      if ((count ?? 0) <= 1) {
+        return { ok: false, error: "Impossible de supprimer le seul administrateur restant" };
+      }
+    }
+
+    const { error: authErr } = await admin.auth.admin.deleteUser(userId);
+    if (authErr) return { ok: false, error: `Suppression échouée : ${authErr.message}` };
+
+    await admin.from("profiles").delete().eq("id", userId);
+
+    revalidatePath("/admin/parametres/utilisateurs");
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e.message ?? "Erreur inconnue" };
+  }
+}
+
 export async function toggleUserActive(userId: string, isActive: boolean) {
   const { supabase, user: caller } = await requireAdmin();
   if (caller.id === userId) throw new Error("Vous ne pouvez pas modifier votre propre statut.");
