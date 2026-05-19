@@ -193,6 +193,12 @@ export type Vehicle = {
   updated_at: string;
 };
 
+export type StaffDocument = {
+  name: string;
+  url: string;
+  uploaded_at: string;
+};
+
 export type StaffMember = {
   id: string;
   full_name: string;
@@ -201,6 +207,7 @@ export type StaffMember = {
   email: string | null;
   languages: string[] | null;
   certifications: string | null;
+  documents: StaffDocument[] | null;
   is_active: boolean;
   notes: string | null;
   created_at: string;

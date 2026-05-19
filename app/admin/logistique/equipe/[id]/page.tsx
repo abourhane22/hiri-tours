@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Card, CardBody } from "@/components/ui/card";
+import { LanguageSelector } from "@/components/language-selector";
+import { DocumentsManager } from "@/components/documents-manager";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { updateStaff, deleteStaff } from "../actions";
 import type { StaffMember } from "@/lib/types";
@@ -41,16 +43,25 @@ export default async function EditStaffPage({ params }: { params: Promise<{ id: 
           <div><Label htmlFor="phone">Téléphone</Label><Input id="phone" name="phone" type="tel" defaultValue={m.phone ?? ""} /></div>
           <div><Label htmlFor="email">Email</Label><Input id="email" name="email" type="email" defaultValue={m.email ?? ""} /></div>
         </div>
-        <div>
-          <Label htmlFor="languages">Langues parlées (séparées par virgule)</Label>
-          <Input id="languages" name="languages" defaultValue={m.languages?.join(", ") ?? ""} />
+
+        <div className="pt-3 border-t border-sand-200">
+          <LanguageSelector name="languages" defaultValue={m.languages} />
         </div>
-        <div><Label htmlFor="certifications">Certifications</Label><Textarea id="certifications" name="certifications" rows={2} defaultValue={m.certifications ?? ""} /></div>
-        <div><Label htmlFor="notes">Notes internes</Label><Textarea id="notes" name="notes" rows={2} defaultValue={m.notes ?? ""} /></div>
+
+        <div className="pt-3 border-t border-sand-200">
+          <DocumentsManager name="documents" defaultValue={m.documents} />
+        </div>
+
+        <div className="pt-3 border-t border-sand-200">
+          <Label htmlFor="notes">Notes internes</Label>
+          <Textarea id="notes" name="notes" rows={2} defaultValue={m.notes ?? ""} />
+        </div>
+
         <label className="flex items-center gap-2 pt-3 border-t border-sand-200">
           <input type="checkbox" name="is_active" defaultChecked={m.is_active} className="size-4 rounded border-sand-300 text-terracotta-600 focus:ring-terracotta-500" />
           <span className="text-sm text-ink">Actif</span>
         </label>
+
         <div className="flex justify-end gap-3 pt-3 border-t border-sand-200">
           <Link href="/admin/logistique/equipe"><Button type="button" variant="secondary">Annuler</Button></Link>
           <Button type="submit">Enregistrer</Button>

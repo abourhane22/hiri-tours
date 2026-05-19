@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { LanguageSelector } from "@/components/language-selector";
+import { DocumentsManager } from "@/components/documents-manager";
 import { ArrowLeft } from "lucide-react";
 import { createStaff } from "../actions";
 
@@ -29,16 +31,25 @@ export default function NewStaffPage() {
           <div><Label htmlFor="phone">Téléphone</Label><Input id="phone" name="phone" type="tel" placeholder="+212 6 ..." /></div>
           <div><Label htmlFor="email">Email</Label><Input id="email" name="email" type="email" /></div>
         </div>
-        <div>
-          <Label htmlFor="languages">Langues parlées (séparées par virgule)</Label>
-          <Input id="languages" name="languages" placeholder="Français, Anglais, Arabe, Berbère" />
+
+        <div className="pt-3 border-t border-sand-200">
+          <LanguageSelector name="languages" />
         </div>
-        <div><Label htmlFor="certifications">Certifications / Diplômes</Label><Textarea id="certifications" name="certifications" rows={2} placeholder="Carte de guide officiel, permis tourisme..." /></div>
-        <div><Label htmlFor="notes">Notes internes</Label><Textarea id="notes" name="notes" rows={2} /></div>
+
+        <div className="pt-3 border-t border-sand-200">
+          <DocumentsManager name="documents" />
+        </div>
+
+        <div className="pt-3 border-t border-sand-200">
+          <Label htmlFor="notes">Notes internes</Label>
+          <Textarea id="notes" name="notes" rows={2} />
+        </div>
+
         <label className="flex items-center gap-2 pt-3 border-t border-sand-200">
           <input type="checkbox" name="is_active" defaultChecked className="size-4 rounded border-sand-300 text-terracotta-600 focus:ring-terracotta-500" />
           <span className="text-sm text-ink">Actif</span>
         </label>
+
         <div className="flex justify-end gap-3 pt-3 border-t border-sand-200">
           <Link href="/admin/logistique/equipe"><Button type="button" variant="secondary">Annuler</Button></Link>
           <Button type="submit">Créer le membre</Button>

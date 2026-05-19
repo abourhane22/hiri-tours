@@ -5,14 +5,25 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 function parsePayload(formData: FormData) {
-  const langs = ((formData.get("languages") as string) || "").split(",").map(s => s.trim()).filter(Boolean);
+  let languages: string[] = [];
+  try {
+    const raw = formData.get("languages") as string;
+    if (raw) languages = JSON.parse(raw);
+  } catch {}
+
+  let documents: unknown[] = [];
+  try {
+    const raw = formData.get("documents") as string;
+    if (raw) documents = JSON.parse(raw);
+  } catch {}
+
   return {
     full_name: ((formData.get("full_name") as string) || "").trim(),
     role: (formData.get("role") as string) || "guide",
     phone: ((formData.get("phone") as string) || "").trim() || null,
     email: ((formData.get("email") as string) || "").trim() || null,
-    languages: langs.length > 0 ? langs : null,
-    certifications: ((formData.get("certifications") as string) || "").trim() || null,
+    languages: languages.length > 0 ? languages : null,
+    documents: documents.length > 0 ? documents : null,
     notes: ((formData.get("notes") as string) || "").trim() || null,
     is_active: formData.get("is_active") === "on",
   };
