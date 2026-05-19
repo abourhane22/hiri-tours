@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardBody, Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatMAD, formatDateShort } from "@/lib/utils";
-import { Plus, ArrowRight } from "lucide-react";
+import { Plus, ArrowRight, AlertTriangle } from "lucide-react";
+import { getVehicleAlertStatus } from "@/lib/vehicle-alerts";
 
 export default async function AdminDashboard() {
   const supabase = await createClient();
@@ -44,6 +45,16 @@ export default async function AdminDashboard() {
       0
     ) ?? 0;
 
+  const { data: vehiclesData } = await supabase.from("vehicles").select("*").eq("is_active", true);
+  const vehiclesWithAlerts = (vehiclesData || [])
+    .map((v: any) => ({ vehicle: v, alert: getVehicleAlertStatus(v) }))
+    .filter((x) => x.alert.status === "expired" || x.alert.status === "soon")
+    .sort((a, b) => {
+      if (a.alert.status === "expired" && b.alert.status !== "expired") return -1;
+      if (a.alert.status !== "expired" && b.alert.status === "expired") return 1;
+      return 0;
+    });
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <div className="flex items-end justify-between mb-8">
@@ -77,6 +88,48 @@ export default async function AdminDashboard() {
           warning
         />
       </div>
+
+      {vehiclesWithAlerts.length > 0 && (
+        <Card className="mb-6 border-amber-200">
+          <div className="px-5 py-4 border-b border-amber-200 bg-amber-50">
+            <h2 className="font-display text-lg text-amber-900 flex items-center gap-2">
+              <AlertTriangle className="size-5" />Alertes véhicules
+            </h2>
+            <p className="text-xs text-amber-800 mt-1">
+              {vehiclesWithAlerts.filter((x) => x.alert.status === "expired").length > 0
+                ? "Certains véhicules ont des échéances expirées."
+                : "Certains véhicules ont des échéances qui arrivent à expiration dans 30 jours."}
+            </p>
+          </div>
+          <div className="divide-y divide-sand-200">
+            {vehiclesWithAlerts.map(({ vehicle, alert }) => (
+              <Link key={vehicle.id} href={`/admin/logistique/vehicules/${vehicle.id}`} className="block px-5 py-3 hover:bg-sand-50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-mono text-sm text-terracotta-600">{vehicle.registration}</span>
+                    {(vehicle.make || vehicle.model) && (
+                      <span className="text-xs text-sand-600 ml-2">{[vehicle.make, vehicle.model].filter(Boolean).join(" ")}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {alert.status === "expired" && (
+                      <span className="text-xs font-medium text-red-700 flex items-center gap-1">
+                        <AlertTriangle className="size-3.5" />Expiré
+                      </span>
+                    )}
+                    {alert.status === "soon" && (
+                      <span className="text-xs font-medium text-amber-700">Bientôt</span>
+                    )}
+                    <span className="text-xs text-sand-600">
+                      {alert.deadlines.filter((d) => d.status !== "ok").map((d) => d.label).join(", ")}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card>
         <div className="px-5 py-4 border-b border-sand-200 flex items-center justify-between">

@@ -5,6 +5,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 function parsePayload(formData: FormData) {
+  let documents: unknown[] = [];
+  try {
+    const raw = formData.get("documents") as string;
+    if (raw) documents = JSON.parse(raw);
+  } catch {}
+
   return {
     registration: ((formData.get("registration") as string) || "").trim().toUpperCase(),
     make: ((formData.get("make") as string) || "").trim() || null,
@@ -14,6 +20,12 @@ function parsePayload(formData: FormData) {
     color: ((formData.get("color") as string) || "").trim() || null,
     notes: ((formData.get("notes") as string) || "").trim() || null,
     is_active: formData.get("is_active") === "on",
+    documents: documents.length > 0 ? documents : null,
+    next_maintenance_date: ((formData.get("next_maintenance_date") as string) || "").trim() || null,
+    next_maintenance_km: formData.get("next_maintenance_km") ? parseInt(formData.get("next_maintenance_km") as string, 10) : null,
+    insurance_expires_on: ((formData.get("insurance_expires_on") as string) || "").trim() || null,
+    inspection_expires_on: ((formData.get("inspection_expires_on") as string) || "").trim() || null,
+    vignette_expires_on: ((formData.get("vignette_expires_on") as string) || "").trim() || null,
   };
 }
 

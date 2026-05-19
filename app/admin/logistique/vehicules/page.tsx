@@ -2,7 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/card";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, AlertTriangle, Bell } from "lucide-react";
+import { getVehicleAlertStatus } from "@/lib/vehicle-alerts";
 import type { Vehicle } from "@/lib/types";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -35,27 +36,46 @@ export default async function VehiculesPage() {
               <th className="text-left px-5 py-3 font-medium text-sand-800">Modèle</th>
               <th className="text-left px-5 py-3 font-medium text-sand-800">Type</th>
               <th className="text-right px-5 py-3 font-medium text-sand-800">Capacité</th>
+              <th className="text-left px-5 py-3 font-medium text-sand-800">Échéances</th>
               <th className="text-left px-5 py-3 font-medium text-sand-800">État</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-sand-200">
-            {vehicles && vehicles.length > 0 ? (vehicles as Vehicle[]).map((v) => (
-              <tr key={v.id} className="hover:bg-sand-50">
-                <td className="px-5 py-4">
-                  <Link href={`/admin/logistique/vehicules/${v.id}`} className="font-mono text-sm text-terracotta-600 hover:text-terracotta-700 hover:underline">{v.registration}</Link>
-                </td>
-                <td className="px-5 py-4 text-ink">
-                  {[v.make, v.model].filter(Boolean).join(" ") || "—"}
-                  {v.color && <span className="text-xs text-sand-600 ml-2">({v.color})</span>}
-                </td>
-                <td className="px-5 py-4 text-sand-800">{TYPE_LABELS[v.type] ?? v.type}</td>
-                <td className="px-5 py-4 text-right tabular-nums">{v.capacity} pax</td>
-                <td className="px-5 py-4">
-                  <Badge tone={v.is_active ? "success" : "neutral"}>{v.is_active ? "Actif" : "Inactif"}</Badge>
-                </td>
-              </tr>
-            )) : (
-              <tr><td colSpan={5} className="px-5 py-12 text-center text-sand-700">Aucun véhicule. Ajoutez-en un avec le bouton ci-dessus.</td></tr>
+            {vehicles && vehicles.length > 0 ? (vehicles as Vehicle[]).map((v) => {
+              const alert = getVehicleAlertStatus(v);
+              return (
+                <tr key={v.id} className="hover:bg-sand-50">
+                  <td className="px-5 py-4">
+                    <Link href={`/admin/logistique/vehicules/${v.id}`} className="font-mono text-sm text-terracotta-600 hover:text-terracotta-700 hover:underline">{v.registration}</Link>
+                  </td>
+                  <td className="px-5 py-4 text-ink">
+                    {[v.make, v.model].filter(Boolean).join(" ") || "—"}
+                    {v.color && <span className="text-xs text-sand-600 ml-2">({v.color})</span>}
+                  </td>
+                  <td className="px-5 py-4 text-sand-800">{TYPE_LABELS[v.type] ?? v.type}</td>
+                  <td className="px-5 py-4 text-right tabular-nums">{v.capacity} pax</td>
+                  <td className="px-5 py-4 text-xs">
+                    {alert.status === "expired" && (
+                      <div className="text-red-700 font-medium flex items-center gap-1"><AlertTriangle className="size-3.5" />Expiré</div>
+                    )}
+                    {alert.status === "soon" && (
+                      <div className="text-amber-700 font-medium flex items-center gap-1"><Bell className="size-3.5" />Bientôt</div>
+                    )}
+                    {alert.status === "ok" && <div className="text-emerald-700">À jour</div>}
+                    {alert.status === "none" && <span className="text-sand-500">—</span>}
+                    {(alert.status === "expired" || alert.status === "soon") && (
+                      <div className="text-[10px] text-sand-700 mt-0.5">
+                        {alert.deadlines.filter((d) => d.status !== "ok").map((d) => d.label).join(", ")}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-5 py-4">
+                    <Badge tone={v.is_active ? "success" : "neutral"}>{v.is_active ? "Actif" : "Inactif"}</Badge>
+                  </td>
+                </tr>
+              );
+            }) : (
+              <tr><td colSpan={6} className="px-5 py-12 text-center text-sand-700">Aucun véhicule. Ajoutez-en un avec le bouton ci-dessus.</td></tr>
             )}
           </tbody>
         </table>

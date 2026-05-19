@@ -179,6 +179,12 @@ export type Invoice = {
 export type VehicleType = "sedan" | "van" | "4x4" | "minibus" | "bus";
 export type StaffRole = "guide" | "driver" | "both";
 
+export type VehicleDocument = {
+  name: string;
+  url: string;
+  uploaded_at: string;
+};
+
 export type Vehicle = {
   id: string;
   registration: string;
@@ -189,6 +195,12 @@ export type Vehicle = {
   color: string | null;
   is_active: boolean;
   notes: string | null;
+  documents: VehicleDocument[] | null;
+  next_maintenance_date: string | null;
+  next_maintenance_km: number | null;
+  insurance_expires_on: string | null;
+  inspection_expires_on: string | null;
+  vignette_expires_on: string | null;
   created_at: string;
   updated_at: string;
 };

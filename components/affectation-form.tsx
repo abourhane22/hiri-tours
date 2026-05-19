@@ -22,9 +22,23 @@ type Props = {
 
 export function AffectationForm(props: Props) {
   const [open, setOpen] = useState(false);
-  const action = updateAffectation.bind(null, props.reservationId);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const guides = props.staff.filter((s) => s.role === "guide" || s.role === "both");
   const drivers = props.staff.filter((s) => s.role === "driver" || s.role === "both");
+
+  async function handleSubmit(formData: FormData) {
+    setPending(true);
+    setError(null);
+    try {
+      await updateAffectation(props.reservationId, formData);
+      setOpen(false);
+    } catch (e: any) {
+      setError(e?.message || "Erreur lors de la sauvegarde");
+    } finally {
+      setPending(false);
+    }
+  }
 
   if (!open) {
     return (
@@ -60,7 +74,9 @@ export function AffectationForm(props: Props) {
   }
 
   return (
-    <form action={action} className="space-y-3">
+    <form action={handleSubmit} className="space-y-3">
+      {error && <div className="p-2 text-xs text-red-800 bg-red-50 border border-red-200 rounded">{error}</div>}
+
       <div>
         <Label htmlFor="vehicle_id">Véhicule</Label>
         <Select id="vehicle_id" name="vehicle_id" defaultValue={props.current.vehicle_id ?? ""}>
@@ -104,8 +120,12 @@ export function AffectationForm(props: Props) {
       )}
 
       <div className="flex gap-2 pt-2">
-        <Button type="submit" size="sm" onClick={() => setOpen(false)}>Enregistrer</Button>
-        <button type="button" onClick={() => setOpen(false)} className="px-3 py-1.5 text-sm text-sand-700 hover:text-ink">Annuler</button>
+        <Button type="submit" size="sm" disabled={pending}>
+          {pending ? "Enregistrement..." : "Enregistrer"}
+        </Button>
+        <button type="button" onClick={() => setOpen(false)} disabled={pending} className="px-3 py-1.5 text-sm text-sand-700 hover:text-ink disabled:opacity-50">
+          Annuler
+        </button>
       </div>
     </form>
   );
