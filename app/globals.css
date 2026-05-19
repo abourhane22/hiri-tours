@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-sand-50 text-ink font-sans;
+  }
+
+  /* Heading display font + tighter tracking */
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+    font-feature-settings: "ss01", "ss02";
+  }
+
+  /* Number rendering: tabular for tables, lining where possible */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  /* Selection color */
+  ::selection {
+    @apply bg-terracotta-200 text-terracotta-900;
+  }
+}
+
+@layer components {
+  /* Subtle paper-like surface */
+  .surface {
+    @apply bg-white border border-sand-200 rounded-lg;
+  }
+
+  .surface-elevated {
+    @apply bg-white border border-sand-200 rounded-lg shadow-sm;
+  }
+
+  /* Editorial section divider with a small terracotta mark */
+  .eyebrow {
+    @apply text-xs uppercase tracking-[0.2em] font-medium text-terracotta-600;
+  }
+}
