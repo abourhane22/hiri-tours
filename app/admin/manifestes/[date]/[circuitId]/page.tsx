@@ -12,7 +12,7 @@ export default async function ManifestePage({ params }: { params: Promise<{ date
 
   const { data: reservations } = await supabase
     .from("reservations")
-    .select("*, customers(full_name, email, phone, internal_notes, nationality)")
+    .select("*, customers(full_name, email, phone, internal_notes, nationality), vehicles(registration, make, model, capacity), guide:staff_members!reservations_guide_id_fkey(full_name, phone), driver:staff_members!reservations_driver_id_fkey(full_name, phone)")
     .eq("circuit_id", circuitId)
     .eq("departure_date", date)
     .in("status", ["confirmed", "paid"])
@@ -48,6 +48,24 @@ export default async function ManifestePage({ params }: { params: Promise<{ date
             <p className="text-sm text-sand-800 mt-1">Départ le {formatDate(date)}</p>
             {circuit.meeting_point && <p className="text-sm text-sand-800 mt-1"><strong>Point de rendez-vous :</strong> {circuit.meeting_point}</p>}
           </div>
+
+          {(reservations || []).length > 0 && (() => {
+            const first = (reservations || [])[0] as any;
+            const v = first.vehicles;
+            const g = first.guide;
+            const dr = first.driver;
+            if (!v && !g && !dr) return null;
+            return (
+              <div className="mb-6 p-3 bg-sand-50 border border-sand-200 rounded">
+                <p className="text-xs text-sand-600 uppercase tracking-wide font-medium mb-2">Logistique du jour</p>
+                <div className="grid sm:grid-cols-3 gap-3 text-sm">
+                  {v && <div><div className="text-xs text-sand-600">Véhicule</div><div className="text-ink font-medium">{v.registration}</div><div className="text-xs text-sand-700">{[v.make, v.model].filter(Boolean).join(" ")} · {v.capacity} pax</div></div>}
+                  {g && <div><div className="text-xs text-sand-600">Guide</div><div className="text-ink font-medium">{g.full_name}</div>{g.phone && <div className="text-xs text-sand-700">{g.phone}</div>}</div>}
+                  {dr && <div><div className="text-xs text-sand-600">Chauffeur</div><div className="text-ink font-medium">{dr.full_name}</div>{dr.phone && <div className="text-xs text-sand-700">{dr.phone}</div>}</div>}
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="border border-sand-200 rounded p-3">
@@ -113,11 +131,11 @@ export default async function ManifestePage({ params }: { params: Promise<{ date
 
           <div className="mt-10 pt-4 border-t border-sand-300 text-xs text-sand-700 grid grid-cols-2 gap-8">
             <div>
-              <p className="font-medium text-sand-800 mb-2">Signature guide</p>
+              <p className="font-medium text-sand-800 mb-2">Signature guide {(reservations as any[])[0]?.guide ? `(${(reservations as any[])[0].guide.full_name})` : ""}</p>
               <div className="h-16 border-b border-sand-300"></div>
             </div>
             <div>
-              <p className="font-medium text-sand-800 mb-2">Signature chauffeur</p>
+              <p className="font-medium text-sand-800 mb-2">Signature chauffeur {(reservations as any[])[0]?.driver ? `(${(reservations as any[])[0].driver.full_name})` : ""}</p>
               <div className="h-16 border-b border-sand-300"></div>
             </div>
           </div>

@@ -175,3 +175,34 @@ export type Invoice = {
   notes: string | null;
   created_at: string;
 };
+
+export type VehicleType = "sedan" | "van" | "4x4" | "minibus" | "bus";
+export type StaffRole = "guide" | "driver" | "both";
+
+export type Vehicle = {
+  id: string;
+  registration: string;
+  make: string | null;
+  model: string | null;
+  type: VehicleType;
+  capacity: number;
+  color: string | null;
+  is_active: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StaffMember = {
+  id: string;
+  full_name: string;
+  role: StaffRole;
+  phone: string | null;
+  email: string | null;
+  languages: string[] | null;
+  certifications: string | null;
+  is_active: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};

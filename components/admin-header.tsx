@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Calendar, Map, Users, Receipt, FileText, BarChart3, LogOut, Settings,
+  LayoutDashboard, Calendar, Map, Users, Receipt, FileText, BarChart3, LogOut, Settings, Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ const navigation = [
   { href: "/admin/factures", label: "Factures", icon: Receipt },
   { href: "/admin/circuits", label: "Catalogue", icon: Map },
   { href: "/admin/clients", label: "Clients", icon: Users },
+  { href: "/admin/logistique", label: "Logistique", icon: Truck },
 ];
 
 const navigationSoon = [

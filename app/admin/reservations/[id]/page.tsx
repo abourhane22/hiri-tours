@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Card, CardBody, Badge } from "@/components/ui/card";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
-import { ArrowLeft, Plus, Mail, Phone, FileText, Receipt } from "lucide-react";
+import { ArrowLeft, Plus, Mail, Phone, FileText, Receipt, Truck } from "lucide-react";
 import {
   updateStatus,
   addPayment,
@@ -13,6 +13,7 @@ import {
   cancelReservation,
 } from "./actions";
 import { IssueInvoiceButton } from "@/components/issue-invoice-button";
+import { AffectationForm } from "@/components/affectation-form";
 import type { Invoice, CompanySettings } from "@/lib/types";
 
 const STATUS_CONFIG: Record<
@@ -62,6 +63,31 @@ export default async function ReservationDetailPage({
     .select("tva_default_rate")
     .limit(1)
     .single();
+
+  const [vehiclesResult, staffResult, conflictsResult] = await Promise.all([
+    supabase.from("vehicles").select("id, registration, make, model, capacity").eq("is_active", true).order("registration"),
+    supabase.from("staff_members").select("id, full_name, role").eq("is_active", true).order("full_name"),
+    supabase.from("reservations").select("id, vehicle_id, guide_id, driver_id").eq("departure_date", (reservation as any).departure_date).neq("id", id),
+  ]);
+
+  const vehiclesList = vehiclesResult.data || [];
+  const staffList = staffResult.data || [];
+  const sameDayReservations = conflictsResult.data || [];
+  const conflictedVehicleIds = sameDayReservations.map((r: any) => r.vehicle_id).filter(Boolean);
+  const conflictedStaffIds = [...sameDayReservations.map((r: any) => r.guide_id), ...sameDayReservations.map((r: any) => r.driver_id)].filter(Boolean);
+
+  const { data: affectationData } = await supabase
+    .from("reservations")
+    .select("vehicle_id, guide_id, driver_id, vehicles(registration, make, model), guide:staff_members!reservations_guide_id_fkey(full_name), driver:staff_members!reservations_driver_id_fkey(full_name)")
+    .eq("id", id)
+    .single();
+
+  const af = affectationData as any;
+  const affectationNames = {
+    vehicle: af?.vehicles ? `${af.vehicles.registration}${af.vehicles.make ? " · " + af.vehicles.make + " " + (af.vehicles.model || "") : ""}` : null,
+    guide: af?.guide?.full_name ?? null,
+    driver: af?.driver?.full_name ?? null,
+  };
 
   const { data: payments } = await supabase
     .from("payments")
@@ -421,6 +447,29 @@ export default async function ReservationDetailPage({
                     reservation.children > 1 ? "s" : ""
                   }`}
               </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <div className="px-5 py-4 border-b border-sand-200 flex items-center gap-2">
+              <Truck className="size-4 text-sand-700" />
+              <h2 className="font-display text-lg text-ink">Affectation logistique</h2>
+            </div>
+            <CardBody>
+              <AffectationForm
+                reservationId={id}
+                totalPax={(reservation as any).adults + (reservation as any).children}
+                current={{
+                  vehicle_id: af?.vehicle_id ?? null,
+                  guide_id: af?.guide_id ?? null,
+                  driver_id: af?.driver_id ?? null,
+                }}
+                currentNames={affectationNames}
+                vehicles={vehiclesList as any}
+                staff={staffList as any}
+                conflictedVehicleIds={conflictedVehicleIds}
+                conflictedStaffIds={conflictedStaffIds}
+              />
             </CardBody>
           </Card>
 
