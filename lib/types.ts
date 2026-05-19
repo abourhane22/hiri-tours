@@ -225,3 +225,31 @@ export type StaffMember = {
   created_at: string;
   updated_at: string;
 };
+
+export type CostCategoryType = "direct" | "overhead";
+
+export type CostCategory = {
+  id: string;
+  name: string;
+  type: CostCategoryType;
+  description: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Expense = {
+  id: string;
+  expense_date: string;
+  category_id: string;
+  amount_mad: number;
+  description: string | null;
+  reservation_id: string | null;
+  circuit_id: string | null;
+  vehicle_id: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};

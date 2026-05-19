@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Calendar, Map, Users, Receipt, FileText, BarChart3, LogOut, Settings, Truck,
+  LayoutDashboard, Calendar, Map, Users, Receipt, FileText, BarChart3, LogOut, Settings, Truck, Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,7 @@ const navigation = [
   { href: "/admin/clients", label: "Clients", icon: Users },
   { href: "/admin/logistique", label: "Logistique", icon: Truck },
   { href: "/admin/rapports", label: "Rapports", icon: BarChart3 },
+  { href: "/admin/finance", label: "Finance", icon: Wallet },
 ];
 
 const navigationSoon: { href: string; label: string; icon: any }[] = [];
