@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Calendar, Map, Users, Receipt, FileText, BarChart3, LogOut,
+  LayoutDashboard, Calendar, Map, Users, Receipt, FileText, BarChart3, LogOut, Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,12 +12,12 @@ const navigation = [
   { href: "/admin/reservations", label: "Réservations", icon: Calendar },
   { href: "/admin/calendrier", label: "Calendrier", icon: Calendar },
   { href: "/admin/manifestes", label: "Manifestes", icon: FileText },
+  { href: "/admin/factures", label: "Factures", icon: Receipt },
   { href: "/admin/circuits", label: "Catalogue", icon: Map },
   { href: "/admin/clients", label: "Clients", icon: Users },
 ];
 
 const navigationSoon = [
-  { href: "#", label: "Factures", icon: Receipt },
   { href: "#", label: "Rapports", icon: BarChart3 },
 ];
 
@@ -50,9 +50,7 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
           {navigationSoon.map((item) => {
             const Icon = item.icon;
             return (
-              <span key={item.label}
-                className="px-3 py-1.5 rounded-md text-sm text-navy-300/60 flex items-center gap-2 cursor-not-allowed"
-                title="Bientôt disponible">
+              <span key={item.label} className="px-3 py-1.5 rounded-md text-sm text-navy-300/60 flex items-center gap-2 cursor-not-allowed" title="Bientôt disponible">
                 <Icon className="size-4" />
                 <span>{item.label}</span>
                 <span className="text-[9px] uppercase tracking-wider opacity-60">bientôt</span>
@@ -61,10 +59,14 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
           })}
         </nav>
 
-        <div className="flex items-center gap-3 shrink-0">
-          {userEmail && (
-            <span className="hidden lg:inline text-xs text-navy-200 truncate max-w-[200px]">{userEmail}</span>
-          )}
+        <div className="flex items-center gap-2 shrink-0">
+          {userEmail && <span className="hidden lg:inline text-xs text-navy-200 truncate max-w-[180px]">{userEmail}</span>}
+          <Link href="/admin/parametres" className={cn(
+            "size-8 rounded-md border flex items-center justify-center transition-colors",
+            pathname.startsWith("/admin/parametres") ? "bg-navy-600 border-navy-400" : "border-navy-400/50 text-navy-100 hover:bg-navy-600"
+          )} title="Paramètres">
+            <Settings className="size-4" />
+          </Link>
           <form action="/auth/signout" method="post">
             <button type="submit" className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-navy-400/50 text-sm text-white hover:bg-navy-600 transition-colors">
               <LogOut className="size-3.5" />
@@ -90,6 +92,13 @@ export function AdminHeader({ userEmail }: { userEmail?: string }) {
               </Link>
             );
           })}
+          <Link href="/admin/parametres" className={cn(
+            "px-3 py-1.5 rounded-md text-xs whitespace-nowrap transition-colors flex items-center gap-1.5",
+            pathname.startsWith("/admin/parametres") ? "bg-navy-600 text-white" : "text-navy-100 hover:bg-navy-600"
+          )}>
+            <Settings className="size-3.5" />
+            Paramètres
+          </Link>
         </nav>
       </div>
     </header>

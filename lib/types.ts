@@ -124,3 +124,54 @@ export type CircuitSeason = {
   ends_on: string;
   price_multiplier: number;
 };
+
+export type CompanySettings = {
+  id: string;
+  legal_name: string;
+  commercial_name: string;
+  address_line: string | null;
+  city: string | null;
+  postal_code: string | null;
+  country: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  ice: string | null;
+  rc: string | null;
+  if_number: string | null;
+  patente: string | null;
+  cnss: string | null;
+  tva_default_rate: number;
+  iban: string | null;
+  bank_name: string | null;
+  updated_at: string;
+};
+
+export type InvoiceLine = {
+  description: string;
+  details?: string;
+  quantity: number;
+  unit_price_ht_mad: number;
+  total_ht_mad: number;
+  total_ttc_mad: number;
+};
+
+export type Invoice = {
+  id: string;
+  invoice_number: string;
+  reservation_id: string;
+  customer_id: string;
+  issued_at: string;
+  status: "issued" | "cancelled";
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  company_snapshot: CompanySettings;
+  customer_snapshot: any;
+  lines: InvoiceLine[];
+  total_ht_mad: number;
+  tva_rate: number;
+  tva_amount_mad: number;
+  total_ttc_mad: number;
+  notes: string | null;
+  created_at: string;
+};

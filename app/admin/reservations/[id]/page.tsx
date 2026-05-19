@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Card, CardBody, Badge } from "@/components/ui/card";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
-import { ArrowLeft, Plus, Mail, Phone, FileText } from "lucide-react";
+import { ArrowLeft, Plus, Mail, Phone, FileText, Receipt } from "lucide-react";
 import {
   updateStatus,
   addPayment,
   updateNotes,
   cancelReservation,
 } from "./actions";
+import { IssueInvoiceButton } from "@/components/issue-invoice-button";
+import type { Invoice, CompanySettings } from "@/lib/types";
 
 const STATUS_CONFIG: Record<
   string,
@@ -47,6 +49,19 @@ export default async function ReservationDetailPage({
     .single();
 
   if (!reservation) notFound();
+
+  const { data: existingInvoice } = await supabase
+    .from("invoices")
+    .select("id, invoice_number")
+    .eq("reservation_id", id)
+    .eq("status", "issued")
+    .maybeSingle();
+
+  const { data: companySettings } = await supabase
+    .from("company_settings")
+    .select("tva_default_rate")
+    .limit(1)
+    .single();
 
   const { data: payments } = await supabase
     .from("payments")
@@ -93,6 +108,23 @@ export default async function ReservationDetailPage({
           <Link href={`/admin/reservations/${id}/voucher`} target="_blank">
             <Button variant="secondary" size="sm"><FileText className="size-3.5" />Générer le voucher PDF</Button>
           </Link>
+          {(reservation.status === "paid" || reservation.status === "completed") && (
+            existingInvoice ? (
+              <Link href={`/admin/factures/${(existingInvoice as any).id}`} target="_blank" className="inline-block ml-2">
+                <Button variant="secondary" size="sm">
+                  <Receipt className="size-3.5" />
+                  Voir facture {(existingInvoice as any).invoice_number}
+                </Button>
+              </Link>
+            ) : (
+              <span className="inline-block ml-2">
+                <IssueInvoiceButton
+                  reservationId={id}
+                  defaultTvaRate={Number((companySettings as any)?.tva_default_rate ?? 0.20)}
+                />
+              </span>
+            )
+          )}
         </div>
       </div>
 
