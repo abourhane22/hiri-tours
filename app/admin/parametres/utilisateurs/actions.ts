@@ -21,8 +21,10 @@ export async function inviteUser(formData: FormData) {
   const role = (formData.get("role") as UserRole) || "commercial";
   if (!email) throw new Error("L'email est obligatoire");
 
+  const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "https://hiri-tours.vercel.app"}/auth/callback?type=invite`;
   const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, {
     data: { role },
+    redirectTo,
   });
   if (error) throw new Error(error.message);
 
