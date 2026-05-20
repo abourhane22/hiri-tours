@@ -192,15 +192,36 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const previousLegendLabel = trendView === "12m" ? "N-1" : String(parseInt(trendView) - 1);
   const currentLegendLabel = trendView === "12m" ? "N" : trendView;
 
-  // Points de la trajectoire (uniquement les mois avec données)
+  // Points de la trajectoire (nouvelles coordonnées, mois avec données uniquement)
   const trajectoryPoints = trend
     .map((t, i) => ({
-      x: 58.5 + i * 50,
-      y: 165 - (t.current / trendMax) * 145,
+      x: 79 + i * 56,
+      y: 220 - (t.current / trendMax) * 190,
       isCurrent: t.isCurrent,
       hasData: t.current > 0,
     }))
     .filter((p) => p.hasData);
+
+  // Index du mois courant pour le surlignage en arrière-plan
+  const currentMonthIndex = trend.findIndex((t) => t.isCurrent);
+
+  // Label compact du max (33k au lieu de 33 000)
+  const maxLabel =
+    trendMax >= 1000 ? `${Math.round(trendMax / 1000)}k` : String(Math.round(trendMax));
+
+  // Chemin lissé pour la trajectoire (cubic bezier avec contrôles horizontaux)
+  const trajectoryPath = (() => {
+    const pts = trajectoryPoints;
+    if (pts.length < 2) return "";
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const dx = (p2.x - p1.x) * 0.3;
+      d += ` C ${p1.x + dx} ${p1.y}, ${p2.x - dx} ${p2.y}, ${p2.x} ${p2.y}`;
+    }
+    return d;
+  })();
 
   // Today's departures
   const todayDepartures = todayReservations.map((r) => ({
@@ -434,52 +455,72 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           </div>
         </div>
         <div className="bg-white border border-stone-200 rounded-2xl p-5">
-          <div className="flex justify-end gap-4 text-xs text-stone-500 mb-3">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "#D6D3D1" }}></span>
-              {previousLegendLabel}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "#D85A30" }}></span>
-              {currentLegendLabel}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-4 h-0.5 rounded-full" style={{ background: "#1A1F2E" }}></span>
-              Trajectoire
-            </span>
+          <div className="flex items-center justify-between mb-2.5">
+            <p className="text-xs text-stone-400">Échelle max · {maxLabel} MAD</p>
+            <div className="flex gap-4 text-xs text-stone-500">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "#E7E5E4" }}></span>
+                {previousLegendLabel}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "#D85A30" }}></span>
+                {currentLegendLabel}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 rounded-full" style={{ background: "#1A1F2E" }}></span>
+                Trajectoire {currentLegendLabel}
+              </span>
+            </div>
           </div>
 
           <svg
-            viewBox="0 0 640 200"
+            viewBox="0 0 760 270"
             style={{ width: "100%", height: "auto", display: "block" }}
             role="img"
             aria-label="Tendance mensuelle comparée année actuelle et précédente"
           >
+            {currentMonthIndex >= 0 && (
+              <rect
+                x={40 + currentMonthIndex * 56 - 4}
+                y="22"
+                width="64"
+                height="200"
+                fill="#FAECE7"
+                opacity="0.5"
+                rx="6"
+              />
+            )}
+
+            <line x1="40" y1="78" x2="720" y2="78" stroke="#F5F5F4" strokeWidth="1" />
+            <line x1="40" y1="125" x2="720" y2="125" stroke="#F5F5F4" strokeWidth="1" />
+            <line x1="40" y1="173" x2="720" y2="173" stroke="#F5F5F4" strokeWidth="1" />
+            <line x1="40" y1="222" x2="720" y2="222" stroke="#E7E5E4" strokeWidth="1" />
+
             {trend.map((t, i) => {
-              const xPrev = 36 + i * 50;
-              const xCur = 52 + i * 50;
-              const hPrev = (t.previous / trendMax) * 145;
-              const hCur = (t.current / trendMax) * 145;
-              const yPrev = 165 - hPrev;
-              const yCur = 165 - hCur;
-              const labelX = 50 + i * 50;
+              const xPrev = 48 + i * 56;
+              const xCur = 70 + i * 56;
+              const hPrev = (t.previous / trendMax) * 190;
+              const hCur = (t.current / trendMax) * 190;
+              const yPrev = 220 - hPrev;
+              const yCur = 220 - hCur;
+              const labelX = 68 + i * 56;
               return (
                 <g key={i}>
                   {t.previous > 0 && (
-                    <rect x={xPrev} y={yPrev} width="13" height={hPrev} rx="2" fill="#D6D3D1">
+                    <rect x={xPrev} y={yPrev} width="18" height={hPrev} rx="3" fill="#E7E5E4">
                       <title>{`${t.label} ${previousLegendLabel} : ${formatMad(t.previous)} MAD`}</title>
                     </rect>
                   )}
                   {t.current > 0 && (
-                    <rect x={xCur} y={yCur} width="13" height={hCur} rx="2" fill="#D85A30">
+                    <rect x={xCur} y={yCur} width="18" height={hCur} rx="3" fill="#D85A30">
                       <title>{`${t.label} ${currentLegendLabel} : ${formatMad(t.current)} MAD`}</title>
                     </rect>
                   )}
                   <text
                     x={labelX}
-                    y="182"
+                    y="240"
                     fontSize="11"
-                    fill={t.isCurrent ? "#712B13" : "#78716C"}
+                    fill={t.isCurrent ? "#712B13" : "#A8A29E"}
                     textAnchor="middle"
                     fontWeight={t.isCurrent ? 500 : 400}
                   >
@@ -489,13 +530,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
               );
             })}
 
-            {trajectoryPoints.length > 0 && (
+            {trajectoryPoints.length > 1 && (
               <>
-                <polyline
-                  points={trajectoryPoints.map((p) => `${p.x},${p.y}`).join(" ")}
+                <path
+                  d={trajectoryPath}
                   fill="none"
                   stroke="#1A1F2E"
-                  strokeWidth="2"
+                  strokeWidth="1.8"
                   strokeLinejoin="round"
                   strokeLinecap="round"
                 />
@@ -504,10 +545,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
                     key={i}
                     cx={p.x}
                     cy={p.y}
-                    r={p.isCurrent ? 5.5 : 3}
+                    r={p.isCurrent ? 6 : 2.5}
                     fill="#1A1F2E"
                     stroke={p.isCurrent ? "white" : "none"}
-                    strokeWidth={p.isCurrent ? 2 : 0}
+                    strokeWidth={p.isCurrent ? 2.5 : 0}
                   />
                 ))}
               </>
