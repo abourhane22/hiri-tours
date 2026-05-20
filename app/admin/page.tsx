@@ -275,8 +275,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         </div>
         <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
           <div
-            className="h-full bg-terracotta-500 rounded-full"
-            style={{ width: `${ytdProgress}%` }}
+            className="h-full rounded-full"
+            style={{ width: `${ytdProgress}%`, backgroundColor: "#C84B31" }}
           />
         </div>
       </div>
@@ -411,24 +411,42 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           </div>
         </div>
         <div className="bg-white border border-stone-200 rounded-2xl p-5">
-          <div className="flex items-end gap-2 h-32 mb-2">
-            {trend.map((t, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center justify-end relative group">
-                <span className="opacity-0 group-hover:opacity-100 absolute -top-6 text-xs whitespace-nowrap bg-navy-900 text-white px-2 py-0.5 rounded transition">
-                  {formatMad(t.revenue)} MAD
-                </span>
+          <div
+            style={{
+              display: "flex",
+              gap: "8px",
+              height: "200px",
+              alignItems: "flex-end",
+              marginBottom: "12px",
+            }}
+          >
+            {trend.map((t, i) => {
+              const heightPx = Math.max((t.revenue / trendMax) * 200, 12);
+              return (
                 <div
-                  className={`w-full rounded-t-md ${
-                    t.isCurrent ? "bg-terracotta-500" : "bg-stone-200"
-                  }`}
-                  style={{ height: `${Math.max((t.revenue / trendMax) * 100, 2)}%` }}
+                  key={i}
+                  style={{
+                    flex: 1,
+                    height: `${heightPx}px`,
+                    backgroundColor: t.isCurrent ? "#C84B31" : "#D6D3D1",
+                    borderRadius: "6px 6px 0 0",
+                  }}
+                  title={`${t.label}: ${formatMad(t.revenue)} MAD`}
                 />
-              </div>
-            ))}
+              );
+            })}
           </div>
-          <div className="flex justify-between text-xs text-stone-400 mt-1">
+          <div style={{ display: "flex", gap: "8px" }}>
             {trend.map((t, i) => (
-              <span key={i} className="flex-1 text-center">
+              <span
+                key={i}
+                style={{
+                  flex: 1,
+                  fontSize: "12px",
+                  color: "#78716C",
+                  textAlign: "center",
+                }}
+              >
                 {t.label}
               </span>
             ))}
@@ -485,15 +503,26 @@ function MiniCard({
   valueIsText?: boolean;
 }) {
   return (
-    <div className="bg-stone-50 border border-stone-100 rounded-xl p-3">
-      <div className="flex items-center gap-1.5 text-stone-500 mb-1">
+    <div
+      className="rounded-xl p-4"
+      style={{ backgroundColor: "#1A1F2E", color: "#FFFFFF" }}
+    >
+      <div
+        className="flex items-center gap-1.5 mb-2"
+        style={{ color: "#9CA3AF" }}
+      >
         {icon}
         <p className="text-xs">{label}</p>
       </div>
-      <p className={valueIsText ? "text-sm font-medium leading-tight" : "text-xl font-medium"}>
+      <p
+        className={valueIsText ? "text-sm font-medium leading-tight" : "text-2xl font-medium"}
+        style={{ color: "#FFFFFF" }}
+      >
         {value}
       </p>
-      <p className="text-xs text-stone-500 mt-0.5">{sub}</p>
+      <p className="text-xs mt-1" style={{ color: "#9CA3AF" }}>
+        {sub}
+      </p>
     </div>
   );
 }
