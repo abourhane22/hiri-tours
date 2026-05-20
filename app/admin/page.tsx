@@ -51,7 +51,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const yearStart = startOfYear(now);
   const yearEnd = endOfYear(now);
   const twelveMonthsStart = addMonths(now, -11);
-  const trendFetchStart = addMonths(now, -36);
+  const trendFetchStart = addMonths(now, -48);
   const todayStr = isoDate(now);
   const thirtyDaysOut = isoDate(new Date(now.getTime() + 30 * 86400000));
 
@@ -149,35 +149,58 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const annualTarget = Number(company?.annual_revenue_target_mad ?? 600000);
   const ytdProgress = Math.min(100, Math.round((ytdRevenue / annualTarget) * 100));
 
-  // Trend selon vue : 12 mois glissants OU année calendaire
-  const trend: { label: string; revenue: number; isCurrent: boolean }[] = [];
+  // Helper : somme CA d'une période
+  const sumRev = (start: Date, end: Date) =>
+    allReservations
+      .filter((r) => r.status !== "cancelled" && inDateRange(r.departure_date, start, end))
+      .reduce((s, r) => s + Number(r.total_amount_mad), 0);
+
+  // Trend selon vue (12m glissants ou année), avec N-1 en comparaison
+  const trend: {
+    label: string;
+    current: number;
+    previous: number;
+    isCurrent: boolean;
+  }[] = [];
+
   if (trendView === "12m") {
     for (let i = 11; i >= 0; i--) {
       const d = addMonths(now, -i);
-      const ms = startOfMonth(d);
-      const me = endOfMonth(d);
-      const rev = allReservations
-        .filter((r) => r.status !== "cancelled" && inDateRange(r.departure_date, ms, me))
-        .reduce((s, r) => s + Number(r.total_amount_mad), 0);
-      trend.push({ label: MONTH_LABELS_FR[d.getMonth()], revenue: rev, isCurrent: i === 0 });
+      const dPrev = new Date(d.getFullYear() - 1, d.getMonth(), 1);
+      trend.push({
+        label: MONTH_LABELS_FR[d.getMonth()],
+        current: sumRev(startOfMonth(d), endOfMonth(d)),
+        previous: sumRev(startOfMonth(dPrev), endOfMonth(dPrev)),
+        isCurrent: i === 0,
+      });
     }
   } else {
     const year = parseInt(trendView);
     for (let m = 0; m < 12; m++) {
       const d = new Date(year, m, 1);
-      const ms = startOfMonth(d);
-      const me = endOfMonth(d);
-      const rev = allReservations
-        .filter((r) => r.status !== "cancelled" && inDateRange(r.departure_date, ms, me))
-        .reduce((s, r) => s + Number(r.total_amount_mad), 0);
+      const dPrev = new Date(year - 1, m, 1);
       trend.push({
         label: MONTH_LABELS_FR[m],
-        revenue: rev,
+        current: sumRev(startOfMonth(d), endOfMonth(d)),
+        previous: sumRev(startOfMonth(dPrev), endOfMonth(dPrev)),
         isCurrent: year === now.getFullYear() && m === now.getMonth(),
       });
     }
   }
-  const trendMax = Math.max(...trend.map((t) => t.revenue), 1);
+
+  const trendMax = Math.max(...trend.flatMap((t) => [t.current, t.previous]), 1);
+  const previousLegendLabel = trendView === "12m" ? "N-1" : String(parseInt(trendView) - 1);
+  const currentLegendLabel = trendView === "12m" ? "N" : trendView;
+
+  // Points de la trajectoire (uniquement les mois avec données)
+  const trajectoryPoints = trend
+    .map((t, i) => ({
+      x: 58.5 + i * 50,
+      y: 165 - (t.current / trendMax) * 145,
+      isCurrent: t.isCurrent,
+      hasData: t.current > 0,
+    }))
+    .filter((p) => p.hasData);
 
   // Today's departures
   const todayDepartures = todayReservations.map((r) => ({
@@ -411,46 +434,85 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           </div>
         </div>
         <div className="bg-white border border-stone-200 rounded-2xl p-5">
-          <div
-            style={{
-              display: "flex",
-              gap: "8px",
-              height: "200px",
-              alignItems: "flex-end",
-              marginBottom: "12px",
-            }}
+          <div className="flex justify-end gap-4 text-xs text-stone-500 mb-3">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "#D6D3D1" }}></span>
+              {previousLegendLabel}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "#D85A30" }}></span>
+              {currentLegendLabel}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-4 h-0.5 rounded-full" style={{ background: "#1A1F2E" }}></span>
+              Trajectoire
+            </span>
+          </div>
+
+          <svg
+            viewBox="0 0 640 200"
+            style={{ width: "100%", height: "auto", display: "block" }}
+            role="img"
+            aria-label="Tendance mensuelle comparée année actuelle et précédente"
           >
             {trend.map((t, i) => {
-              const heightPx = Math.max((t.revenue / trendMax) * 200, 12);
+              const xPrev = 36 + i * 50;
+              const xCur = 52 + i * 50;
+              const hPrev = (t.previous / trendMax) * 145;
+              const hCur = (t.current / trendMax) * 145;
+              const yPrev = 165 - hPrev;
+              const yCur = 165 - hCur;
+              const labelX = 50 + i * 50;
               return (
-                <div
-                  key={i}
-                  style={{
-                    flex: 1,
-                    height: `${heightPx}px`,
-                    backgroundColor: t.isCurrent ? "#C84B31" : "#D6D3D1",
-                    borderRadius: "6px 6px 0 0",
-                  }}
-                  title={`${t.label}: ${formatMad(t.revenue)} MAD`}
-                />
+                <g key={i}>
+                  {t.previous > 0 && (
+                    <rect x={xPrev} y={yPrev} width="13" height={hPrev} rx="2" fill="#D6D3D1">
+                      <title>{`${t.label} ${previousLegendLabel} : ${formatMad(t.previous)} MAD`}</title>
+                    </rect>
+                  )}
+                  {t.current > 0 && (
+                    <rect x={xCur} y={yCur} width="13" height={hCur} rx="2" fill="#D85A30">
+                      <title>{`${t.label} ${currentLegendLabel} : ${formatMad(t.current)} MAD`}</title>
+                    </rect>
+                  )}
+                  <text
+                    x={labelX}
+                    y="182"
+                    fontSize="11"
+                    fill={t.isCurrent ? "#712B13" : "#78716C"}
+                    textAnchor="middle"
+                    fontWeight={t.isCurrent ? 500 : 400}
+                  >
+                    {t.label}
+                  </text>
+                </g>
               );
             })}
-          </div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            {trend.map((t, i) => (
-              <span
-                key={i}
-                style={{
-                  flex: 1,
-                  fontSize: "12px",
-                  color: "#78716C",
-                  textAlign: "center",
-                }}
-              >
-                {t.label}
-              </span>
-            ))}
-          </div>
+
+            {trajectoryPoints.length > 0 && (
+              <>
+                <polyline
+                  points={trajectoryPoints.map((p) => `${p.x},${p.y}`).join(" ")}
+                  fill="none"
+                  stroke="#1A1F2E"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+                {trajectoryPoints.map((p, i) => (
+                  <circle
+                    key={i}
+                    cx={p.x}
+                    cy={p.y}
+                    r={p.isCurrent ? 5.5 : 3}
+                    fill="#1A1F2E"
+                    stroke={p.isCurrent ? "white" : "none"}
+                    strokeWidth={p.isCurrent ? 2 : 0}
+                  />
+                ))}
+              </>
+            )}
+          </svg>
         </div>
       </div>
 
