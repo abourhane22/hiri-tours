@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardBody } from "@/components/ui/card";
-import { Wallet, Tag, BarChart3, Compass, ArrowRight } from "lucide-react";
+import { Wallet, Tag, BarChart3, Compass, Target, ArrowRight } from "lucide-react";
 
 export default async function FinanceHubPage() {
   const supabase = await createClient();
@@ -28,6 +28,7 @@ export default async function FinanceHubPage() {
         <FinanceCard href="/admin/finance/resultat-annuel" icon={<BarChart3 className="size-6 text-atlantic-700" />} title="Compte de résultat annuel" desc="Vue annuelle mois par mois, SIG et comparaison N vs N-1." />
         <FinanceCard href="/admin/finance/rentabilite" icon={<Compass className="size-6 text-navy-700" />} title="Rentabilité par circuit" desc="Marge dégagée par chaque circuit sur les 12 derniers mois." />
         <FinanceCard href="/admin/finance/categories" icon={<Tag className="size-6 text-sand-700" />} title="Catégories de coûts" desc="Configurer les catégories (directes / overhead)." footer={`${categoriesRes.count ?? 0} catégorie(s) active(s)`} />
+        <FinanceCard href="/admin/finance/pilotage" icon={<Target className="size-6 text-terracotta-700" />} title="Pilotage" desc="Définir les objectifs de l'agence et suivre le rythme de réalisation." />
       </div>
     </div>
   );
