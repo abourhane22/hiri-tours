@@ -79,7 +79,7 @@ export default async function DashboardPage() {
     supabase
       .from("reservations")
       .select(`
-        id, departure_date, status, adults, children,
+        id, departure_date, status, adults, children, guide_id, vehicle_id,
         circuit:circuits(id, title)
       `)
       .eq("departure_date", todayStr)
@@ -151,12 +151,12 @@ export default async function DashboardPage() {
   }
   const trendMax = Math.max(...trend.map((t) => t.revenue), 1);
 
-  // Today's departures — isAssigned always false (team/vehicle assignment tables not yet implemented)
+  // Today's departures
   const todayDepartures = todayReservations.map((r) => ({
     id: r.id,
     title: r.circuit?.title ?? "—",
     pax: r.adults + r.children,
-    isAssigned: false,
+    isAssigned: r.guide_id !== null && r.vehicle_id !== null,
   }));
   const todayPaxTotal = todayDepartures.reduce((s, r) => s + r.pax, 0);
 
