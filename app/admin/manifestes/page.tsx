@@ -1,79 +1,138 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate } from "@/lib/utils";
-import { FileText, ArrowRight } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { ChevronRight, FileText, Users } from "lucide-react";
+import { formatDateShort } from "@/lib/utils";
 
-export default async function ManifestesPage() {
+const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+
+interface PageProps { searchParams: Promise<{ year?: string }> }
+
+export default async function ManifestesPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const currentYear = new Date().getFullYear();
+  const selectedYear = params.year ? parseInt(params.year, 10) : currentYear;
+
   const supabase = await createClient();
-  const today = new Date().toISOString().split("T")[0];
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
 
-  const { data: reservations } = await supabase
+  const { data: yearsData } = await supabase
     .from("reservations")
-    .select("departure_date, adults, children, status, circuits(id, slug, title)")
-    .gte("departure_date", today)
-    .in("status", ["confirmed", "paid"])
+    .select("departure_date")
+    .in("status", ["confirmed", "paid", "completed"])
+    .order("departure_date", { ascending: false });
+
+  const yearsSet = new Set<number>();
+  (yearsData || []).forEach(r => yearsSet.add(new Date(r.departure_date).getFullYear()));
+  if (!yearsSet.has(currentYear)) yearsSet.add(currentYear);
+  const years = Array.from(yearsSet).sort((a, b) => b - a);
+
+  const yearStart = `${selectedYear}-01-01`;
+  const yearEnd = `${selectedYear}-12-31`;
+  const { data: departures } = await supabase
+    .from("reservations")
+    .select(`id, departure_date, adults, children, reference, status,
+             customer:customers(full_name),
+             circuit:circuits(id, title)`)
+    .in("status", ["confirmed", "paid", "completed"])
+    .gte("departure_date", yearStart)
+    .lte("departure_date", yearEnd)
     .order("departure_date", { ascending: true });
 
-  const groups: Record<string, { date: string; circuitId: string; circuitSlug: string; circuitTitle: string; reservations: number; pax: number }> = {};
-  (reservations || []).forEach((r: any) => {
-    const key = `${r.departure_date}__${r.circuits?.id}`;
-    if (!groups[key]) {
-      groups[key] = {
-        date: r.departure_date,
-        circuitId: r.circuits?.id,
-        circuitSlug: r.circuits?.slug,
-        circuitTitle: r.circuits?.title,
-        reservations: 0,
-        pax: 0,
-      };
-    }
-    groups[key].reservations += 1;
-    groups[key].pax += r.adults + r.children;
-  });
+  type Manifest = { date: string; circuitId: string; circuitTitle: string; reservations: any[]; totalPax: number };
+  type MonthGroup = { month: number; manifests: Map<string, Manifest>; totalManifests: number; totalPax: number };
 
-  const list = Object.values(groups).sort((a, b) => a.date.localeCompare(b.date));
+  const monthMap: Record<number, MonthGroup> = {};
+  for (const r of departures || []) {
+    const d = new Date(r.departure_date);
+    const month = d.getMonth();
+    const circuit = r.circuit as any;
+    if (!circuit) continue;
+    const key = `${r.departure_date}__${circuit.id}`;
+    if (!monthMap[month]) monthMap[month] = { month, manifests: new Map(), totalManifests: 0, totalPax: 0 };
+    if (!monthMap[month].manifests.has(key)) {
+      monthMap[month].manifests.set(key, {
+        date: r.departure_date, circuitId: circuit.id, circuitTitle: circuit.title,
+        reservations: [], totalPax: 0,
+      });
+      monthMap[month].totalManifests += 1;
+    }
+    const m = monthMap[month].manifests.get(key)!;
+    m.reservations.push(r);
+    m.totalPax += r.adults + r.children;
+    monthMap[month].totalPax += r.adults + r.children;
+  }
+
+  const months = Object.values(monthMap).sort((a, b) => a.month - b.month);
+  const currentMonth = new Date().getMonth();
+  const isCurrentYear = selectedYear === currentYear;
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
-      <div className="mb-8">
-        <p className="eyebrow mb-2">Module 1 — Opérations terrain</p>
+    <div className="p-8 max-w-6xl mx-auto">
+      <div className="mb-6">
+        <p className="eyebrow mb-2">Opérations</p>
         <h1 className="font-display text-3xl text-ink">Manifestes passagers</h1>
-        <p className="text-sm text-sand-700 mt-2">Liste des départs à venir avec réservations confirmées ou payées. Générez le manifeste pour chaque départ.</p>
+        <p className="text-sm text-sand-700 mt-1">Départs groupés par année et par mois.</p>
       </div>
 
-      {list.length > 0 ? (
-        <div className="bg-white border border-sand-200 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-sand-100 border-b border-sand-200">
-              <tr>
-                <th className="text-left px-5 py-3 font-medium text-sand-800">Date de départ</th>
-                <th className="text-left px-5 py-3 font-medium text-sand-800">Circuit</th>
-                <th className="text-right px-5 py-3 font-medium text-sand-800">Réservations</th>
-                <th className="text-right px-5 py-3 font-medium text-sand-800">Passagers</th>
-                <th className="px-5 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-sand-200">
-              {list.map((g) => (
-                <tr key={`${g.date}-${g.circuitId}`} className="hover:bg-sand-50">
-                  <td className="px-5 py-4 text-ink">{formatDate(g.date)}</td>
-                  <td className="px-5 py-4 text-ink">{g.circuitTitle}</td>
-                  <td className="px-5 py-4 text-right tabular-nums">{g.reservations}</td>
-                  <td className="px-5 py-4 text-right tabular-nums font-medium">{g.pax}</td>
-                  <td className="px-5 py-4 text-right">
-                    <Link href={`/admin/manifestes/${g.date}/${g.circuitId}`} target="_blank" className="inline-flex items-center gap-1 text-sm text-terracotta-600 hover:text-terracotta-700">
-                      <FileText className="size-3.5" />Manifeste<ArrowRight className="size-3" />
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="flex items-center gap-2 mb-6">
+        <span className="text-sm text-sand-700">Année :</span>
+        <div className="inline-flex gap-0.5 bg-sand-100 p-0.5 rounded-md">
+          {years.map(y => (
+            <Link key={y} href={`?year=${y}`}
+              className={`px-3 py-1 text-sm rounded transition ${selectedYear === y ? "bg-white shadow-sm font-medium text-ink" : "text-sand-700 hover:text-ink"}`}>
+              {y}
+            </Link>
+          ))}
         </div>
+      </div>
+
+      {months.length === 0 ? (
+        <Card><div className="p-8 text-center text-sand-700">Aucun départ programmé pour {selectedYear}.</div></Card>
       ) : (
-        <div className="bg-white border border-sand-200 rounded-lg p-12 text-center text-sand-700">
-          Aucun départ à venir avec réservations confirmées.
-        </div>
+        months.map(mg => {
+          const manifests = Array.from(mg.manifests.values()).sort((a, b) => a.date.localeCompare(b.date));
+          const isOpen = isCurrentYear && mg.month === currentMonth;
+          return (
+            <details key={mg.month} open={isOpen}
+              className="bg-white border border-sand-200 rounded-lg mb-3 overflow-hidden group [&_summary::-webkit-details-marker]:hidden">
+              <summary className="px-4 py-3 bg-sand-50 cursor-pointer flex items-center justify-between hover:bg-sand-100 list-none">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <ChevronRight className="size-4 text-sand-600 transition-transform group-open:rotate-90" />
+                  <h3 className="font-display text-lg text-ink m-0">{MONTHS[mg.month]} {selectedYear}</h3>
+                  <span className="text-xs text-sand-700 bg-white px-2 py-0.5 rounded-full border border-sand-200">
+                    {mg.totalManifests} manifeste{mg.totalManifests > 1 ? "s" : ""}
+                  </span>
+                  <span className="text-xs text-sand-600">{mg.totalPax} passager{mg.totalPax > 1 ? "s" : ""}</span>
+                </div>
+              </summary>
+              <div className="divide-y divide-sand-100">
+                {manifests.map(m => (
+                  <Link key={`${m.date}_${m.circuitId}`}
+                    href={`/admin/manifestes/${m.date}/${m.circuitId}`}
+                    className="flex items-center justify-between px-4 py-3 hover:bg-sand-50/50">
+                    <div className="flex items-center gap-3">
+                      <div className="size-9 rounded-md bg-atlantic-50 text-atlantic-700 flex flex-col items-center justify-center leading-none flex-shrink-0">
+                        <span className="text-[10px] uppercase">{MONTHS[new Date(m.date).getMonth()].slice(0, 3)}</span>
+                        <span className="text-sm font-medium">{new Date(m.date).getDate()}</span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-ink">{m.circuitTitle}</div>
+                        <div className="text-xs text-sand-700">{formatDateShort(m.date)} · {m.reservations.length} réservation{m.reservations.length > 1 ? "s" : ""}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-sm font-medium text-ink flex items-center gap-1"><Users className="size-3.5" />{m.totalPax}</div>
+                      <FileText className="size-4 text-sand-500" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </details>
+          );
+        })
       )}
     </div>
   );

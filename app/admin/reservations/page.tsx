@@ -1,156 +1,203 @@
 import Link from "next/link";
-import { Plus, Search, X } from "lucide-react";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Badge } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Plus, Search, ChevronRight } from "lucide-react";
 import { formatMAD, formatDateShort } from "@/lib/utils";
 
-const STATUS_OPTIONS = [
-  { value: "", label: "Tous les statuts" },
-  { value: "pending", label: "En attente" },
-  { value: "confirmed", label: "Confirmée" },
-  { value: "paid", label: "Payée" },
-  { value: "completed", label: "Terminée" },
-  { value: "cancelled", label: "Annulée" },
-];
+const STATUS_CONFIG: Record<string, { label: string; classes: string }> = {
+  pending:   { label: "En attente", classes: "bg-purple-50 text-purple-800 border border-purple-200" },
+  confirmed: { label: "Confirmée",  classes: "bg-emerald-50 text-emerald-800 border border-emerald-200" },
+  paid:      { label: "Payée",      classes: "bg-emerald-100 text-emerald-900 border border-emerald-300" },
+  completed: { label: "Terminée",   classes: "bg-atlantic-50 text-atlantic-800 border border-atlantic-200" },
+  cancelled: { label: "Annulée",    classes: "bg-red-50 text-red-800 border border-red-200" },
+};
+const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
-export default async function AdminReservationsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ created?: string; q?: string; status?: string; circuit?: string }>;
-}) {
-  const { created, q, status, circuit } = await searchParams;
+interface PageProps {
+  searchParams: Promise<{ period?: string; status?: string; q?: string; from?: string; to?: string }>;
+}
+
+export default async function ReservationsPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const period = params.period || "all";
+  const status = params.status || "";
+  const q = params.q || "";
+
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
 
-  const { data: circuits } = await supabase.from("circuits").select("id, title").eq("is_active", true).order("title");
+  const now = new Date();
+  let dateFrom: string | null = null;
+  let dateTo: string | null = null;
 
-  let query = supabase.from("reservations")
-    .select("*, circuits(id, title, slug, category), customers(id, full_name, email)")
-    .order("created_at", { ascending: false });
+  if (period === "this_week") {
+    const day = now.getDay() || 7;
+    const monday = new Date(now); monday.setDate(now.getDate() - day + 1);
+    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+    dateFrom = monday.toISOString().split("T")[0];
+    dateTo = sunday.toISOString().split("T")[0];
+  } else if (period === "this_month") {
+    dateFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    dateTo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${lastDay}`;
+  } else if (period === "this_year") {
+    dateFrom = `${now.getFullYear()}-01-01`;
+    dateTo = `${now.getFullYear()}-12-31`;
+  } else if (period === "custom") {
+    dateFrom = params.from || null;
+    dateTo = params.to || null;
+  }
 
-  if (status) query = query.eq("status", status);
-  if (circuit) query = query.eq("circuit_id", circuit);
+  let query = supabase
+    .from("reservations")
+    .select(`id, reference, departure_date, adults, children, total_amount_mad, status,
+             customer:customers(id, full_name, country),
+             circuit:circuits(id, title)`)
+    .order("departure_date", { ascending: false })
+    .limit(500);
 
-  const { data: allReservations } = await query;
-  const trimmedQ = (q || "").trim().toLowerCase();
-  const reservations = trimmedQ
-    ? (allReservations || []).filter((r: any) =>
-        r.reference?.toLowerCase().includes(trimmedQ) ||
-        r.customers?.full_name?.toLowerCase().includes(trimmedQ) ||
-        r.customers?.email?.toLowerCase().includes(trimmedQ)
-      )
-    : (allReservations || []);
+  if (dateFrom) query = query.gte("departure_date", dateFrom);
+  if (dateTo)   query = query.lte("departure_date", dateTo);
+  if (status)   query = query.eq("status", status);
+  if (q)        query = query.ilike("reference", `%${q}%`);
 
-  const hasFilters = !!(q || status || circuit);
+  const { data: reservations } = await query;
+  const items = reservations || [];
+
+  type Group = { key: string; year: number; month: number; items: typeof items; total: number; adults: number; children: number };
+  const groupsMap: Record<string, Group> = {};
+  for (const r of items) {
+    const d = new Date(r.departure_date);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (!groupsMap[key]) groupsMap[key] = { key, year: d.getFullYear(), month: d.getMonth(), items: [], total: 0, adults: 0, children: 0 };
+    groupsMap[key].items.push(r);
+    groupsMap[key].total += Number(r.total_amount_mad);
+    groupsMap[key].adults += r.adults;
+    groupsMap[key].children += r.children;
+  }
+  const groups = Object.values(groupsMap).sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month);
+  const currentKey = `${now.getFullYear()}-${now.getMonth()}`;
+
+  const buildLink = (overrides: Record<string, string>) => {
+    const sp = new URLSearchParams();
+    const merged = { period, status, q, ...overrides };
+    for (const [k, v] of Object.entries(merged)) {
+      if (v && v !== "all") sp.set(k, v);
+    }
+    const s = sp.toString();
+    return s ? `?${s}` : "/admin/reservations";
+  };
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex items-end justify-between mb-8">
+      <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
         <div>
-          <p className="eyebrow mb-2">Module 1 — Réservations</p>
-          <h1 className="font-display text-3xl text-ink">Dossiers de réservation</h1>
+          <p className="eyebrow mb-2">Ventes</p>
+          <h1 className="font-display text-3xl text-ink">Réservations</h1>
+          <p className="text-sm text-sand-700 mt-1">{items.length} réservation{items.length > 1 ? "s" : ""}</p>
         </div>
         <Link href="/admin/reservations/new"><Button><Plus className="size-4" />Nouvelle réservation</Button></Link>
       </div>
 
-      {created && (
-        <div className="mb-6 p-4 rounded-md bg-emerald-50 border border-emerald-200 text-sm text-emerald-900">
-          ✅ Réservation <span className="font-mono">{created}</span> créée avec succès.
+      <div className="bg-white border border-sand-200 rounded-lg p-3 mb-6 flex flex-wrap items-center gap-3">
+        <div className="inline-flex gap-0.5 bg-sand-100 p-0.5 rounded-md shrink-0">
+          {[
+            { v: "all",        l: "Tous" },
+            { v: "this_week",  l: "Cette semaine" },
+            { v: "this_month", l: "Ce mois" },
+            { v: "this_year",  l: "Cette année" },
+          ].map(p => (
+            <Link key={p.v} href={buildLink({ period: p.v })}
+              className={`px-3 py-1 text-sm rounded transition ${period === p.v ? "bg-white shadow-sm font-medium text-ink" : "text-sand-700 hover:text-ink"}`}>
+              {p.l}
+            </Link>
+          ))}
         </div>
-      )}
 
-      <form method="get" className="bg-white border border-sand-200 rounded-lg p-4 mb-4 flex flex-wrap gap-3 items-end">
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs uppercase tracking-wide text-sand-600 mb-1">Recherche</label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-sand-500" />
-            <Input name="q" defaultValue={q || ""} placeholder="Référence, nom client, email..." className="pl-9" />
+        <form action="/admin/reservations" method="get" className="flex flex-wrap items-center gap-2 flex-1">
+          {period !== "all" && <input type="hidden" name="period" value={period} />}
+          <select name="status" defaultValue={status}
+            className="text-sm rounded border border-sand-300 px-3 py-1.5 bg-white h-9">
+            <option value="">Tous statuts</option>
+            <option value="pending">En attente</option>
+            <option value="confirmed">Confirmée</option>
+            <option value="paid">Payée</option>
+            <option value="completed">Terminée</option>
+            <option value="cancelled">Annulée</option>
+          </select>
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-sand-500 pointer-events-none" />
+            <input name="q" defaultValue={q} placeholder="Référence, client…"
+              className="w-full h-9 pl-8 pr-3 text-sm rounded border border-sand-300" />
           </div>
-        </div>
-        <div className="min-w-[180px]">
-          <label className="block text-xs uppercase tracking-wide text-sand-600 mb-1">Statut</label>
-          <Select name="status" defaultValue={status || ""}>
-            {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </Select>
-        </div>
-        <div className="min-w-[180px]">
-          <label className="block text-xs uppercase tracking-wide text-sand-600 mb-1">Circuit</label>
-          <Select name="circuit" defaultValue={circuit || ""}>
-            <option value="">Tous les circuits</option>
-            {circuits?.map((c: any) => <option key={c.id} value={c.id}>{c.title}</option>)}
-          </Select>
-        </div>
-        <Button type="submit" size="md">Filtrer</Button>
-        {hasFilters && (
-          <Link href="/admin/reservations">
-            <Button type="button" variant="secondary" size="md"><X className="size-3.5" />Réinitialiser</Button>
-          </Link>
-        )}
-      </form>
-
-      {hasFilters && (
-        <p className="text-xs text-sand-700 mb-3">{reservations.length} résultat{reservations.length > 1 ? "s" : ""}</p>
-      )}
-
-      <div className="bg-white border border-sand-200 rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-sand-100 border-b border-sand-200">
-            <tr>
-              <th className="text-left px-5 py-3 font-medium text-sand-800">Référence</th>
-              <th className="text-left px-5 py-3 font-medium text-sand-800">Circuit</th>
-              <th className="text-left px-5 py-3 font-medium text-sand-800">Client</th>
-              <th className="text-left px-5 py-3 font-medium text-sand-800">Départ</th>
-              <th className="text-right px-5 py-3 font-medium text-sand-800">Pax</th>
-              <th className="text-right px-5 py-3 font-medium text-sand-800">Encaissé / Total</th>
-              <th className="text-left px-5 py-3 font-medium text-sand-800">Statut</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-sand-200">
-            {reservations.length > 0 ? reservations.map((r: any) => {
-              const totalPaid = Number(r.paid_amount_mad);
-              const totalAmount = Number(r.total_amount_mad);
-              const balance = totalAmount - totalPaid;
-              const cust = r.customers;
-              return (
-                <tr key={r.id} className="hover:bg-sand-50 transition-colors">
-                  <td className="px-5 py-4">
-                    <Link href={`/admin/reservations/${r.id}`} className="font-mono text-sm text-terracotta-600 hover:text-terracotta-700 hover:underline">{r.reference}</Link>
-                  </td>
-                  <td className="px-5 py-4"><div className="text-ink">{r.circuits?.title ?? "—"}</div></td>
-                  <td className="px-5 py-4">
-                    {cust ? <Link href={`/admin/clients/${cust.id}`} className="text-ink hover:text-terracotta-600">{cust.full_name}</Link> : <span className="text-sand-500">—</span>}
-                    {cust?.email && <div className="text-xs text-sand-600">{cust.email}</div>}
-                  </td>
-                  <td className="px-5 py-4 text-sand-800">{formatDateShort(r.departure_date)}</td>
-                  <td className="px-5 py-4 text-right tabular-nums">{r.adults + r.children}<span className="text-xs text-sand-600 ml-1">({r.adults}A{r.children > 0 ? `/${r.children}E` : ""})</span></td>
-                  <td className="px-5 py-4 text-right tabular-nums">
-                    <span className={balance <= 0 ? "text-emerald-700 font-medium" : "text-ink"}>{formatMAD(totalPaid)}</span>
-                    <span className="text-sand-500"> / {formatMAD(totalAmount)}</span>
-                  </td>
-                  <td className="px-5 py-4"><StatusBadge status={r.status} /></td>
-                </tr>
-              );
-            }) : (
-              <tr><td colSpan={7} className="px-5 py-12 text-center text-sand-700">
-                {hasFilters ? "Aucun résultat pour ces filtres." : "Aucune réservation pour le moment."}
-              </td></tr>
-            )}
-          </tbody>
-        </table>
+          <button type="submit" className="h-9 px-3 text-sm rounded border border-sand-300 bg-white hover:bg-sand-50">
+            Filtrer
+          </button>
+        </form>
       </div>
+
+      {groups.length === 0 ? (
+        <Card><div className="p-8 text-center text-sand-700">Aucune réservation trouvée avec ces filtres.</div></Card>
+      ) : (
+        groups.map(g => (
+          <details key={g.key} open={g.key === currentKey || groups.length <= 2}
+            className="bg-white border border-sand-200 rounded-lg mb-3 overflow-hidden group [&_summary::-webkit-details-marker]:hidden">
+            <summary className="px-4 py-3 bg-sand-50 cursor-pointer flex items-center justify-between hover:bg-sand-100 list-none">
+              <div className="flex items-center gap-3 flex-wrap">
+                <ChevronRight className="size-4 text-sand-600 transition-transform group-open:rotate-90" />
+                <h3 className="font-display text-lg text-ink m-0">{MONTHS[g.month]} {g.year}</h3>
+                <span className="text-xs text-sand-700 bg-white px-2 py-0.5 rounded-full border border-sand-200">
+                  {g.items.length} réservation{g.items.length > 1 ? "s" : ""}
+                </span>
+                <span className="text-xs text-sand-600">{g.adults} adulte{g.adults > 1 ? "s" : ""} · {g.children} enfant{g.children > 1 ? "s" : ""}</span>
+              </div>
+              <div className="text-sm font-medium text-ink">{formatMAD(g.total)}</div>
+            </summary>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-sand-50/50 border-y border-sand-200">
+                  <tr>
+                    <th className="text-left px-4 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Référence</th>
+                    <th className="text-left px-3 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Date</th>
+                    <th className="text-left px-3 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Client</th>
+                    <th className="text-left px-3 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Circuit</th>
+                    <th className="text-center px-3 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Pax</th>
+                    <th className="text-center px-3 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Statut</th>
+                    <th className="text-right px-4 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Montant</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {g.items.map(r => {
+                    const cfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.pending;
+                    const customer = r.customer as any;
+                    const circuit = r.circuit as any;
+                    return (
+                      <tr key={r.id} className="border-t border-sand-100 hover:bg-sand-50/50">
+                        <td className="px-4 py-3">
+                          <Link href={`/admin/reservations/${r.id}`} className="font-mono text-xs text-sand-700 hover:text-terracotta-700">{r.reference}</Link>
+                        </td>
+                        <td className="px-3 py-3 text-sand-800 whitespace-nowrap">{formatDateShort(r.departure_date)}</td>
+                        <td className="px-3 py-3">
+                          <Link href={`/admin/reservations/${r.id}`} className="text-ink hover:text-terracotta-700">{customer?.full_name || "—"}</Link>
+                        </td>
+                        <td className="px-3 py-3 text-sand-700 text-xs">{circuit?.title || "—"}</td>
+                        <td className="px-3 py-3 text-center text-sand-800 whitespace-nowrap">{r.adults}/{r.children}</td>
+                        <td className="px-3 py-3 text-center">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium ${cfg.classes}`}>{cfg.label}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium tabular-nums whitespace-nowrap">{formatMAD(r.total_amount_mad)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        ))
+      )}
     </div>
   );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const config: Record<string, { tone: "warning"|"info"|"success"|"danger"|"neutral"; label: string }> = {
-    pending: { tone: "warning", label: "En attente" },
-    confirmed: { tone: "info", label: "Confirmée" },
-    paid: { tone: "success", label: "Payée" },
-    cancelled: { tone: "danger", label: "Annulée" },
-    completed: { tone: "neutral", label: "Terminée" },
-  };
-  const c = config[status] ?? { tone: "neutral" as const, label: status };
-  return <Badge tone={c.tone}>{c.label}</Badge>;
 }

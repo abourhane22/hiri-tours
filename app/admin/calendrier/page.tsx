@@ -77,17 +77,30 @@ export default async function CalendrierPage({ searchParams }: { searchParams: P
       </div>
 
       <div className="bg-white border border-sand-200 rounded-lg p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Link href={`/admin/calendrier?y=${prevMonth.y}&m=${prevMonth.m}${circuitQS}`}>
-            <button className="size-9 rounded-md border border-sand-300 hover:bg-sand-100 flex items-center justify-center"><ChevronLeft className="size-4" /></button>
-          </Link>
-          <h2 className="font-display text-xl text-ink min-w-[200px] text-center">{MONTHS_FR[month]} {year}</h2>
-          <Link href={`/admin/calendrier?y=${nextMonth.y}&m=${nextMonth.m}${circuitQS}`}>
-            <button className="size-9 rounded-md border border-sand-300 hover:bg-sand-100 flex items-center justify-center"><ChevronRight className="size-4" /></button>
-          </Link>
-          <Link href={`/admin/calendrier${circuit ? `?circuit=${circuit}` : ""}`}>
-            <button className="px-3 h-9 rounded-md border border-sand-300 hover:bg-sand-100 text-sm">Aujourd&apos;hui</button>
-          </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Link href={`/admin/calendrier?y=${prevMonth.y}&m=${prevMonth.m}${circuitQS}`}>
+              <button className="size-9 rounded-md border border-sand-300 hover:bg-sand-100 flex items-center justify-center"><ChevronLeft className="size-4" /></button>
+            </Link>
+            <h2 className="font-display text-xl text-ink min-w-[200px] text-center">{MONTHS_FR[month]} {year}</h2>
+            <Link href={`/admin/calendrier?y=${nextMonth.y}&m=${nextMonth.m}${circuitQS}`}>
+              <button className="size-9 rounded-md border border-sand-300 hover:bg-sand-100 flex items-center justify-center"><ChevronRight className="size-4" /></button>
+            </Link>
+            <Link href={`/admin/calendrier${circuit ? `?circuit=${circuit}` : ""}`}>
+              <button className="px-3 h-9 rounded-md border border-sand-300 hover:bg-sand-100 text-sm">Aujourd&apos;hui</button>
+            </Link>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-sand-700">Année :</span>
+            <div className="inline-flex gap-0.5 bg-sand-100 p-0.5 rounded-md">
+              {[year - 1, year, year + 1].map(yr => (
+                <Link key={yr} href={`/admin/calendrier?y=${yr}&m=${month}${circuitQS}`}
+                  className={`px-3 py-1 text-sm rounded transition ${year === yr ? "bg-white shadow-sm font-medium text-ink" : "text-sand-700 hover:text-ink"}`}>
+                  {yr}
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
         <form method="get" className="flex items-center gap-2">
           <input type="hidden" name="y" value={year} />
