@@ -107,27 +107,33 @@ export default async function FacturesPage({ searchParams }: { searchParams: Sea
   if (error) console.error("Failed to load invoices", error);
   const all = (data ?? []) as unknown as Invoice[];
 
+  // Liste des années disponibles (toujours depuis le dataset complet)
+  const yearsSet = new Set<number>();
+  all.forEach((inv) => yearsSet.add(new Date(inv.issued_at).getFullYear()));
+  const years = Array.from(yearsSet).sort((a, b) => b - a);
+
+  // Sous-ensemble filtré par année (sert de base pour les KPIs ET les filtres suivants)
+  const yearScoped =
+    yearFilter === "all"
+      ? all
+      : all.filter((i) => new Date(i.issued_at).getFullYear() === parseInt(yearFilter));
+
+  // KPIs calculés sur le périmètre année (donc ils suivent le filtre année)
   const stats: Record<string, { count: number; total: number }> = {
     issued: { count: 0, total: 0 },
     paid: { count: 0, total: 0 },
     cancelled: { count: 0, total: 0 },
   };
-  all.forEach((inv) => {
+  yearScoped.forEach((inv) => {
     if (stats[inv.status]) {
       stats[inv.status].count++;
       stats[inv.status].total += Number(inv.total_ttc_mad);
     }
   });
 
-  const yearsSet = new Set<number>();
-  all.forEach((inv) => yearsSet.add(new Date(inv.issued_at).getFullYear()));
-  const years = Array.from(yearsSet).sort((a, b) => b - a);
-
-  let filtered = all;
+  // Filtres statut + recherche appliqués par-dessus
+  let filtered = yearScoped;
   if (statusFilter) filtered = filtered.filter((i) => i.status === statusFilter);
-  if (yearFilter !== "all") {
-    filtered = filtered.filter((i) => new Date(i.issued_at).getFullYear() === parseInt(yearFilter));
-  }
   if (q) {
     const term = q.toLowerCase();
     filtered = filtered.filter((i) => {
