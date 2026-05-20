@@ -36,7 +36,12 @@ function inDateRange(date: string, start: Date, end: Date): boolean {
   return d >= start && d <= end;
 }
 
-export default async function DashboardPage() {
+type SearchParams = Promise<{ trendView?: string }>;
+
+export default async function DashboardPage({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  const trendView = params.trendView ?? "12m";
+
   const supabase = await createClient();
   const now = new Date();
   const monthStart = startOfMonth(now);
@@ -46,6 +51,7 @@ export default async function DashboardPage() {
   const yearStart = startOfYear(now);
   const yearEnd = endOfYear(now);
   const twelveMonthsStart = addMonths(now, -11);
+  const trendFetchStart = addMonths(now, -36);
   const todayStr = isoDate(now);
   const thirtyDaysOut = isoDate(new Date(now.getTime() + 30 * 86400000));
 
@@ -65,7 +71,7 @@ export default async function DashboardPage() {
         id, status, departure_date, total_amount_mad, adults, children,
         circuit:circuits(id, title)
       `)
-      .gte("departure_date", isoDate(twelveMonthsStart)),
+      .gte("departure_date", isoDate(trendFetchStart)),
     supabase
       .from("reservations")
       .select("total_amount_mad, status")
@@ -109,6 +115,11 @@ export default async function DashboardPage() {
   const company = companyResult.data as any;
   const newCustomers = (newCustomersResult.data ?? []) as any[];
 
+  // Années disponibles dans les données (desc)
+  const yearsAvailable = Array.from(
+    new Set(allReservations.map((r) => new Date(r.departure_date).getFullYear()))
+  ).sort((a, b) => b - a);
+
   // Hero KPIs
   const currentMonthRes = allReservations.filter(
     (r) => r.status !== "cancelled" && inDateRange(r.departure_date, monthStart, monthEnd)
@@ -138,16 +149,33 @@ export default async function DashboardPage() {
   const annualTarget = Number(company?.annual_revenue_target_mad ?? 600000);
   const ytdProgress = Math.min(100, Math.round((ytdRevenue / annualTarget) * 100));
 
-  // 12-month trend
+  // Trend selon vue : 12 mois glissants OU année calendaire
   const trend: { label: string; revenue: number; isCurrent: boolean }[] = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = addMonths(now, -i);
-    const ms = startOfMonth(d);
-    const me = endOfMonth(d);
-    const rev = allReservations
-      .filter((r) => r.status !== "cancelled" && inDateRange(r.departure_date, ms, me))
-      .reduce((s, r) => s + Number(r.total_amount_mad), 0);
-    trend.push({ label: MONTH_LABELS_FR[d.getMonth()], revenue: rev, isCurrent: i === 0 });
+  if (trendView === "12m") {
+    for (let i = 11; i >= 0; i--) {
+      const d = addMonths(now, -i);
+      const ms = startOfMonth(d);
+      const me = endOfMonth(d);
+      const rev = allReservations
+        .filter((r) => r.status !== "cancelled" && inDateRange(r.departure_date, ms, me))
+        .reduce((s, r) => s + Number(r.total_amount_mad), 0);
+      trend.push({ label: MONTH_LABELS_FR[d.getMonth()], revenue: rev, isCurrent: i === 0 });
+    }
+  } else {
+    const year = parseInt(trendView);
+    for (let m = 0; m < 12; m++) {
+      const d = new Date(year, m, 1);
+      const ms = startOfMonth(d);
+      const me = endOfMonth(d);
+      const rev = allReservations
+        .filter((r) => r.status !== "cancelled" && inDateRange(r.departure_date, ms, me))
+        .reduce((s, r) => s + Number(r.total_amount_mad), 0);
+      trend.push({
+        label: MONTH_LABELS_FR[m],
+        revenue: rev,
+        isCurrent: year === now.getFullYear() && m === now.getMonth(),
+      });
+    }
   }
   const trendMax = Math.max(...trend.map((t) => t.revenue), 1);
 
@@ -352,7 +380,36 @@ export default async function DashboardPage() {
 
       {/* TREND */}
       <div>
-        <p className="text-sm text-stone-500 mb-2">Tendance 12 mois</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm text-stone-500">
+            {trendView === "12m" ? "Tendance · 12 derniers mois" : `Tendance · année ${trendView}`}
+          </p>
+          <div className="flex gap-1.5 text-xs">
+            <Link
+              href="/admin"
+              className={`px-2.5 py-1 rounded-full transition ${
+                trendView === "12m"
+                  ? "bg-navy-900 text-white"
+                  : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+              }`}
+            >
+              12 mois
+            </Link>
+            {yearsAvailable.map((y) => (
+              <Link
+                key={y}
+                href={`/admin?trendView=${y}`}
+                className={`px-2.5 py-1 rounded-full transition ${
+                  trendView === String(y)
+                    ? "bg-navy-900 text-white"
+                    : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                }`}
+              >
+                {y}
+              </Link>
+            ))}
+          </div>
+        </div>
         <div className="bg-white border border-stone-200 rounded-2xl p-5">
           <div className="flex items-end gap-2 h-32 mb-2">
             {trend.map((t, i) => (
