@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { DocumentsManager } from "@/components/documents-manager";
+import { DateWithStatusInput } from "@/components/date-with-status-input";
 import { ArrowLeft } from "lucide-react";
 import { createVehicle } from "../actions";
 
@@ -43,11 +44,11 @@ export default function NewVehiculePage() {
         <div className="pt-3 border-t border-sand-200 space-y-4">
           <p className="text-xs text-sand-600 uppercase tracking-wide font-medium">Échéances</p>
           <div className="grid sm:grid-cols-2 gap-4">
-            <div><Label htmlFor="next_maintenance_date">Prochaine vidange (date)</Label><Input id="next_maintenance_date" name="next_maintenance_date" type="date" /></div>
+            <DateWithStatusInput id="next_maintenance_date" name="next_maintenance_date" label="Prochaine vidange (date)" />
             <div><Label htmlFor="next_maintenance_km">Prochaine vidange (km)</Label><Input id="next_maintenance_km" name="next_maintenance_km" type="number" min="0" /></div>
-            <div><Label htmlFor="insurance_expires_on">Expiration assurance</Label><Input id="insurance_expires_on" name="insurance_expires_on" type="date" /></div>
-            <div><Label htmlFor="inspection_expires_on">Expiration visite technique</Label><Input id="inspection_expires_on" name="inspection_expires_on" type="date" /></div>
-            <div className="sm:col-span-2"><Label htmlFor="vignette_expires_on">Expiration vignette</Label><Input id="vignette_expires_on" name="vignette_expires_on" type="date" /></div>
+            <DateWithStatusInput id="insurance_expires_on" name="insurance_expires_on" label="Expiration assurance" />
+            <DateWithStatusInput id="inspection_expires_on" name="inspection_expires_on" label="Expiration visite technique" />
+            <div className="sm:col-span-2"><DateWithStatusInput id="vignette_expires_on" name="vignette_expires_on" label="Expiration vignette" /></div>
           </div>
         </div>
 
