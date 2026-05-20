@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import {
-  LayoutDashboard, Calendar, Map, Users, Receipt, FileText, BarChart3, LogOut, Settings, Truck, Wallet, ChevronDown, Package, Compass, Tag,
+  LayoutDashboard, Calendar, Map, Users, Receipt, FileText, BarChart3, LogOut, Settings, Truck, Wallet, ChevronDown, Package, Compass, Tag, Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { userCan, type Permission } from "@/lib/permissions";
@@ -37,6 +37,7 @@ const financeGroup: NavGroup = {
   match: ["/admin/factures", "/admin/finance"],
   permission: "viewFinance",
   items: [
+    { href: "/admin/finance/pilotage", label: "Pilotage", icon: Target },
     { href: "/admin/factures", label: "Factures", icon: Receipt },
     { href: "/admin/finance/depenses", label: "Dépenses", icon: Wallet },
     { href: "/admin/finance/pnl", label: "P&L mensuel", icon: BarChart3 },
