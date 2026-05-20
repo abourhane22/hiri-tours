@@ -131,3 +131,89 @@ export function getMonthRange(monthStr?: string): { start: string; end: string; 
     label: `${months[m - 1]} ${y}`,
   };
 }
+
+export interface AnnualCategory {
+  id: string;
+  name: string;
+  type: "direct" | "overhead";
+}
+
+export interface AnnualMonth {
+  month: number;
+  monthLabel: string;
+  revenueTTC: number;
+  vatCollected: number;
+  revenueHT: number;
+  costsByCategory: Record<string, number>;
+  directCosts: number;
+  overheadCosts: number;
+  grossMargin: number;
+  grossMarginPct: number;
+  netResult: number;
+  netMarginPct: number;
+}
+
+export interface AnnualResult {
+  year: number;
+  months: AnnualMonth[];
+  total: AnnualMonth;
+  categories: AnnualCategory[];
+  tvaRate: number;
+}
+
+export async function computeAnnualResult(year: number, supabase: any): Promise<AnnualResult> {
+  const startDate = `${year}-01-01`;
+  const endDate = `${year + 1}-01-01`;
+
+  const [resReservations, resExpenses, resCategories, resSettings] = await Promise.all([
+    supabase.from("reservations").select("total_amount_mad, departure_date, status").gte("departure_date", startDate).lt("departure_date", endDate).in("status", ["paid", "completed"]),
+    supabase.from("expenses").select("amount_mad, expense_date, category_id").gte("expense_date", startDate).lt("expense_date", endDate),
+    supabase.from("cost_categories").select("id, name, type, sort_order").order("sort_order", { ascending: true }),
+    supabase.from("company_settings").select("tva_default_rate").limit(1).single(),
+  ]);
+
+  const reservations = (resReservations.data || []) as any[];
+  const expenses = (resExpenses.data || []) as any[];
+  const categories = (resCategories.data || []) as AnnualCategory[];
+  const tvaRate = Number(resSettings.data?.tva_default_rate ?? 0.20);
+  const directIds = new Set(categories.filter(c => c.type === "direct").map(c => c.id));
+
+  const monthLabels = ["Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin", "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc."];
+
+  function buildBucket(m: number, monthRes: any[], monthExp: any[], label: string): AnnualMonth {
+    const revenueTTC = monthRes.reduce((s, r) => s + Number(r.total_amount_mad), 0);
+    const revenueHT = revenueTTC / (1 + tvaRate);
+    const vatCollected = revenueTTC - revenueHT;
+
+    const costsByCategory: Record<string, number> = {};
+    let directCosts = 0, overheadCosts = 0;
+    for (const e of monthExp) {
+      const amt = Number(e.amount_mad);
+      costsByCategory[e.category_id] = (costsByCategory[e.category_id] || 0) + amt;
+      if (directIds.has(e.category_id)) directCosts += amt;
+      else overheadCosts += amt;
+    }
+    const grossMargin = revenueHT - directCosts;
+    const grossMarginPct = revenueHT > 0 ? (grossMargin / revenueHT) * 100 : 0;
+    const netResult = grossMargin - overheadCosts;
+    const netMarginPct = revenueHT > 0 ? (netResult / revenueHT) * 100 : 0;
+
+    return { month: m, monthLabel: label, revenueTTC, vatCollected, revenueHT, costsByCategory, directCosts, overheadCosts, grossMargin, grossMarginPct, netResult, netMarginPct };
+  }
+
+  const months: AnnualMonth[] = [];
+  for (let m = 0; m < 12; m++) {
+    const monthRes = reservations.filter(r => {
+      const d = new Date(r.departure_date);
+      return d.getUTCFullYear() === year && d.getUTCMonth() === m;
+    });
+    const monthExp = expenses.filter(e => {
+      const d = new Date(e.expense_date);
+      return d.getUTCFullYear() === year && d.getUTCMonth() === m;
+    });
+    months.push(buildBucket(m, monthRes, monthExp, monthLabels[m]));
+  }
+
+  const total = buildBucket(-1, reservations, expenses, "Total");
+  return { year, months, total, categories, tvaRate };
+}

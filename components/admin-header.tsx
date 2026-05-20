@@ -40,6 +40,7 @@ const financeGroup: NavGroup = {
     { href: "/admin/factures", label: "Factures", icon: Receipt },
     { href: "/admin/finance/depenses", label: "Dépenses", icon: Wallet },
     { href: "/admin/finance/pnl", label: "P&L mensuel", icon: BarChart3 },
+    { href: "/admin/finance/resultat-annuel", label: "Compte de résultat annuel", icon: BarChart3 },
     { href: "/admin/finance/rentabilite", label: "Rentabilité par circuit", icon: Compass },
     { href: "/admin/finance/categories", label: "Catégories de coûts", icon: Tag },
   ],
