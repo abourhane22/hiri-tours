@@ -31,7 +31,7 @@ export default async function RapportsPage() {
   const [reservationsRes, circuitsRes, staffRes] = await Promise.all([
     supabase.from("reservations")
       .select("id, status, total_amount_mad, paid_amount_mad, departure_date, created_at, adults, children, circuit_id, customer_id, guide_id, driver_id, circuits(title, max_participants), customers(acquisition_source)")
-      .gte("created_at", startStr),
+      .gte("departure_date", startStr),
     supabase.from("circuits").select("id, title, max_participants").eq("is_active", true),
     supabase.from("staff_members").select("id, full_name, role").eq("is_active", true),
   ]);
@@ -41,7 +41,7 @@ export default async function RapportsPage() {
   const staff = (staffRes.data || []) as any[];
 
   // KPIs du mois en cours
-  const monthRes = reservations.filter((r) => r.created_at >= currentMonthStart);
+  const monthRes = reservations.filter((r) => r.departure_date >= currentMonthStart);
   const monthActive = monthRes.filter((r) => r.status !== "cancelled");
   const monthConverted = monthActive.filter((r) => r.status === "paid" || r.status === "completed");
   const monthRevenue = monthConverted.reduce((s, r) => s + Number(r.total_amount_mad), 0);
@@ -57,7 +57,7 @@ export default async function RapportsPage() {
     const monthStart = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
     const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
     const rev = reservations
-      .filter((r) => r.created_at >= monthStart && r.created_at <= monthEnd + "T23:59:59" && (r.status === "paid" || r.status === "completed"))
+      .filter((r) => r.departure_date >= monthStart && r.departure_date <= monthEnd && (r.status === "paid" || r.status === "completed"))
       .reduce((s, r) => s + Number(r.total_amount_mad), 0);
     monthlyRevenue.push({ month: monthLabel, revenue: Math.round(rev) });
   }
@@ -111,7 +111,7 @@ export default async function RapportsPage() {
         <div>
           <p className="eyebrow mb-2">Module 6 — Reporting BI</p>
           <h1 className="font-display text-3xl text-ink">Rapports analytiques</h1>
-          <p className="text-sm text-sand-700 mt-2">Performance commerciale et opérationnelle sur les 12 derniers mois.</p>
+          <p className="text-sm text-sand-700 mt-2">Performance commerciale et opérationnelle sur les 12 derniers mois de départs.</p>
         </div>
         <VoucherPrintButton />
       </div>
@@ -122,7 +122,7 @@ export default async function RapportsPage() {
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <KpiCard label="CA encaissé ce mois" value={formatMAD(monthRevenue)} icon={<TrendingUp className="size-5 text-terracotta-600" />} />
+        <KpiCard label="CA réalisé ce mois" value={formatMAD(monthRevenue)} icon={<TrendingUp className="size-5 text-terracotta-600" />} />
         <KpiCard label="Réservations ce mois" value={String(monthActive.length)} icon={<Calendar className="size-5 text-atlantic-700" />} />
         <KpiCard label="Taux de conversion" value={`${conversionRate}%`} icon={<Target className="size-5 text-emerald-700" />} sub={`${monthConverted.length} / ${monthActive.length}`} />
         <KpiCard label="À encaisser" value={formatMAD(outstanding)} icon={<AlertCircle className="size-5 text-amber-700" />} sub={`${reservations.filter((r) => r.status === "pending" || r.status === "confirmed").length} dossier(s)`} />
