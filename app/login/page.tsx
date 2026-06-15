@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
   searchParams,
@@ -30,67 +29,47 @@ export default async function LoginPage({
   }
 
   return (
-    <main className="min-h-screen bg-sand-50 flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/login" className="inline-flex items-baseline gap-2">
-            <span className="font-display text-3xl text-navy-700">Hiri Tours</span>
-            <span className="text-xs uppercase tracking-[0.2em] text-terracotta-600 font-medium">
+    <main className="min-h-screen flex flex-col lg:flex-row">
+      {/* Left panel — visual */}
+      <div className="relative h-48 lg:h-auto lg:w-1/2 shrink-0 overflow-hidden">
+        <Image
+          src="/login-bg.png"
+          alt="Agadir"
+          fill
+          className="object-cover object-center"
+          priority
+        />
+        {/* Overlay: dark at top and bottom, lighter in centre */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1A1F2E]/55 via-[#1A1F2E]/15 to-[#1A1F2E]/70" />
+
+        {/* Content over image */}
+        <div className="absolute inset-0 z-10 flex flex-col justify-between p-8 lg:p-10 text-white">
+          {/* Logo — always visible */}
+          <div className="flex items-baseline gap-2">
+            <span className="font-display text-2xl">Hiri Tours</span>
+            <span className="text-[10px] tracking-[0.25em] uppercase text-[#FFB89A] font-medium">
               Backoffice
             </span>
-          </Link>
+          </div>
+
+          {/* Tagline — desktop only (bandeau mobile too short) */}
+          <div className="hidden lg:block">
+            <h2 className="font-display text-4xl leading-tight mb-3">
+              Pilotez l&apos;âme
+              <br />
+              d&apos;Agadir.
+            </h2>
+            <p className="text-[15px] opacity-90 max-w-sm">
+              Réservations, opérations, finance — votre agence touristique sur
+              une seule plateforme.
+            </p>
+          </div>
         </div>
+      </div>
 
-        <div className="bg-white border border-sand-200 rounded-lg p-8">
-          <h1 className="font-display text-2xl text-ink mb-2">Connexion</h1>
-          <p className="text-sm text-sand-700 mb-6">
-            Accédez à votre espace de gestion.
-          </p>
-
-          {error && (
-            <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-sm text-red-800">
-              {decodeURIComponent(error)}
-            </div>
-          )}
-
-          <form action={signIn} className="space-y-4">
-            <input type="hidden" name="next" value={next || "/"} />
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="vous@example.com"
-              />
-            </div>
-            <div>
-              <Label htmlFor="password">Mot de passe</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-              />
-            </div>
-            <Button type="submit" className="w-full" size="lg">
-              Se connecter
-            </Button>
-          </form>
-
-          <p className="text-sm text-sand-700 mt-6 text-center">
-            Pas encore de compte ?{" "}
-            <Link
-              href="/signup"
-              className="text-terracotta-600 hover:text-terracotta-700 font-medium"
-            >
-              Créez-en un
-            </Link>
-          </p>
-        </div>
+      {/* Right panel — form */}
+      <div className="flex-1 flex items-center justify-center bg-[#FAF5F0] px-9 py-11">
+        <LoginForm action={signIn} error={error} next={next || "/"} />
       </div>
     </main>
   );
