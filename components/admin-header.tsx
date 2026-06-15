@@ -105,7 +105,7 @@ export function AdminHeader({ userEmail, userRole }: { userEmail?: string; userR
   return (
     <header className="relative bg-navy-700 text-white sticky top-0 z-40 border-b border-navy-800 print:hidden">
       {/* Zellige pattern overlay — ton sur ton, n'affecte pas la lisibilité */}
-      <div className="absolute inset-0 bg-[url('/header-pattern.png')] bg-repeat bg-[length:180px] opacity-[0.25] pointer-events-none" />
+      <div className="absolute inset-0 bg-[url('/header-pattern.png')] bg-repeat bg-[length:180px] opacity-[0.4] pointer-events-none" />
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-3 flex items-center justify-between gap-6" ref={wrapperRef}>
         <Link href="/admin" className="flex items-baseline gap-2 shrink-0">
           <span className="font-display text-xl font-medium text-white">Hiri Tours</span>
