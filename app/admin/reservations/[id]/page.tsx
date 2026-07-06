@@ -2,20 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/input";
 import { Card, CardBody, Badge } from "@/components/ui/card";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
-import { ArrowLeft, Plus, Mail, Phone, FileText, Receipt, Truck } from "lucide-react";
-import {
-  updateStatus,
-  addPayment,
-  updateNotes,
-  cancelReservation,
-} from "./actions";
+import { ArrowLeft, Mail, Phone, FileText, Receipt, Truck } from "lucide-react";
+import { updateNotes, cancelReservation } from "./actions";
 import { IssueInvoiceButton } from "@/components/issue-invoice-button";
 import { AffectationForm } from "@/components/affectation-form";
 import { SendVoucherEmailButton } from "@/components/send-voucher-email-button";
 import { WhatsAppButton } from "@/components/whatsapp-button";
+import { ReservationStatusForm } from "@/components/reservation-status-form";
+import { PaymentForm } from "@/components/payment-form";
 import type { Invoice, CompanySettings } from "@/lib/types";
 
 const STATUS_CONFIG: Record<
@@ -106,8 +103,6 @@ export default async function ReservationDetailPage({
   const isCancelled = reservation.status === "cancelled";
 
   // Bind actions to this reservation's id
-  const updateStatusBound = updateStatus.bind(null, id);
-  const addPaymentBound = addPayment.bind(null, id);
   const updateNotesBound = updateNotes.bind(null, id);
   const cancelReservationBound = cancelReservation.bind(null, id);
 
@@ -328,60 +323,14 @@ export default async function ReservationDetailPage({
                 </p>
               )}
 
+              {!isCancelled && balance <= 0 && totalAmount > 0 && (
+                <div className="pt-4 border-t border-sand-200">
+                  <Badge tone="success">Réservation soldée</Badge>
+                </div>
+              )}
+
               {balance > 0 && !isCancelled && (
-                <form
-                  action={addPaymentBound}
-                  className="space-y-3 pt-4 border-t border-sand-200"
-                >
-                  <p className="text-xs text-sand-600 uppercase tracking-wide font-medium">
-                    Enregistrer un paiement
-                  </p>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="method">Méthode</Label>
-                      <Select
-                        id="method"
-                        name="method"
-                        required
-                        defaultValue="cash"
-                      >
-                        <option value="cash">Espèces</option>
-                        <option value="cmi">CMI Maroc</option>
-                        <option value="transfer">Virement</option>
-                        <option value="stripe">Stripe</option>
-                        <option value="paypal">PayPal</option>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="amount_mad">Montant (MAD)</Label>
-                      <Input
-                        id="amount_mad"
-                        name="amount_mad"
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        max={balance}
-                        defaultValue={balance.toFixed(2)}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="transaction_ref">
-                      Référence transaction (optionnel)
-                    </Label>
-                    <Input
-                      id="transaction_ref"
-                      name="transaction_ref"
-                      type="text"
-                      placeholder="TXN-12345..."
-                    />
-                  </div>
-                  <Button type="submit" size="sm">
-                    <Plus className="size-3.5" />
-                    Enregistrer le paiement
-                  </Button>
-                </form>
+                <PaymentForm reservationId={id} balance={balance} />
               )}
             </CardBody>
           </Card>
@@ -414,23 +363,10 @@ export default async function ReservationDetailPage({
               <h2 className="font-display text-lg text-ink">Statut</h2>
             </div>
             <CardBody>
-              <form action={updateStatusBound} className="space-y-3">
-                <Label htmlFor="status">Statut du dossier</Label>
-                <Select
-                  id="status"
-                  name="status"
-                  defaultValue={reservation.status}
-                >
-                  <option value="pending">En attente</option>
-                  <option value="confirmed">Confirmée</option>
-                  <option value="paid">Payée</option>
-                  <option value="completed">Terminée</option>
-                  <option value="cancelled">Annulée</option>
-                </Select>
-                <Button type="submit" className="w-full">
-                  Mettre à jour
-                </Button>
-              </form>
+              <ReservationStatusForm
+                reservationId={id}
+                currentStatus={reservation.status}
+              />
               <p className="text-xs text-sand-600 mt-3 leading-relaxed">
                 Le statut passe automatiquement en{" "}
                 <span className="font-medium">Payée</span> dès que le solde est

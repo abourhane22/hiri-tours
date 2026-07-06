@@ -3,14 +3,37 @@
 import { revalidatePath } from "next/cache";
 import { sendVoucherEmail, sendBookingConfirmation } from "@/lib/email";
 
-export async function sendVoucherEmailAction(reservationId: string) {
-  const result = await sendVoucherEmail(reservationId);
-  if (!result.success) {
-    if (result.skipped) throw new Error(`Email non envoyé : ${result.skipped}`);
-    throw new Error(`Échec de l'envoi : ${result.error}`);
+export type EmailActionResult =
+  | { ok: true; id?: string }
+  | { ok: false; error: string };
+
+export async function sendVoucherEmailAction(
+  reservationId: string,
+): Promise<EmailActionResult> {
+  try {
+    const result = await sendVoucherEmail(reservationId);
+
+    if (!result.success) {
+      const reason = result.skipped || result.error || "Erreur inconnue";
+      console.error(
+        `[sendVoucherEmailAction] Échec pour réservation ${reservationId}:`,
+        reason,
+      );
+      return { ok: false, error: reason };
+    }
+
+    revalidatePath(`/admin/reservations/${reservationId}`);
+    return { ok: true, id: result.id };
+  } catch (e: any) {
+    console.error(
+      `[sendVoucherEmailAction] Exception non gérée pour réservation ${reservationId}:`,
+      e,
+    );
+    return {
+      ok: false,
+      error: e?.message || "Erreur inattendue lors de l'envoi",
+    };
   }
-  revalidatePath(`/admin/reservations/${reservationId}`);
-  return result;
 }
 
 export async function sendBookingConfirmationAction(reservationId: string) {
