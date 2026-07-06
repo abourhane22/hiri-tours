@@ -19,7 +19,13 @@ type Feedback =
 export function ReservationStatusForm({ reservationId, currentStatus }: Props) {
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<Feedback>(null);
+  const [selectedStatus, setSelectedStatus] = useState(currentStatus);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Resync when the server re-renders with a fresh status (after revalidatePath).
+  useEffect(() => {
+    setSelectedStatus(currentStatus);
+  }, [currentStatus]);
 
   useEffect(() => {
     return () => {
@@ -61,7 +67,8 @@ export function ReservationStatusForm({ reservationId, currentStatus }: Props) {
         <Select
           id="status"
           name="status"
-          defaultValue={currentStatus}
+          value={selectedStatus}
+          onChange={(e) => setSelectedStatus(e.target.value)}
           disabled={isPending}
         >
           <option value="pending">En attente</option>

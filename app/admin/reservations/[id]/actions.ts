@@ -36,6 +36,7 @@ export async function updateStatus(
     return { ok: false, error: error.message };
   }
 
+  revalidatePath("/admin/reservations/[id]", "page");
   revalidatePath(`/admin/reservations/${id}`);
   revalidatePath("/admin/reservations");
   revalidatePath("/admin");
