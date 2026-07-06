@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { Card, CardBody, Badge } from "@/components/ui/card";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
-import { ArrowLeft, Mail, Phone, FileText, Receipt, Truck } from "lucide-react";
+import { ArrowLeft, Mail, Phone, FileText, Receipt, Truck, Info } from "lucide-react";
 import { updateNotes, cancelReservation } from "./actions";
 import { IssueInvoiceButton } from "@/components/issue-invoice-button";
 import { AffectationForm } from "@/components/affectation-form";
@@ -336,9 +336,20 @@ export default async function ReservationDetailPage({
           </Card>
 
           {/* Notes */}
-          <Card>
-            <div className="px-5 py-4 border-b border-sand-200">
+          <Card className="overflow-visible">
+            <div className="px-5 py-4 border-b border-sand-200 flex items-center gap-1.5">
               <h2 className="font-display text-lg text-ink">Notes internes</h2>
+              <span className="relative group inline-flex">
+                <Info className="size-3.5 text-sand-600 cursor-help" />
+                <span
+                  role="tooltip"
+                  className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 rounded-lg bg-[#1A1F2E] text-white text-xs px-3 py-2 leading-snug opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg"
+                >
+                  Renseignez ici les informations spécifiques à la réservation
+                  et à son type : allergies, régimes, hébergement, demandes
+                  particulières du client.
+                </span>
+              </span>
             </div>
             <CardBody>
               <form action={updateNotesBound} className="space-y-3">
@@ -346,7 +357,7 @@ export default async function ReservationDetailPage({
                   name="notes"
                   rows={4}
                   defaultValue={reservation.notes ?? ""}
-                  placeholder="Ajouter des notes sur ce dossier (allergies, demandes spéciales, source, etc.)..."
+                  placeholder="Allergies, préférences, demandes spéciales, particularités du groupe…"
                 />
                 <Button type="submit" variant="secondary" size="sm">
                   Enregistrer les notes

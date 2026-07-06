@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -11,6 +11,7 @@ import { formatMAD } from "@/lib/utils";
 import { ArrowLeft, Info } from "lucide-react";
 import type { Circuit, Customer, CircuitSeason } from "@/lib/types";
 import { sendBookingConfirmationAction } from "@/app/admin/reservations/[id]/email-actions";
+import { createReservation } from "./actions";
 
 type CircuitWithSeasons = Circuit & { circuit_seasons: CircuitSeason[] };
 
@@ -30,6 +31,8 @@ export default function NewReservationPage() {
   const [departureDate, setDepartureDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notesError, setNotesError] = useState<string | null>(null);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     supabase.from("circuits").select("*, circuit_seasons(*)").eq("is_active", true).order("title").then(({ data }) => {
@@ -55,22 +58,37 @@ export default function NewReservationPage() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setNotesError(null);
     if (!selectedCustomer) { setError("Veuillez sélectionner ou créer un client."); return; }
-    setSubmitting(true); setError(null);
+
     const formData = new FormData(e.currentTarget);
-    const payload = {
+    const notesRaw = (formData.get("notes") as string) || "";
+    if (!notesRaw.trim()) {
+      setNotesError("Les notes internes sont obligatoires");
+      notesRef.current?.focus();
+      return;
+    }
+
+    setSubmitting(true); setError(null);
+    const result = await createReservation({
       circuit_id: selectedCircuitId,
       customer_id: selectedCustomer.id,
       departure_date: formData.get("departure_date") as string,
-      adults, children,
+      adults,
+      children,
       total_amount_mad: total,
       status: formData.get("status") as string,
-      notes: (formData.get("notes") as string) || null,
-    };
-    const { data, error: insErr } = await supabase.from("reservations").insert(payload).select("id, reference").single();
-    if (insErr) { setError(insErr.message); setSubmitting(false); return; }
-    if (data?.id) sendBookingConfirmationAction(data.id).catch(() => {});
-    router.push(`/admin/reservations?created=${data?.reference}`);
+      notes: notesRaw,
+    });
+
+    if (!result.ok) {
+      setError(result.error);
+      setSubmitting(false);
+      return;
+    }
+
+    sendBookingConfirmationAction(result.id).catch(() => {});
+    router.push(`/admin/reservations?created=${result.reference}`);
   }
 
   return (
@@ -137,8 +155,40 @@ export default function NewReservationPage() {
         </div>
 
         <div>
-          <Label htmlFor="notes">Notes internes</Label>
-          <Textarea id="notes" name="notes" rows={3} />
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Label htmlFor="notes" className="mb-0">
+              Notes internes <span className="text-red-600">*</span>
+            </Label>
+            <span className="relative group inline-flex">
+              <Info className="size-3.5 text-sand-600 cursor-help" />
+              <span
+                role="tooltip"
+                className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 rounded-lg bg-[#1A1F2E] text-white text-xs px-3 py-2 leading-snug opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg"
+              >
+                Renseignez ici les informations spécifiques à la réservation et
+                à son type : allergies, régimes, hébergement, demandes
+                particulières du client.
+              </span>
+            </span>
+          </div>
+          <Textarea
+            ref={notesRef}
+            id="notes"
+            name="notes"
+            rows={3}
+            required
+            aria-invalid={notesError ? true : undefined}
+            aria-describedby={notesError ? "notes-error" : undefined}
+            placeholder="Allergies, préférences, demandes spéciales, particularités du groupe…"
+            onChange={() => {
+              if (notesError) setNotesError(null);
+            }}
+          />
+          {notesError && (
+            <p id="notes-error" className="text-sm text-red-600 mt-1">
+              {notesError}
+            </p>
+          )}
         </div>
 
         <div className="pt-4 border-t border-sand-200 flex items-center justify-between bg-sand-50 -mx-6 -mb-1 px-6 py-4">
