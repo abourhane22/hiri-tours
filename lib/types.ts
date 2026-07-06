@@ -42,6 +42,7 @@ export type Circuit = {
   hero_image_url: string | null;
   gallery_urls: string[] | null;
   is_active: boolean;
+  category_fields: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };
