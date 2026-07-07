@@ -3,9 +3,9 @@ import type { CircuitCategory } from "@/lib/types";
 // -------- Per-category field shapes --------
 
 export type CircuitFields = {
-  duration_days?: number;
+  duration_days?: number;         // computed = itinerary.length, still stored for display
   stage_cities?: string;
-  itinerary?: string;
+  itinerary?: string[];           // one entry per day
   lodging_included?: boolean;
   meals_included?: boolean;
 };
@@ -14,6 +14,8 @@ export type ExcursionFields = {
   duration_hours?: number;
   departure_time?: string;
   meeting_point?: string;
+  meeting_lat?: number | null;
+  meeting_lng?: number | null;
   difficulty?: "facile" | "modere" | "sportif";
   meals_included?: boolean;
   equipment_included?: boolean;
@@ -21,7 +23,11 @@ export type ExcursionFields = {
 
 export type TransfertFields = {
   pickup_location?: string;
+  pickup_lat?: number | null;
+  pickup_lng?: number | null;
   dropoff_location?: string;
+  dropoff_lat?: number | null;
+  dropoff_lng?: number | null;
   vehicle_type?: "berline" | "van" | "minibus";
   trip_type?: "aller_simple" | "aller_retour";
   trip_duration_min?: number;
@@ -29,15 +35,15 @@ export type TransfertFields = {
 
 export type SejourFields = {
   nights?: number;
+  address?: string;
+  address_lat?: number | null;
+  address_lng?: number | null;
   lodging_type?: "riad" | "hotel_4" | "hotel_5" | "ecolodge";
   board_type?: "petit_dejeuner" | "demi_pension" | "pension_complete";
   included_activities?: string;
 };
 
-// Stored jsonb shape — one category's fields, all optional at rest
 export type CategoryFields = CircuitFields | ExcursionFields | TransfertFields | SejourFields;
-
-// Convenience "any known key" record for reading legacy or unknown data
 export type AnyCategoryFields = CircuitFields & ExcursionFields & TransfertFields & SejourFields;
 
 // -------- Display metadata --------
@@ -72,7 +78,7 @@ export const CATEGORY_META: Record<
   },
 };
 
-// -------- Field configuration (drives both form rendering and server parsing) --------
+// -------- Field configuration --------
 
 export type SelectOption = { value: string; label: string };
 
@@ -80,20 +86,41 @@ export type FieldConfig =
   | { key: string; label: string; type: "text" | "textarea" | "time"; required?: boolean; placeholder?: string }
   | { key: string; label: string; type: "number"; required?: boolean; min?: number; step?: number; placeholder?: string }
   | { key: string; label: string; type: "checkbox"; required?: never }
-  | { key: string; label: string; type: "select"; required?: boolean; options: SelectOption[] };
+  | { key: string; label: string; type: "select"; required?: boolean; options: SelectOption[] }
+  | {
+      key: string;              // config key (also used as base for form field names)
+      label: string;
+      type: "location";
+      required?: boolean;
+      addressField: string;     // storage key for the text address
+      latField: string;
+      lngField: string;
+    }
+  | {
+      key: string;              // "itinerary" for Circuit
+      label: string;
+      type: "day_list";
+      required?: boolean;
+    };
 
 export const CATEGORY_FIELDS_CONFIG: Record<CircuitCategory, FieldConfig[]> = {
   circuit: [
-    { key: "duration_days", label: "Durée (jours)", type: "number", required: true, min: 1 },
     { key: "stage_cities", label: "Villes étapes", type: "text", placeholder: "Agadir → Taroudant → Tafraout" },
-    { key: "itinerary", label: "Itinéraire jour par jour", type: "textarea", placeholder: "Jour 1 : …\nJour 2 : …" },
+    { key: "itinerary", label: "Itinéraire jour par jour", type: "day_list", required: true },
     { key: "lodging_included", label: "Hébergement inclus", type: "checkbox" },
     { key: "meals_included", label: "Repas inclus", type: "checkbox" },
   ],
   excursion: [
     { key: "duration_hours", label: "Durée (heures)", type: "number", required: true, min: 1 },
     { key: "departure_time", label: "Heure de départ", type: "time" },
-    { key: "meeting_point", label: "Point de rendez-vous", type: "text" },
+    {
+      key: "meeting",
+      label: "Point de rendez-vous",
+      type: "location",
+      addressField: "meeting_point",
+      latField: "meeting_lat",
+      lngField: "meeting_lng",
+    },
     {
       key: "difficulty",
       label: "Niveau de difficulté",
@@ -108,8 +135,24 @@ export const CATEGORY_FIELDS_CONFIG: Record<CircuitCategory, FieldConfig[]> = {
     { key: "equipment_included", label: "Matériel fourni", type: "checkbox" },
   ],
   transfert: [
-    { key: "pickup_location", label: "Lieu de prise en charge", type: "text", required: true },
-    { key: "dropoff_location", label: "Destination", type: "text", required: true },
+    {
+      key: "pickup",
+      label: "Lieu de prise en charge",
+      type: "location",
+      required: true,
+      addressField: "pickup_location",
+      latField: "pickup_lat",
+      lngField: "pickup_lng",
+    },
+    {
+      key: "dropoff",
+      label: "Destination",
+      type: "location",
+      required: true,
+      addressField: "dropoff_location",
+      latField: "dropoff_lat",
+      lngField: "dropoff_lng",
+    },
     {
       key: "vehicle_type",
       label: "Type de véhicule",
@@ -133,6 +176,15 @@ export const CATEGORY_FIELDS_CONFIG: Record<CircuitCategory, FieldConfig[]> = {
   ],
   sejour: [
     { key: "nights", label: "Nombre de nuits", type: "number", required: true, min: 1 },
+    {
+      key: "address",
+      label: "Adresse du séjour",
+      type: "location",
+      required: true,
+      addressField: "address",
+      latField: "address_lat",
+      lngField: "address_lng",
+    },
     {
       key: "lodging_type",
       label: "Hébergement",
@@ -158,14 +210,23 @@ export const CATEGORY_FIELDS_CONFIG: Record<CircuitCategory, FieldConfig[]> = {
   ],
 };
 
-// -------- FormData → typed CategoryFields (server-side) --------
+// -------- FormData helpers --------
 
 const FORM_FIELD_PREFIX = "cf_";
 export const categoryFieldFormName = (key: string) => `${FORM_FIELD_PREFIX}${key}`;
+export const ITINERARY_DAY_FORM_NAME = categoryFieldFormName("itinerary_day");
 
 export type ParseResult =
   | { ok: true; fields: CategoryFields }
   | { ok: false; error: string };
+
+function parseLatLng(raw: FormDataEntryValue | null): number | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : null;
+}
 
 export function parseCategoryFieldsFromForm(
   category: CircuitCategory,
@@ -175,13 +236,44 @@ export function parseCategoryFieldsFromForm(
   const out: Record<string, unknown> = {};
 
   for (const f of config) {
-    const raw = formData.get(categoryFieldFormName(f.key));
-
     if (f.type === "checkbox") {
+      const raw = formData.get(categoryFieldFormName(f.key));
       out[f.key] = raw === "on" || raw === "true";
       continue;
     }
 
+    if (f.type === "day_list") {
+      const days = formData
+        .getAll(ITINERARY_DAY_FORM_NAME)
+        .map((v) => (typeof v === "string" ? v.trim() : ""))
+        .filter(Boolean);
+      if (f.required && days.length === 0) {
+        return { ok: false, error: `Le champ "${f.label}" doit contenir au moins une journée.` };
+      }
+      if (days.length > 0) out[f.key] = days;
+      // Only inject duration_days when itinerary drives it (Circuit)
+      out.duration_days = days.length || undefined;
+      continue;
+    }
+
+    if (f.type === "location") {
+      const address = formData.get(categoryFieldFormName(f.addressField));
+      const lat = formData.get(categoryFieldFormName(f.latField));
+      const lng = formData.get(categoryFieldFormName(f.lngField));
+
+      const addressStr = typeof address === "string" ? address.trim() : "";
+      if (f.required && !addressStr) {
+        return { ok: false, error: `Le champ "${f.label}" est requis.` };
+      }
+      if (addressStr) out[f.addressField] = addressStr;
+      const latN = parseLatLng(lat);
+      const lngN = parseLatLng(lng);
+      if (latN !== null) out[f.latField] = latN;
+      if (lngN !== null) out[f.lngField] = lngN;
+      continue;
+    }
+
+    const raw = formData.get(categoryFieldFormName(f.key));
     const str = typeof raw === "string" ? raw.trim() : "";
 
     if (!str) {
@@ -208,7 +300,6 @@ export function parseCategoryFieldsFromForm(
       continue;
     }
 
-    // text | textarea | time
     out[f.key] = str;
   }
 
@@ -216,8 +307,6 @@ export function parseCategoryFieldsFromForm(
 }
 
 // -------- Legacy column derivation --------
-// Existing display code still reads circuits.duration_days, duration_hours, meeting_point.
-// Keep them in sync from category_fields for backward compatibility.
 
 export function deriveLegacyColumns(category: CircuitCategory, fields: AnyCategoryFields) {
   let duration_days = 1;
@@ -226,7 +315,7 @@ export function deriveLegacyColumns(category: CircuitCategory, fields: AnyCatego
 
   switch (category) {
     case "circuit":
-      duration_days = Number(fields.duration_days) || 1;
+      duration_days = Number(fields.duration_days) || (Array.isArray(fields.itinerary) ? fields.itinerary.length : 0) || 1;
       break;
     case "excursion":
       duration_hours = Number(fields.duration_hours) || null;
@@ -243,26 +332,48 @@ export function deriveLegacyColumns(category: CircuitCategory, fields: AnyCatego
   return { duration_days, duration_hours, meeting_point };
 }
 
+// -------- Backward compat for old itinerary strings --------
+
+export function normalizeItinerary(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.filter((x): x is string => typeof x === "string" && x.trim().length > 0);
+  }
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    return trimmed.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 // -------- Format for display --------
 
 export function formatCategoryFieldValue(
   config: FieldConfig,
   fields: AnyCategoryFields,
 ): string | null {
-  const v = (fields as Record<string, unknown>)[config.key];
+  const data = fields as Record<string, unknown>;
 
   if (config.type === "checkbox") {
-    return v === true ? "Oui" : null; // hide false booleans
+    return data[config.key] === true ? "Oui" : null;
   }
+
+  if (config.type === "location") {
+    const addr = data[config.addressField];
+    return typeof addr === "string" && addr.trim() ? addr.trim() : null;
+  }
+
+  if (config.type === "day_list") {
+    const days = normalizeItinerary(data[config.key]);
+    return days.length > 0 ? `${days.length} journée${days.length > 1 ? "s" : ""}` : null;
+  }
+
+  const v = data[config.key];
   if (v === undefined || v === null || v === "") return null;
 
   if (config.type === "select") {
     const found = config.options.find((o) => o.value === v);
     return found?.label ?? String(v);
-  }
-
-  if (config.type === "number") {
-    return String(v);
   }
 
   return String(v);

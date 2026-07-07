@@ -30,7 +30,7 @@ export function ItineraryEditor({ name, defaultValue }: Props) {
 
   return (
     <div>
-      <Label>Itinéraire jour par jour</Label>
+      <Label>Étapes détaillées (titre + description par jour)</Label>
       <input type="hidden" name={name} value={days.length > 0 ? JSON.stringify(days) : ""} />
 
       {days.length > 0 ? (

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { LocationPicker } from "@/components/location-picker";
+import { ItineraryDayList } from "@/components/itinerary-day-list";
 import {
   CATEGORY_FIELDS_CONFIG,
   CATEGORY_META,
@@ -22,11 +24,8 @@ export function CategoryFieldsSection({ defaultCategory, defaultFields }: Props)
   const meta = CATEGORY_META[category];
   const fields = CATEGORY_FIELDS_CONFIG[category];
   const categoryChanged = category !== defaultCategory;
-
-  // Only pre-fill values if we're still on the original category; switching wipes.
-  const seedFields: AnyCategoryFields = category === defaultCategory
-    ? (defaultFields ?? {})
-    : {};
+  const seedFields: AnyCategoryFields =
+    category === defaultCategory ? (defaultFields ?? {}) : {};
 
   return (
     <>
@@ -62,7 +61,6 @@ export function CategoryFieldsSection({ defaultCategory, defaultFields }: Props)
           </span>
         </div>
 
-        {/* key on the fields grid forces remount + fresh defaults on category change */}
         <div key={category} className="grid sm:grid-cols-2 gap-4">
           {fields.map((f) => (
             <FieldRenderer key={f.key} config={f} seed={seedFields} />
@@ -80,14 +78,47 @@ function FieldRenderer({
   config: FieldConfig;
   seed: AnyCategoryFields;
 }) {
-  const name = categoryFieldFormName(config.key);
   const seedRecord = seed as Record<string, unknown>;
-  const raw = seedRecord[config.key];
+  const name = categoryFieldFormName(config.key);
 
   const requiredMark =
-    config.type !== "checkbox" && config.required ? (
+    config.type !== "checkbox" && (config as { required?: boolean }).required ? (
       <span className="text-red-600"> *</span>
     ) : null;
+
+  if (config.type === "day_list") {
+    return (
+      <ItineraryDayList
+        label={config.label}
+        required={config.required}
+        defaultValue={seedRecord[config.key]}
+      />
+    );
+  }
+
+  if (config.type === "location") {
+    const address = seedRecord[config.addressField];
+    const lat = seedRecord[config.latField];
+    const lng = seedRecord[config.lngField];
+    return (
+      <div className="sm:col-span-2">
+        <LocationPicker
+          label={config.label}
+          required={config.required}
+          addressName={categoryFieldFormName(config.addressField)}
+          latName={categoryFieldFormName(config.latField)}
+          lngName={categoryFieldFormName(config.lngField)}
+          defaultValue={{
+            address: typeof address === "string" ? address : "",
+            lat: typeof lat === "number" ? lat : null,
+            lng: typeof lng === "number" ? lng : null,
+          }}
+        />
+      </div>
+    );
+  }
+
+  const raw = seedRecord[config.key];
 
   if (config.type === "checkbox") {
     const checked = raw === true;
@@ -172,7 +203,11 @@ function FieldRenderer({
         required={!!config.required}
         min={config.type === "number" ? config.min : undefined}
         step={config.type === "number" ? config.step : undefined}
-        placeholder={config.type === "number" ? config.placeholder : (config as { placeholder?: string }).placeholder}
+        placeholder={
+          config.type === "number"
+            ? config.placeholder
+            : (config as { placeholder?: string }).placeholder
+        }
       />
     </div>
   );

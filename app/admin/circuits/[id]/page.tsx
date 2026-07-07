@@ -34,19 +34,30 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
   // Existing circuits may have empty category_fields; backfill from legacy columns
   // so first-time edit shows sensible defaults and Save doesn't fail on required fields.
   const stored = (c.category_fields ?? {}) as AnyCategoryFields;
-  const currentCategoryFields: AnyCategoryFields =
-    Object.keys(stored).length > 0
-      ? stored
-      : c.category === "circuit"
-        ? { duration_days: c.duration_days || 1 }
-        : c.category === "excursion"
-          ? {
-              duration_hours: c.duration_hours ?? undefined,
-              meeting_point: c.meeting_point ?? undefined,
-            }
-          : c.category === "sejour"
-            ? { nights: c.duration_days || 1 }
-            : {};
+  const currentCategoryFields: AnyCategoryFields = (() => {
+    if (Object.keys(stored).length > 0) return stored;
+    if (c.category === "circuit") {
+      const legacyItinerary = Array.isArray(c.itinerary)
+        ? c.itinerary
+            .map((d) => [d?.title, d?.description].filter(Boolean).join(" — "))
+            .filter(Boolean)
+        : [];
+      return {
+        duration_days: c.duration_days || 1,
+        itinerary: legacyItinerary.length > 0 ? legacyItinerary : undefined,
+      };
+    }
+    if (c.category === "excursion") {
+      return {
+        duration_hours: c.duration_hours ?? undefined,
+        meeting_point: c.meeting_point ?? undefined,
+      };
+    }
+    if (c.category === "sejour") {
+      return { nights: c.duration_days || 1 };
+    }
+    return {};
+  })();
 
   async function updateCircuit(formData: FormData) {
     "use server";
