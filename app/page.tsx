@@ -26,7 +26,7 @@ export default async function RootPage() {
   redirect(
     "/login?error=" +
       encodeURIComponent(
-        "Votre compte n'a pas les droits d'accès au backoffice. Contactez un administrateur."
+        "Votre compte n'a pas les droits d'accès à la plateforme. Contactez un administrateur."
       )
   );
 }

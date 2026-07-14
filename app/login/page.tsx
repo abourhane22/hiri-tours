@@ -48,7 +48,7 @@ export default async function LoginPage({
           <div className="flex items-baseline gap-2">
             <span className="font-display text-2xl">Hiri Tours</span>
             <span className="text-[10px] tracking-[0.25em] uppercase text-[#FFB89A] font-medium">
-              Backoffice
+              Plateforme
             </span>
           </div>
 
@@ -62,6 +62,11 @@ export default async function LoginPage({
             <p className="text-[15px] opacity-90 max-w-sm">
               Réservations, opérations, finance — votre agence touristique sur
               une seule plateforme.
+            </p>
+            <p className="text-[11px] mt-3 text-[#8B92A5]">
+              <span>by </span>
+              <span className="text-[#C9CDD6] font-medium">Bright Strategy</span>
+              <span> · Solution de Gestion</span>
             </p>
           </div>
         </div>

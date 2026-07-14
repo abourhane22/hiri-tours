@@ -107,9 +107,12 @@ export function AdminHeader({ userEmail, userRole }: { userEmail?: string; userR
       {/* Zellige pattern overlay — ton sur ton, n'affecte pas la lisibilité */}
       <div className="absolute inset-0 bg-[url('/header-pattern.png')] bg-repeat bg-[length:180px] opacity-[0.4] pointer-events-none" />
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-3 flex items-center justify-between gap-6" ref={wrapperRef}>
-        <Link href="/admin" className="flex items-baseline gap-2 shrink-0">
-          <span className="font-display text-xl font-medium text-white">Hiri Tours</span>
-          <span className="hidden sm:inline text-[10px] uppercase tracking-[0.2em] text-terracotta-300 font-medium">Backoffice</span>
+        <Link href="/admin" className="flex flex-col shrink-0 leading-tight">
+          <span className="flex items-baseline gap-2">
+            <span className="font-display text-xl font-medium text-white">Hiri Tours</span>
+            <span className="hidden sm:inline text-[9px] uppercase tracking-[0.25em] text-[#FFB89A] font-medium">Plateforme</span>
+          </span>
+          <span className="text-[10px] text-[#8B92A5] font-sans">by Bright Strategy</span>
         </Link>
 
         <nav className="hidden md:flex items-center gap-1 flex-1 justify-center flex-wrap">

@@ -52,7 +52,7 @@ export default async function PnLPage({ searchParams }: { searchParams: Promise<
 
       <div className="hidden print:block mb-6">
         <h1 className="font-display text-2xl text-ink">Hiri Tours — Compte de résultat</h1>
-        <p className="text-xs text-sand-700">{range.label} · Édité le {new Date().toLocaleDateString("fr-FR")}</p>
+        <p className="text-xs text-sand-700">{range.label} · Édité le {new Date().toLocaleDateString("fr-FR")} · <span className="text-sand-500">by Bright Strategy</span></p>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

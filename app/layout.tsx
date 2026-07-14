@@ -16,9 +16,9 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Hiri Tours — Backoffice",
+  title: "Hiri Tours Plateforme by Bright Strategy | Solution de Gestion",
   description:
-    "Plateforme de gestion interne Hiri Tours, agence touristique à Agadir.",
+    "Solution de gestion pour agence touristique — réservations, opérations, finance.",
 };
 
 export default function RootLayout({

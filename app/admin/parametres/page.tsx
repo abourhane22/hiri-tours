@@ -77,7 +77,7 @@ export default async function ParametresPage() {
           <div className="px-5 py-4 border-b border-sand-200 flex items-start justify-between gap-4">
             <div>
               <h2 className="font-display text-lg text-ink">Utilisateurs &amp; accès</h2>
-              <p className="text-xs text-sand-700 mt-1">Gérez les comptes backoffice, les rôles et les invitations.</p>
+              <p className="text-xs text-sand-700 mt-1">Gérez les comptes de la plateforme, les rôles et les invitations.</p>
             </div>
             <Link href="/admin/parametres/utilisateurs">
               <Button variant="secondary" size="sm" className="shrink-0">

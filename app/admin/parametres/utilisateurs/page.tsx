@@ -41,7 +41,7 @@ export default async function UtilisateursPage({
         <div>
           <p className="eyebrow mb-2">Paramètres</p>
           <h1 className="font-display text-3xl text-ink">Gestion des utilisateurs</h1>
-          <p className="text-sm text-sand-700 mt-1">{rows.length} utilisateur(s) backoffice</p>
+          <p className="text-sm text-sand-700 mt-1">{rows.length} utilisateur(s) de la plateforme</p>
         </div>
         <Link href="/admin/parametres/utilisateurs/inviter">
           <Button><UserPlus className="size-4" />Inviter un utilisateur</Button>
@@ -120,7 +120,7 @@ export default async function UtilisateursPage({
       <div className="bg-white border border-sand-200 rounded-lg overflow-hidden">
         <div className="px-5 py-4 border-b border-sand-200">
           <h2 className="font-display text-lg text-ink">Matrice des permissions</h2>
-          <p className="text-xs text-sand-700 mt-1">Ce que chaque rôle peut consulter dans le backoffice.</p>
+          <p className="text-xs text-sand-700 mt-1">Ce que chaque rôle peut consulter dans la plateforme.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

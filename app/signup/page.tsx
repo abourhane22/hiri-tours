@@ -39,7 +39,7 @@ export default async function SignupPage({
           <Link href="/login" className="inline-flex items-baseline gap-2">
             <span className="font-display text-3xl text-navy-700">Hiri Tours</span>
             <span className="text-xs uppercase tracking-[0.2em] text-terracotta-600 font-medium">
-              Backoffice
+              Plateforme
             </span>
           </Link>
         </div>
@@ -50,7 +50,7 @@ export default async function SignupPage({
             Inscrivez-vous puis demandez à un administrateur d&apos;activer votre accès.
           </p>
           <div className="mb-6 p-3 rounded-md bg-atlantic-50 border border-atlantic-200 text-xs text-atlantic-800">
-            ℹ️ L&apos;accès au backoffice est réservé au personnel autorisé. Après inscription,
+            ℹ️ L&apos;accès à la plateforme est réservé au personnel autorisé. Après inscription,
             vous n&apos;aurez pas accès aux outils tant qu&apos;un administrateur n&apos;aura pas validé
             votre compte.
           </div>

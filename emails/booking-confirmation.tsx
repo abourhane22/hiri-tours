@@ -72,6 +72,7 @@ export default function BookingConfirmationEmail(props: Props) {
           <Section style={{ paddingTop: 24, fontSize: 12, color: "#7a6a55", textAlign: "center" as const }}>
             <Text style={{ margin: 0 }}>Pour toute question, contactez-nous.</Text>
             <Text style={{ margin: "4px 0 0" }}>Hiri Tours · Agadir, Maroc</Text>
+            <Text style={{ margin: "6px 0 0", fontSize: 10, color: "#9a8c73" }}>by Bright Strategy</Text>
           </Section>
         </Container>
       </Body>

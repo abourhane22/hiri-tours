@@ -42,6 +42,7 @@ export default async function ManifestePage({ params }: { params: Promise<{ date
               <div className="text-right text-xs text-sand-700">
                 <p>Document de bord</p>
                 <p>Édité le {formatDate(new Date().toISOString())}</p>
+                <p className="text-[10px] text-sand-500 mt-0.5">by Bright Strategy</p>
               </div>
             </div>
             <h2 className="font-display text-2xl text-ink mt-4">{circuit.title}</h2>

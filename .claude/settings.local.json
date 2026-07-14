@@ -7,7 +7,11 @@
       "PowerShell(git add *)",
       "PowerShell(git *)",
       "Bash(echo \"EXIT=$?\")",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git push *)",
+      "Bash(npm install *)",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(git commit *)"
     ]
   }
 }

@@ -99,6 +99,7 @@ export default async function VoucherPage({ params }: { params: Promise<{ id: st
             <p><strong>Conditions :</strong> Ce voucher fait foi de réservation. Il doit être présenté le jour du départ. En cas d&apos;annulation, contactez l&apos;agence sous 48h avant le départ pour étudier les modalités.</p>
             <p>Pour toute question : contact@hiri-tours.com · +212 5 28 XX XX XX</p>
             <p className="text-center pt-4 italic">Hiri Tours vous souhaite un excellent séjour 🌅</p>
+            <p className="text-center text-[10px] text-sand-500 pt-1">by Bright Strategy</p>
           </div>
         </div>
       </div>

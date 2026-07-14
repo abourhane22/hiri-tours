@@ -71,7 +71,7 @@ export default function SetPasswordPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="font-display text-3xl text-ink">Hiri Tours</h1>
-          <p className="text-sm text-sand-700 mt-1">Backoffice</p>
+          <p className="text-sm text-sand-700 mt-1">Plateforme</p>
         </div>
 
         <Card>
@@ -83,7 +83,7 @@ export default function SetPasswordPage() {
             {userEmail && (
               <p className="text-xs text-sand-700 mt-2">Compte : <span className="font-medium">{userEmail}</span></p>
             )}
-            <p className="text-sm text-sand-700 mt-2">Bienvenue ! Choisissez un mot de passe pour finaliser votre compte et accéder au backoffice.</p>
+            <p className="text-sm text-sand-700 mt-2">Bienvenue ! Choisissez un mot de passe pour finaliser votre compte et accéder à la plateforme.</p>
           </div>
 
           <CardBody>
