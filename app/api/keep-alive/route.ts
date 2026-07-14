@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -11,12 +11,11 @@ export async function GET(request: Request) {
   }
 
   try {
-    const supabase = await createClient();
-    // Requête la plus légère possible — juste de quoi marquer la base "active"
+    // Client service-role : bypass RLS pour écrire dans keep_alive sans policy dédiée.
+    const supabase = createAdminClient();
     const { error } = await supabase
-      .from("reservations")
-      .select("id", { count: "exact", head: true })
-      .limit(1);
+      .from("keep_alive")
+      .upsert({ id: 1, last_ping: new Date().toISOString() });
 
     if (error) {
       console.error("[keep-alive] Supabase error:", error.message);
