@@ -3,6 +3,7 @@ import Link from "next/link";
 import { XCircle, Lock } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hasAttijariLogo } from "@/lib/attijari-server";
+import { maskPhone, ATTIJARI_FALLBACK_PHONE } from "@/lib/attijari";
 import { TestBanner } from "@/components/payer/test-banner";
 import { AttijariLogo } from "@/components/payer/attijari-logo";
 import { AttijariCheckout } from "@/components/payer/attijari-checkout";
@@ -42,6 +43,15 @@ export default async function AttijariGatewayPage({
   if (o.status === "paid") {
     redirect(`/payer/${o.reservation_id}/merci?ref=${o.order_id}`);
   }
+
+  // Numéro du client (via reservations → customers), masqué pour le 3D Secure.
+  const { data: resa } = await supabase
+    .from("reservations")
+    .select("customers(phone)")
+    .eq("id", o.reservation_id)
+    .maybeSingle();
+  const customerPhone = (resa as any)?.customers?.phone ?? null;
+  const maskedPhone = maskPhone(customerPhone) ?? ATTIJARI_FALLBACK_PHONE;
 
   const hasLogo = hasAttijariLogo();
   const amount = Number(o.amount_mad);
@@ -85,6 +95,7 @@ export default async function AttijariGatewayPage({
                 orderId={o.order_id}
                 reservationId={o.reservation_id}
                 amountMad={amount}
+                maskedPhone={maskedPhone}
               />
             )}
           </div>

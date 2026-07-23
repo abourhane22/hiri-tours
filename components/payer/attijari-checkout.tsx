@@ -4,13 +4,14 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Lock, Loader2, ShieldCheck, Smartphone, AlertCircle } from "lucide-react";
 import { formatMAD } from "@/lib/utils";
-import { ATTIJARI_TEST_CARDS, ATTIJARI_MASKED_PHONE } from "@/lib/attijari";
+import { ATTIJARI_TEST_CARDS } from "@/lib/attijari";
 import { confirmAttijariPayment } from "@/app/payer/actions";
 
 type Props = {
   orderId: string;
   reservationId: string;
   amountMad: number;
+  maskedPhone: string;
 };
 
 function formatCardNumber(raw: string): string {
@@ -35,7 +36,12 @@ function isExpiryValid(value: string): boolean {
   return expiry.getTime() >= Date.now();
 }
 
-export function AttijariCheckout({ orderId, reservationId, amountMad }: Props) {
+export function AttijariCheckout({
+  orderId,
+  reservationId,
+  amountMad,
+  maskedPhone,
+}: Props) {
   const [step, setStep] = useState<"card" | "otp">("card");
   const [isPending, startTransition] = useTransition();
 
@@ -185,7 +191,7 @@ export function AttijariCheckout({ orderId, reservationId, amountMad }: Props) {
               <p className="font-medium">Vérification 3D Secure</p>
               <p className="text-atlantic-800 flex items-center gap-1.5 mt-1">
                 <Smartphone className="size-3.5" />
-                Code envoyé par SMS au {ATTIJARI_MASKED_PHONE}
+                Un code de vérification a été envoyé par SMS au {maskedPhone}
               </p>
             </div>
           </div>

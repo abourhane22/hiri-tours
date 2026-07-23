@@ -20,8 +20,55 @@ export const ATTIJARI_TEST_CARDS = {
 /** Code 3D Secure de test. */
 export const ATTIJARI_TEST_OTP = "123456";
 
-/** Numéro masqué affiché à l'étape 3D Secure. */
-export const ATTIJARI_MASKED_PHONE = "+212 6XX XXX X47";
+/** Numéro fictif affiché à l'étape 3D Secure si le client n'a pas de téléphone. */
+export const ATTIJARI_FALLBACK_PHONE = "+212 6•• ••• ••00 (numéro fictif — démonstration)";
+
+/**
+ * Masque un numéro de téléphone à la façon d'un vrai 3D Secure :
+ * conserve l'indicatif et les 2 derniers chiffres, masque le reste.
+ * Ex. "+212 661 23 45 67" → "+212 6•• ••• ••67".
+ * Robuste aux espaces, à l'absence d'indicatif (06…) et aux valeurs vides.
+ * Renvoie null si le numéro est absent ou inexploitable.
+ */
+export function maskPhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const raw = phone.trim();
+  if (!raw) return null;
+
+  const hasPlus = raw.startsWith("+");
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length < 5) return null; // trop court pour masquer utilement
+
+  // Indicatif à préserver + corps national à masquer.
+  let prefix: string;
+  let body: string;
+  if (digits.startsWith("212")) {
+    prefix = "+212";
+    body = digits.slice(3);
+  } else if (!hasPlus && digits.startsWith("0")) {
+    prefix = "0";
+    body = digits.slice(1);
+  } else if (hasPlus) {
+    prefix = "+" + digits.slice(0, 2); // indicatif générique (2 chiffres)
+    body = digits.slice(2);
+  } else {
+    prefix = "";
+    body = digits;
+  }
+
+  if (body.length < 3) return null;
+
+  const firstVisible = body.slice(0, 1);
+  const last2 = body.slice(-2);
+  const hidden = "•".repeat(body.length - 3);
+  const masked = `${firstVisible}${hidden}${last2}`;
+
+  // Regroupe par 3 pour la lisibilité.
+  const grouped = masked.replace(/(.{3})/g, "$1 ").trim();
+
+  // Un indicatif "0" reste collé au numéro national (ex. 06•• ••• •67).
+  return prefix === "0" ? `0${grouped}` : `${prefix} ${grouped}`.trim();
+}
 
 function getSecret(): string {
   // Valeur de dev par défaut si ATTIJARI_TEST_SECRET n'est pas défini.
