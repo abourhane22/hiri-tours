@@ -20,12 +20,16 @@ export default async function MerciPage({
   const { ref } = await searchParams;
   const supabase = createAdminClient();
 
-  const { data: reservation } = await supabase
+  const { data: reservation, error } = await supabase
     .from("reservations")
     .select("id, reference, total_amount_mad, paid_amount_mad")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
+  if (error) {
+    console.error("[payer/merci] Échec de chargement de la réservation:", error);
+    throw new Error(`Impossible de charger la réservation : ${error.message}`);
+  }
   if (!reservation) notFound();
 
   const r = reservation as any;

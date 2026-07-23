@@ -12,8 +12,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization)
      * - favicon.ico, sitemap.xml, robots.txt
+     * - payer (parcours de paiement PUBLIC — pas de session, lecture service-role)
      * - image files
      */
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|payer|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

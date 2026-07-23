@@ -19,12 +19,16 @@ export default async function AttijariGatewayPage({
   const { orderId } = await params;
   const supabase = createAdminClient();
 
-  const { data: order } = await supabase
+  const { data: order, error } = await supabase
     .from("payment_orders")
     .select("order_id, reservation_id, amount_mad, status")
     .eq("order_id", orderId)
-    .single();
+    .maybeSingle();
 
+  if (error) {
+    console.error("[payer/attijari] Échec de chargement de l'ordre:", error);
+    throw new Error(`Impossible de charger l'ordre de paiement : ${error.message}`);
+  }
   if (!order) notFound();
 
   const o = order as {

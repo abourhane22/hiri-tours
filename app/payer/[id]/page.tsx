@@ -18,14 +18,21 @@ export default async function PayerPage({
   const { id } = await params;
   const supabase = createAdminClient();
 
-  const { data: reservation } = await supabase
+  const { data: reservation, error } = await supabase
     .from("reservations")
     .select(
       "id, reference, status, total_amount_mad, paid_amount_mad, departure_date, guest_full_name, circuits(title), customers(full_name)",
     )
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
+  // Un échec de requête (clé service-role invalide, RLS, PostgREST…) ne doit
+  // PAS se déguiser en 404 : on le remonte pour le voir dans les logs.
+  if (error) {
+    console.error("[payer/[id]] Échec de chargement de la réservation:", error);
+    throw new Error(`Impossible de charger la réservation : ${error.message}`);
+  }
+  // Seul le cas "aucune ligne" est un vrai 404.
   if (!reservation) notFound();
 
   const r = reservation as any;
