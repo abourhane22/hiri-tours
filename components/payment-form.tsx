@@ -49,7 +49,7 @@ export function PaymentForm({ reservationId, balance }: Props) {
             disabled={isPending}
           >
             <option value="cash">Espèces</option>
-            <option value="cmi">CMI Maroc</option>
+            <option value="attijari">Attijari Payment</option>
             <option value="transfer">Virement</option>
             <option value="stripe">Stripe</option>
             <option value="paypal">PayPal</option>

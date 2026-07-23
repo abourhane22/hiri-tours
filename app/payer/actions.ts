@@ -18,7 +18,7 @@ export type PayError = { error: string; reservationId?: string };
 
 /**
  * Étape 1 — création de l'ordre de paiement (équivalent "initier la session"
- * chez CMI/Attijari). Écritures via service-role : /payer est public, sans
+ * chez Attijari). Écritures via service-role : /payer est public, sans
  * session utilisateur.
  */
 export async function initiateAttijariPayment(
@@ -75,7 +75,7 @@ export async function initiateAttijariPayment(
 }
 
 /**
- * Étape finale — équivalent du callback de vérification chez CMI/Attijari.
+ * Étape finale — équivalent du callback de vérification chez Attijari.
  * Vérifie l'ordre + la signature, applique la décision de la banque simulée,
  * puis enregistre le paiement (réutilise le trigger existant qui met à jour
  * paid_amount_mad et promeut la réservation en 'paid' si soldée).
@@ -168,7 +168,7 @@ export async function confirmAttijariPayment(
     if (payAmount > 0) {
       const { error: payError } = await supabase.from("payments").insert({
         reservation_id: o.reservation_id,
-        method: "cmi", // Attijari route les cartes marocaines via CMI
+        method: "attijari",
         amount_mad: payAmount,
         transaction_ref: orderId,
         source: "attijari_test",

@@ -2,8 +2,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building2, CreditCard, Globe, Users, ArrowRight, Wrench } from "lucide-react";
+import { Building2, Globe, Users, ArrowRight, Wrench } from "lucide-react";
 import type { CompanySettings } from "@/lib/types";
+import { AttijariLogo } from "@/components/payer/attijari-logo";
+import { hasAttijariLogo } from "@/lib/attijari-server";
 
 export default async function ParametresPage() {
   const supabase = await createClient();
@@ -12,6 +14,7 @@ export default async function ParametresPage() {
   const { data: callerProfile } = user ? await supabase.from("profiles").select("role").eq("id", user.id).single() : { data: null };
   const isAdmin = (callerProfile as any)?.role === "admin";
   const s = settings as CompanySettings | null;
+  const attijariHasLogo = hasAttijariLogo();
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -59,9 +62,9 @@ export default async function ParametresPage() {
         <CardBody>
           <div className="grid sm:grid-cols-2 gap-4">
             <ComingSoonCard
-              icon={<CreditCard className="size-5 text-terracotta-600" />}
-              title="CMI Maroc"
-              description="Centre Monétique Interbancaire — encaissement MAD via cartes marocaines."
+              icon={<AttijariLogo hasLogo={attijariHasLogo} className="h-5" />}
+              title="Attijari Payment"
+              description="Encaissement MAD par carte bancaire marocaine."
             />
             <ComingSoonCard
               icon={<Globe className="size-5 text-atlantic-700" />}

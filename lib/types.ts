@@ -70,7 +70,13 @@ export type ReservationWithCircuit = Reservation & {
   circuits: Pick<Circuit, "title" | "slug" | "category"> | null;
 };
 
-export type PaymentMethod = "cmi" | "stripe" | "paypal" | "cash" | "transfer";
+export type PaymentMethod =
+  | "attijari"
+  | "cmi" // legacy : valeur d'enum conservée pour les anciens paiements
+  | "stripe"
+  | "paypal"
+  | "cash"
+  | "transfer";
 
 export type CustomerLanguage = "fr" | "en" | "ar" | "es" | "de" | "it";
 export type CustomerSource =

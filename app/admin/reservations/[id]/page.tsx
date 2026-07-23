@@ -8,6 +8,8 @@ import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
 import { ArrowLeft, Mail, Phone, FileText, Receipt, Truck, Info, CreditCard } from "lucide-react";
 import { updateNotes, cancelReservation } from "./actions";
 import { IssueInvoiceButton } from "@/components/issue-invoice-button";
+import { AttijariLogo } from "@/components/payer/attijari-logo";
+import { hasAttijariLogo } from "@/lib/attijari-server";
 import { AffectationForm } from "@/components/affectation-form";
 import { SendVoucherEmailButton } from "@/components/send-voucher-email-button";
 import { WhatsAppButton } from "@/components/whatsapp-button";
@@ -27,7 +29,8 @@ const STATUS_CONFIG: Record<
 };
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
-  cmi: "CMI Maroc",
+  attijari: "Attijari Payment",
+  cmi: "Attijari Payment", // legacy : anciens paiements stockés en 'cmi'
   stripe: "Stripe",
   paypal: "PayPal",
   cash: "Espèces",
@@ -101,6 +104,7 @@ export default async function ReservationDetailPage({
   const paymentProgress =
     totalAmount > 0 ? Math.min(100, (totalPaid / totalAmount) * 100) : 0;
   const isCancelled = reservation.status === "cancelled";
+  const attijariHasLogo = hasAttijariLogo();
 
   // Bind actions to this reservation's id
   const updateNotesBound = updateNotes.bind(null, id);
@@ -315,13 +319,24 @@ export default async function ReservationDetailPage({
 
               {payments && payments.length > 0 ? (
                 <div className="space-y-2 mb-4">
-                  {payments.map((p) => (
+                  {payments.map((p) => {
+                    const isAttijari =
+                      p.source === "attijari_test" ||
+                      p.method === "attijari" ||
+                      p.method === "cmi";
+                    return (
                     <div
                       key={p.id}
                       className="flex items-start justify-between gap-3 px-3 py-2.5 bg-sand-50 rounded-md text-sm border border-sand-200"
                     >
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
+                          {isAttijari && (
+                            <AttijariLogo
+                              hasLogo={attijariHasLogo}
+                              className="h-[18px]"
+                            />
+                          )}
                           <span className="text-ink font-medium">
                             {PAYMENT_METHOD_LABEL[p.method] ?? p.method}
                           </span>
@@ -353,7 +368,8 @@ export default async function ReservationDetailPage({
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-sand-700 mb-4">

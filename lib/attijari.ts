@@ -4,7 +4,7 @@ import crypto from "crypto";
  * Couche SIMULATEUR Attijari Payment.
  *
  * Tout ce qui est propre à l'environnement de démonstration vit ici.
- * Pour brancher le vrai Attijari/CMI plus tard, on remplace uniquement
+ * Pour brancher le vrai Attijari Payment plus tard, on remplace uniquement
  * ce module (génération d'ordre + signature + règles de décision), sans
  * toucher aux server actions, aux pages, ni au schéma SQL.
  */
@@ -112,7 +112,7 @@ export function normalizeCardNumber(input: string): string {
 
 /**
  * Décision de la "banque" simulée.
- * Réel plus tard : cette fonction disparaît, le verdict vient du callback CMI.
+ * Réel plus tard : cette fonction disparaît, le verdict vient du callback Attijari.
  */
 export function evaluateSimulatedPayment(
   cardNumberRaw: string,

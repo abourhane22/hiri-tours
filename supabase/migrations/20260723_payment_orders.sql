@@ -1,8 +1,8 @@
 -- =====================================================================
 -- Attijari Payment (SIMULÉ) — ordres de paiement gateway + traçabilité
--- Reproduit le pattern des gateways marocaines (CMI/Attijari) :
+-- Reproduit le pattern des gateways bancaires marocaines :
 -- un ordre signé est créé côté serveur puis vérifié au retour du callback.
--- La bascule vers le vrai Attijari/CMI ne touchera que la couche simulateur
+-- La bascule vers le vrai Attijari Payment ne touchera que la couche simulateur
 -- (lib/attijari.ts), pas ce schéma.
 -- =====================================================================
 
