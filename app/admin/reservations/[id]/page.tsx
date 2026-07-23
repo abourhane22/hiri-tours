@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { Card, CardBody, Badge } from "@/components/ui/card";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
-import { ArrowLeft, Mail, Phone, FileText, Receipt, Truck, Info } from "lucide-react";
+import { ArrowLeft, Mail, Phone, FileText, Receipt, Truck, Info, CreditCard } from "lucide-react";
 import { updateNotes, cancelReservation } from "./actions";
 import { IssueInvoiceButton } from "@/components/issue-invoice-button";
 import { AffectationForm } from "@/components/affectation-form";
@@ -295,24 +295,62 @@ export default async function ReservationDetailPage({
                 )}
               </div>
 
+              {balance > 0 && !isCancelled && (
+                <Link
+                  href={`/payer/${id}`}
+                  target="_blank"
+                  className="mb-4 flex items-center justify-between gap-3 rounded-md border-2 border-[#F0C89A] bg-[#FFF9F2] px-4 py-3 transition-colors hover:border-[#E67817]"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <CreditCard className="size-4 text-[#8A5A00]" />
+                    <span className="text-sm font-medium text-[#8A5A00]">
+                      Encaisser en ligne
+                    </span>
+                  </span>
+                  <span className="text-xs text-sand-600">
+                    Envoyer le lien de paiement au client
+                  </span>
+                </Link>
+              )}
+
               {payments && payments.length > 0 ? (
                 <div className="space-y-2 mb-4">
                   {payments.map((p) => (
                     <div
                       key={p.id}
-                      className="flex items-center justify-between px-3 py-2.5 bg-sand-50 rounded-md text-sm border border-sand-200"
+                      className="flex items-start justify-between gap-3 px-3 py-2.5 bg-sand-50 rounded-md text-sm border border-sand-200"
                     >
                       <div>
-                        <div className="text-ink font-medium">
-                          {PAYMENT_METHOD_LABEL[p.method] ?? p.method}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-ink font-medium">
+                            {PAYMENT_METHOD_LABEL[p.method] ?? p.method}
+                          </span>
+                          {p.source === "attijari_test" ? (
+                            <span
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium"
+                              style={{ backgroundColor: "#FFF4E0", color: "#8A5A00" }}
+                            >
+                              Attijari test
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-sand-200 text-sand-700">
+                              Manuel
+                            </span>
+                          )}
                         </div>
-                        <div className="text-xs text-sand-600">
+                        <div className="text-xs text-sand-600 mt-0.5">
                           {formatDateShort(p.paid_at)}
-                          {p.transaction_ref && ` · ${p.transaction_ref}`}
                         </div>
                       </div>
-                      <div className="font-mono text-emerald-700 font-medium tabular-nums">
-                        +{formatMAD(p.amount_mad)}
+                      <div className="text-right shrink-0">
+                        <div className="font-mono text-emerald-700 font-medium tabular-nums">
+                          +{formatMAD(p.amount_mad)}
+                        </div>
+                        {(p.external_ref || p.transaction_ref) && (
+                          <div className="text-[11px] text-sand-500 font-mono mt-0.5">
+                            {p.external_ref ?? p.transaction_ref}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
