@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
+import { CircleCheck } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatMAD } from "@/lib/utils";
-import { TestBanner } from "@/components/payer/test-banner";
+import { TunnelShell } from "@/components/payer/tunnel-shell";
 
 export const metadata = {
   title: "Paiement reçu — Hiri Tours",
@@ -39,58 +39,68 @@ export default async function MerciPage({
   const fullyPaid = remaining <= 0;
 
   return (
-    <main className="min-h-screen bg-sand-50">
-      <TestBanner />
-      <div className="max-w-lg mx-auto px-4 py-12 sm:py-16">
-        <div className="rounded-2xl border border-sand-200 bg-white overflow-hidden text-center">
-          <div className="px-6 py-10">
-            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-              <CheckCircle2 className="size-9 text-emerald-600" />
-            </div>
-            <h1 className="font-display text-2xl text-ink mb-2">Paiement reçu</h1>
-            <p className="text-sand-700 mb-6">
-              {fullyPaid
-                ? "Votre réservation est confirmée."
-                : "Votre acompte a bien été enregistré."}
-            </p>
+    <TunnelShell bodyClassName="text-center">
+      <div className="py-4">
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#E1F5EE]">
+          <CircleCheck className="size-10 text-[#0F6E56]" />
+        </div>
 
-            <div className="rounded-xl bg-sand-50 border border-sand-200 px-5 py-4 text-sm text-left space-y-2 max-w-xs mx-auto">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-sand-600">Réservation</span>
-                <span className="text-ink font-medium font-mono">{r.reference}</span>
-              </div>
-              {ref && (
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-sand-600">Transaction</span>
-                  <span className="text-ink font-medium font-mono">{ref}</span>
-                </div>
-              )}
-              {!fullyPaid && (
-                <div className="flex items-center justify-between gap-4 pt-2 border-t border-sand-200">
-                  <span className="text-sand-600">Restant dû</span>
-                  <span className="text-terracotta-600 font-medium tabular-nums">
-                    {formatMAD(remaining)}
-                  </span>
-                </div>
-              )}
-            </div>
+        <h1 className="font-display text-[22px] text-[#1A1F2E] mb-1.5">
+          Paiement reçu
+        </h1>
+        <p className="text-[13px] text-[#6B6862] mb-6">
+          {fullyPaid
+            ? "Votre réservation est confirmée."
+            : "Votre acompte a bien été enregistré."}
+        </p>
 
-            {!fullyPaid && (
-              <Link
-                href={`/payer/${id}`}
-                className="inline-flex h-10 items-center justify-center rounded-md border border-sand-300 bg-white px-5 text-sm font-medium text-ink hover:bg-sand-100 transition-colors mt-6"
-              >
-                Régler le solde
-              </Link>
-            )}
+        {/* Montant payé */}
+        <div className="mb-5">
+          <div className="text-[11px] tracking-wider uppercase text-[#968F84]">
+            Montant réglé
+          </div>
+          <div className="font-display text-[30px] text-[#0F6E56] tabular-nums leading-tight">
+            {formatMAD(paid)}
           </div>
         </div>
 
-        <p className="text-center text-xs text-sand-500 mt-4">
-          Environnement de démonstration — aucune transaction bancaire réelle n'a
-          été effectuée.
+        <div className="rounded-xl border border-[#E5E0D7] bg-white px-5 py-4 text-[13px] text-left space-y-2 max-w-xs mx-auto">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-[#6B6862]">Réservation</span>
+            <span className="text-[#1A1F2E] font-medium font-mono">
+              {r.reference}
+            </span>
+          </div>
+          {ref && (
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[#6B6862]">Transaction</span>
+              <span className="text-[#1A1F2E] font-medium font-mono">{ref}</span>
+            </div>
+          )}
+          {!fullyPaid && (
+            <div className="flex items-center justify-between gap-4 pt-2 border-t border-[#E5E0D7]">
+              <span className="text-[#6B6862]">Restant dû</span>
+              <span className="text-[#C84B31] font-medium tabular-nums">
+                {formatMAD(remaining)}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {!fullyPaid && (
+          <Link
+            href={`/payer/${id}`}
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-[#E5E0D7] bg-white px-5 text-sm font-medium text-[#1A1F2E] hover:bg-sand-100 transition-colors mt-6"
+          >
+            Régler le solde
+          </Link>
+        )}
+
+        <p className="text-[11px] text-[#968F84] mt-6">
+          Environnement de démonstration — aucune transaction bancaire réelle
+          n'a été effectuée.
         </p>
       </div>
-    </main>
+    </TunnelShell>
   );
 }
