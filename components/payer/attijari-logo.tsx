@@ -24,8 +24,8 @@ export function AttijariLogo({
       <Image
         src="/attijari-logo.png"
         alt="Attijari Payment"
-        height={28}
-        width={120}
+        width={627}
+        height={318}
         className={cn("h-7 w-auto", className)}
         onError={() => setFailed(true)}
       />

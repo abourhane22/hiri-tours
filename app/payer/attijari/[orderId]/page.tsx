@@ -60,9 +60,9 @@ export default async function AttijariGatewayPage({
     <TunnelShell>
       <div className="rounded-2xl border border-[#E5E0D7] bg-white shadow-sm overflow-hidden">
         {/* En-tête gateway : fournisseur de paiement */}
-        <div className="px-6 py-5 border-b border-[#E5E0D7] flex items-center justify-between">
-          <AttijariLogo hasLogo={hasLogo} className="h-7" />
-          <span className="text-[11px] uppercase tracking-wider text-[#968F84]">
+        <div className="px-6 py-6 border-b border-[#E5E0D7] flex items-center justify-between gap-4">
+          <AttijariLogo hasLogo={hasLogo} className="h-11" />
+          <span className="text-[11px] uppercase tracking-widest text-[#968F84] shrink-0">
             Paiement par carte
           </span>
         </div>

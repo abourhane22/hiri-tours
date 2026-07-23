@@ -2,7 +2,19 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Lock, Loader2, ShieldCheck, Smartphone, AlertCircle } from "lucide-react";
+import {
+  Lock,
+  Loader2,
+  ShieldCheck,
+  Smartphone,
+  AlertCircle,
+  CreditCard,
+  User,
+  Calendar,
+  HelpCircle,
+  FlaskConical,
+  Landmark,
+} from "lucide-react";
 import { formatMAD } from "@/lib/utils";
 import { ATTIJARI_TEST_CARDS } from "@/lib/attijari";
 import { confirmAttijariPayment } from "@/app/payer/actions";
@@ -13,6 +25,13 @@ type Props = {
   amountMad: number;
   maskedPhone: string;
 };
+
+// Champ de formulaire : bordure + focus ring orange Attijari.
+const inputCls =
+  "h-11 w-full rounded-lg border border-sand-300 bg-white text-sm text-[#1A1F2E] placeholder:text-sand-400 transition-colors focus:border-[#E8641B] focus:outline-none focus:ring-2 focus:ring-[#E8641B]/10";
+const labelCls = "block text-sm font-medium text-[#1A1F2E] mb-1.5";
+const iconCls =
+  "size-4 text-sand-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none";
 
 function formatCardNumber(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 16);
@@ -92,71 +111,102 @@ export function AttijariCheckout({
   return (
     <div className="space-y-5">
       {/* Montant */}
-      <div className="rounded-xl border border-sand-200 bg-sand-50 px-5 py-4 flex items-baseline justify-between">
-        <span className="text-sm text-sand-700">Montant à payer</span>
-        <span className="font-display text-2xl text-ink tabular-nums">
+      <div className="rounded-xl border border-[#E5E0D7] bg-[#FAF5F0] px-5 py-4 flex items-center justify-between gap-4">
+        <span className="text-sm text-[#6B6862]">Montant à payer</span>
+        <span className="font-display text-[26px] text-[#1A1F2E] tabular-nums leading-none">
           {formatMAD(amountMad)}
         </span>
       </div>
 
       {step === "card" ? (
         <form onSubmit={handleCardSubmit} className="space-y-4">
+          {/* Numéro de carte */}
           <div>
-            <label className="block text-sm font-medium text-ink mb-1.5">
+            <label htmlFor="cc-number" className={labelCls}>
               Numéro de carte
             </label>
             <div className="relative">
+              <CreditCard className={iconCls} />
               <input
+                id="cc-number"
                 inputMode="numeric"
                 autoComplete="cc-number"
+                maxLength={19}
                 value={cardNumber}
                 onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
                 placeholder="0000 0000 0000 0000"
-                className="h-11 w-full rounded-md border border-sand-300 bg-white pl-3 pr-10 text-sm tracking-widest text-ink placeholder:text-sand-400 focus:border-[#E67817] focus:outline-none focus:ring-2 focus:ring-[#E67817]/20"
+                className={`${inputCls} pl-10 pr-16 tracking-widest`}
               />
-              <Lock className="size-4 text-sand-400 absolute right-3 top-1/2 -translate-y-1/2" />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 rounded border border-sand-200 bg-[#FAF5F0] px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-[#6B6862]">
+                VISA
+              </span>
             </div>
           </div>
 
+          {/* Titulaire */}
           <div>
-            <label className="block text-sm font-medium text-ink mb-1.5">
+            <label htmlFor="cc-name" className={labelCls}>
               Titulaire de la carte
             </label>
-            <input
-              autoComplete="cc-name"
-              value={holder}
-              onChange={(e) => setHolder(e.target.value.toUpperCase())}
-              placeholder="NOM PRÉNOM"
-              className="h-11 w-full rounded-md border border-sand-300 bg-white px-3 text-sm text-ink placeholder:text-sand-400 focus:border-[#E67817] focus:outline-none focus:ring-2 focus:ring-[#E67817]/20"
-            />
+            <div className="relative">
+              <User className={iconCls} />
+              <input
+                id="cc-name"
+                autoComplete="cc-name"
+                value={holder}
+                onChange={(e) => setHolder(e.target.value.toUpperCase())}
+                placeholder="NOM PRÉNOM"
+                className={`${inputCls} pl-10`}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
+            {/* Expiration */}
             <div>
-              <label className="block text-sm font-medium text-ink mb-1.5">
+              <label htmlFor="cc-exp" className={labelCls}>
                 Expiration
               </label>
-              <input
-                inputMode="numeric"
-                autoComplete="cc-exp"
-                value={expiry}
-                onChange={(e) => setExpiry(formatExpiry(e.target.value))}
-                placeholder="MM/AA"
-                className="h-11 w-full rounded-md border border-sand-300 bg-white px-3 text-sm text-ink placeholder:text-sand-400 focus:border-[#E67817] focus:outline-none focus:ring-2 focus:ring-[#E67817]/20"
-              />
+              <div className="relative">
+                <Calendar className={iconCls} />
+                <input
+                  id="cc-exp"
+                  inputMode="numeric"
+                  autoComplete="cc-exp"
+                  maxLength={5}
+                  value={expiry}
+                  onChange={(e) => setExpiry(formatExpiry(e.target.value))}
+                  placeholder="MM/AA"
+                  className={`${inputCls} pl-10`}
+                />
+              </div>
             </div>
+
+            {/* CVV */}
             <div>
-              <label className="block text-sm font-medium text-ink mb-1.5">
+              <label
+                htmlFor="cc-csc"
+                className={`${labelCls} flex items-center gap-1`}
+              >
                 CVV
+                <HelpCircle className="size-3.5 text-sand-400" />
               </label>
-              <input
-                inputMode="numeric"
-                autoComplete="cc-csc"
-                value={cvv}
-                onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                placeholder="123"
-                className="h-11 w-full rounded-md border border-sand-300 bg-white px-3 text-sm text-ink placeholder:text-sand-400 focus:border-[#E67817] focus:outline-none focus:ring-2 focus:ring-[#E67817]/20"
-              />
+              <div className="relative">
+                <Lock className={iconCls} />
+                <input
+                  id="cc-csc"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="cc-csc"
+                  maxLength={3}
+                  value={cvv}
+                  onChange={(e) =>
+                    setCvv(e.target.value.replace(/\D/g, "").slice(0, 3))
+                  }
+                  placeholder="123"
+                  className={`${inputCls} pl-10`}
+                />
+              </div>
             </div>
           </div>
 
@@ -164,22 +214,25 @@ export function AttijariCheckout({
 
           <button
             type="submit"
-            className="h-11 w-full inline-flex items-center justify-center gap-2 rounded-md bg-[#E67817] text-white font-medium hover:bg-[#CC6810] transition-colors"
+            className="h-11 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#E8641B] text-white font-medium transition-colors hover:bg-[#C84B31]"
           >
             <Lock className="size-4" />
             Payer {formatMAD(amountMad)}
           </button>
 
           {/* Cartes de test */}
-          <div className="rounded-lg border border-dashed border-sand-300 bg-sand-50 px-4 py-3 text-xs text-sand-700 space-y-1.5">
-            <p className="font-medium text-sand-800">Cartes de test</p>
-            <div className="flex items-center justify-between font-mono">
+          <div className="rounded-lg border border-dashed border-[#E5E0D7] bg-[#FBF9F5] px-4 py-3 text-xs space-y-2">
+            <p className="flex items-center gap-1.5 font-medium text-[#6B6862]">
+              <FlaskConical className="size-3.5" />
+              Cartes de test
+            </p>
+            <div className="flex items-center justify-between font-mono text-[#1A1F2E]">
               <span>{ATTIJARI_TEST_CARDS.approved}</span>
-              <span className="text-emerald-700">paiement accepté</span>
+              <span className="text-[#0F6E56]">paiement accepté</span>
             </div>
-            <div className="flex items-center justify-between font-mono">
+            <div className="flex items-center justify-between font-mono text-[#1A1F2E]">
               <span>{ATTIJARI_TEST_CARDS.declined}</span>
-              <span className="text-red-600">refusé (fonds insuffisants)</span>
+              <span className="text-[#A32D2D]">refusé (fonds insuffisants)</span>
             </div>
           </div>
         </form>
@@ -197,16 +250,20 @@ export function AttijariCheckout({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-ink mb-1.5">
+            <label htmlFor="otp-code" className={labelCls}>
               Code de vérification
             </label>
             <input
+              id="otp-code"
               inputMode="numeric"
               autoFocus
+              maxLength={6}
               value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={(e) =>
+                setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
               placeholder="______"
-              className="h-12 w-full rounded-md border border-sand-300 bg-white px-3 text-center text-lg tracking-[0.5em] font-mono text-ink placeholder:text-sand-300 focus:border-atlantic-500 focus:outline-none focus:ring-2 focus:ring-atlantic-500/20"
+              className="h-12 w-full rounded-lg border border-sand-300 bg-white px-3 text-center text-lg tracking-[0.5em] font-mono text-[#1A1F2E] placeholder:text-sand-300 transition-colors focus:border-[#E8641B] focus:outline-none focus:ring-2 focus:ring-[#E8641B]/10"
             />
             <p className="text-xs text-sand-600 mt-1.5">Code de test : 123456</p>
           </div>
@@ -230,7 +287,7 @@ export function AttijariCheckout({
             type="submit"
             disabled={isPending}
             aria-busy={isPending}
-            className="h-11 w-full inline-flex items-center justify-center gap-2 rounded-md bg-atlantic-600 text-white font-medium hover:bg-atlantic-700 transition-colors disabled:opacity-60"
+            className="h-11 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#E8641B] text-white font-medium transition-colors hover:bg-[#C84B31] disabled:opacity-60"
           >
             {isPending ? (
               <>
@@ -238,7 +295,10 @@ export function AttijariCheckout({
                 Vérification…
               </>
             ) : (
-              "Valider"
+              <>
+                <ShieldCheck className="size-4" />
+                Valider
+              </>
             )}
           </button>
 
@@ -249,13 +309,31 @@ export function AttijariCheckout({
                 setStep("card");
                 setBankError(null);
               }}
-              className="w-full text-center text-sm text-sand-600 hover:text-ink"
+              className="w-full text-center text-sm text-sand-600 hover:text-[#1A1F2E]"
             >
               Retour
             </button>
           )}
         </form>
       )}
+
+      {/* Pied de carte — gages de confiance */}
+      <div className="flex items-center justify-center gap-x-3 gap-y-1.5 flex-wrap border-t border-[#E5E0D7] pt-4 text-[11px] text-[#968F84]">
+        <span className="inline-flex items-center gap-1">
+          <ShieldCheck className="size-[13px]" />
+          Chiffré SSL
+        </span>
+        <span aria-hidden>·</span>
+        <span className="inline-flex items-center gap-1">
+          <Smartphone className="size-[13px]" />
+          3D Secure
+        </span>
+        <span aria-hidden>·</span>
+        <span className="inline-flex items-center gap-1">
+          <Landmark className="size-[13px]" />
+          Attijari Payment · démo
+        </span>
+      </div>
     </div>
   );
 }
