@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { formatMAD } from "@/lib/utils";
 import { initiateAttijariPayment } from "@/app/payer/actions";
+import { AttijariLogo } from "@/components/payer/attijari-logo";
 
 /**
  * Sélecteur de moyen de paiement + bouton principal + rangée de confiance.
@@ -51,22 +52,13 @@ export function AttijariPayPanel({
           disabled={isPending}
           className="text-left rounded-xl border-2 border-[#0F6E56] bg-[#F7FCFA] p-4 transition-colors hover:bg-[#EFF9F5] disabled:opacity-70 disabled:pointer-events-none"
         >
-          <div className="flex items-center justify-between">
-            <CircleCheck className="size-5 text-[#0F6E56]" />
-            {hasLogo && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src="/attijari-logo.png"
-                alt="Attijari"
-                className="h-5 w-auto object-contain"
-              />
-            )}
+          {/* Le logo Attijari EST le titre de la carte (fallback texte si absent). */}
+          <div className="flex items-center justify-between gap-2">
+            <AttijariLogo hasLogo={hasLogo} className="h-7" />
+            <CircleCheck className="size-5 text-[#0F6E56] shrink-0" />
           </div>
-          <div className="mt-2.5 text-sm font-semibold text-[#1A1F2E]">
-            Attijari Payment
-          </div>
-          <div className="text-xs text-[#6B6862] mt-0.5">
-            Carte bancaire marocaine
+          <div className="text-xs text-[#6B6862] mt-2.5">
+            Carte bancaire marocaine · CIH, Attijariwafa, BP…
           </div>
         </button>
 
