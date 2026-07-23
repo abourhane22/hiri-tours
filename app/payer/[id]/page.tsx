@@ -21,7 +21,7 @@ export default async function PayerPage({
   const { data: reservation, error } = await supabase
     .from("reservations")
     .select(
-      "id, reference, status, total_amount_mad, paid_amount_mad, departure_date, guest_full_name, circuits(title), customers(full_name)",
+      "id, reference, status, total_amount_mad, paid_amount_mad, departure_date, circuits(title), customers(full_name)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -39,7 +39,7 @@ export default async function PayerPage({
   const total = Number(r.total_amount_mad);
   const paid = Number(r.paid_amount_mad);
   const remaining = Math.max(0, total - paid);
-  const clientName = r.customers?.full_name ?? r.guest_full_name ?? "—";
+  const clientName = r.customers?.full_name ?? "—";
   const circuitTitle = r.circuits?.title ?? "—";
   const isCancelled = r.status === "cancelled";
   const hasLogo = hasAttijariLogo();
