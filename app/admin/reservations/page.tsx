@@ -10,7 +10,7 @@ const STATUS_CONFIG: Record<string, { label: string; classes: string }> = {
   pending:   { label: "En attente", classes: "bg-purple-50 text-purple-800 border border-purple-200" },
   confirmed: { label: "Confirmée",  classes: "bg-emerald-50 text-emerald-800 border border-emerald-200" },
   paid:      { label: "Payée",      classes: "bg-emerald-100 text-emerald-900 border border-emerald-300" },
-  completed: { label: "Terminée",   classes: "bg-atlantic-50 text-atlantic-800 border border-atlantic-200" },
+  completed: { label: "Terminée",   classes: "bg-[#F1EFE8] text-[#444441] border border-[#E0DACF]" },
   cancelled: { label: "Annulée",    classes: "bg-red-50 text-red-800 border border-red-200" },
 };
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
