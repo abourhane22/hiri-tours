@@ -151,16 +151,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     (r) => r.status !== "cancelled" && inDateRange(r.departure_date, yearStart, yearEnd)
   );
   const ytdRevenue = ytdRes.reduce((s, r) => s + Number(r.total_amount_mad), 0);
-  const annualTarget = Number(company?.annual_revenue_target_mad ?? 600000);
-  const ytdProgress = Math.min(100, Math.round((ytdRevenue / annualTarget) * 100));
+  const annualTarget = Number(company?.annual_revenue_target_mad ?? 0);
+  const hasTarget = annualTarget > 0;
 
-  // NOUVEAU — repère de rythme : où l'on devrait être si le CA arrivait
-  // linéairement sur l'année (jour de l'année / 365).
+  // Objectif annuel — écart au rythme nominal (CA linéaire sur l'année).
   const dayOfYear = Math.floor((now.getTime() - yearStart.getTime()) / 86400000) + 1;
-  const rhythmPct = (dayOfYear / 365) * 100;
-  const markerPct = Math.min(100, rhythmPct);
-  const realizedPctExact = annualTarget > 0 ? (ytdRevenue / annualTarget) * 100 : 0;
-  const paceGapPts = Math.round(realizedPctExact - rhythmPct);
+  const pctRealise = hasTarget
+    ? Math.min(100, Math.max(0, (ytdRevenue / annualTarget) * 100))
+    : 0;
+  const pctRythmeRaw = (dayOfYear / 365) * 100;
+  const pctRythme = Math.min(100, Math.max(0, pctRythmeRaw));
+  const ecartPts = Math.round(pctRealise - pctRythme);
+  const ecartMad = ytdRevenue - (annualTarget * pctRythmeRaw) / 100;
+  // Arrondi au millier le plus proche pour la lisibilité (ex. −42 000 MAD).
+  const ecartMadRounded = Math.round(Math.abs(ecartMad) / 1000) * 1000;
   const paceDateLabel = now.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 
   // Helper : somme CA d'une période
@@ -416,50 +420,83 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           <span className={cardLabel}>
             <Target className="size-3.5" /> Objectif annuel {now.getFullYear()}
           </span>
-          <div className="text-right">
-            <div className="font-display text-lg text-[#1A1F2E] tabular-nums leading-none">
-              {formatMad(ytdRevenue)} / {formatMad(annualTarget)} MAD
+          {hasTarget && (
+            <div className="text-right">
+              <div className="font-display text-lg text-[#1A1F2E] tabular-nums leading-none">
+                {formatMad(ytdRevenue)} / {formatMad(annualTarget)} MAD
+              </div>
+              {ecartPts < 0 ? (
+                <div className="text-[11px] mt-1" style={{ color: "#B25F0B" }}>
+                  {Math.round(pctRealise)} % ·{" "}
+                  <span className="rounded px-1.5 py-0.5" style={{ backgroundColor: "#FDF3E4" }}>
+                    −{formatMad(ecartMadRounded)} MAD
+                  </span>{" "}
+                  vs rythme
+                </div>
+              ) : (
+                <div className="text-[11px] mt-1" style={{ color: "#0C6B8A" }}>
+                  {Math.round(pctRealise)} % ·{" "}
+                  <span className="rounded px-1.5 py-0.5" style={{ backgroundColor: "#E3F0F5" }}>
+                    +{formatMad(ecartMadRounded)} MAD
+                  </span>{" "}
+                  d'avance
+                </div>
+              )}
             </div>
-            <div
-              className="text-[11px] mt-1"
-              style={{ color: paceGapPts >= 0 ? "#0F6E56" : "#A32D2D" }}
-            >
-              {ytdProgress} % ·{" "}
-              {paceGapPts >= 0
-                ? `+${paceGapPts} pts au-dessus`
-                : `−${Math.abs(paceGapPts)} pts sous`}{" "}
-              le rythme
-            </div>
-          </div>
+          )}
         </div>
 
-        <div className="relative mt-3 mb-1.5">
-          <div
-            className="h-2 rounded-full overflow-hidden"
-            style={{ backgroundColor: "#EEE9E0" }}
-          >
+        {hasTarget ? (
+          <>
             <div
-              className="h-full rounded-full"
-              style={{ width: `${ytdProgress}%`, backgroundColor: "#C84B31" }}
-            />
-          </div>
-          {/* Repère de rythme nominal */}
-          <div
-            className="absolute"
-            style={{
-              left: `${markerPct}%`,
-              top: -2,
-              bottom: -2,
-              width: 2,
-              backgroundColor: "#1A1F2E",
-              transform: "translateX(-1px)",
-            }}
-            aria-hidden
-          />
-        </div>
-        <p className="text-[11px] text-[#968F84]">
-          Le repère noir = rythme nominal au {paceDateLabel}
-        </p>
+              className="relative mt-3 mb-1.5 rounded-full"
+              style={{ height: 10, backgroundColor: "#EEE9E0", overflow: "visible" }}
+            >
+              {/* Remplissage réalisé */}
+              <div
+                className="absolute left-0 top-0 h-full rounded-full"
+                style={{ width: `${pctRealise}%`, backgroundColor: "#0C6B8A" }}
+              />
+              {/* Zone d'écart hachurée — seulement en retard */}
+              {ecartPts < 0 && (
+                <div
+                  className="absolute top-0 h-full rounded-r-full"
+                  style={{
+                    left: `${pctRealise}%`,
+                    width: `${pctRythme - pctRealise}%`,
+                    backgroundImage:
+                      "repeating-linear-gradient(45deg, #F5D9B8, #F5D9B8 3px, #FDF3E4 3px, #FDF3E4 6px)",
+                  }}
+                />
+              )}
+              {/* Repère de rythme nominal */}
+              <div
+                className="absolute"
+                style={{
+                  left: `${pctRythme}%`,
+                  top: -3,
+                  height: 16,
+                  width: 2,
+                  backgroundColor: "#1A1F2E",
+                  transform: "translateX(-1px)",
+                }}
+                aria-hidden
+              />
+            </div>
+            <p className="text-[10px] text-[#968F84]">
+              {ecartPts < 0
+                ? `Bleu = réalisé · hachures = écart au rythme · trait = rythme nominal au ${paceDateLabel}`
+                : `Bleu = réalisé · trait = rythme nominal au ${paceDateLabel}`}
+            </p>
+          </>
+        ) : (
+          <p className="text-[13px] text-[#6B6862] mt-3">
+            Objectif non défini —{" "}
+            <Link href="/admin/finance/pilotage" className="text-[#0C6B8A] hover:underline">
+              le définir dans Finance &gt; Pilotage
+            </Link>
+          </p>
+        )}
       </div>
 
       {/* 4. AUJOURD'HUI */}
