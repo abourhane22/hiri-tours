@@ -1,10 +1,9 @@
-import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
-import { cn, formatMAD, formatDate, formatDateShort } from "@/lib/utils";
+import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
 import {
   ArrowLeft,
   Mail,
@@ -25,6 +24,8 @@ import {
   RefreshCw,
   AlertTriangle,
   Info,
+  Loader,
+  Calendar,
 } from "lucide-react";
 import { updateNotes, cancelReservation } from "./actions";
 import { IssueInvoiceButton } from "@/components/issue-invoice-button";
@@ -62,6 +63,17 @@ const STEPS = [
   { key: "paid", label: "Payée" },
   { key: "completed", label: "Terminée" },
 ];
+
+const STEP_LEGENDS: Record<string, string> = {
+  pending: "Dossier créé, en attente de validation par l'agence",
+  confirmed: "Place réservée, voucher émis · en attente du règlement",
+  paid: "Règlement intégral encaissé",
+  completed: "La prestation a eu lieu · passe automatiquement après le départ",
+};
+
+function madShort(n: number): string {
+  return `${Math.round(n).toLocaleString("fr-FR")} MAD`;
+}
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).slice(0, 2);
@@ -255,39 +267,120 @@ export default async function ReservationDetailPage({
             <span>Réservation annulée le {formatDate(r.updated_at)}.</span>
           </div>
         ) : (
-          <div className="flex items-start">
+          <div className="grid grid-cols-4">
             {STEPS.map((step, i) => {
               const done = i < currentStepIndex;
               const current = i === currentStepIndex;
-              return (
-                <Fragment key={step.key}>
-                  <div className="flex flex-col items-center gap-1.5 w-[72px] shrink-0">
-                    <div
-                      className={cn(
-                        "size-[22px] rounded-full flex items-center justify-center text-[11px] font-medium border",
-                        done && "bg-[#1A1F2E] text-white border-transparent",
-                        current && "bg-[#0F6E56] text-white border-transparent",
-                        !done && !current && "bg-white text-[#968F84] border-[#E0DACF]",
-                      )}
-                    >
-                      {done ? <Check className="size-3" /> : i + 1}
-                    </div>
-                    <span
-                      className={cn(
-                        "text-[11px] text-center leading-tight",
-                        current ? "text-[#0F6E56] font-medium" : "text-[#6B6862]",
-                      )}
-                    >
-                      {step.label}
+              const isLast = i === STEPS.length - 1;
+              const nameColor = done ? "#1A1F2E" : current ? "#0F6E56" : "#968F84";
+              const dateLineCls =
+                "mt-1 flex items-center justify-center gap-1 text-[10.5px] font-medium";
+
+              // Ligne date / état sous l'étape
+              let dateNode: React.ReactNode = null;
+              if (done) {
+                dateNode = (
+                  <span className={dateLineCls} style={{ color: "#0F6E56" }}>
+                    <Check className="size-3" />
+                    {step.key === "pending" && formatDateShort(r.created_at)}
+                  </span>
+                );
+              } else if (current) {
+                if (step.key === "completed") {
+                  dateNode = (
+                    <span className={dateLineCls} style={{ color: "#0F6E56" }}>
+                      <Check className="size-3" />
                     </span>
-                  </div>
-                  {i < STEPS.length - 1 && (
+                  );
+                } else {
+                  const txt =
+                    step.key === "pending"
+                      ? "En attente de confirmation"
+                      : step.key === "confirmed"
+                        ? `Étape en cours · restant dû ${madShort(Math.max(0, balance))}`
+                        : `Étape en cours · restant dû ${madShort(0)}`;
+                  dateNode = (
+                    <span className={dateLineCls} style={{ color: "#B25F0B" }}>
+                      <Loader className="size-3" />
+                      {txt}
+                    </span>
+                  );
+                }
+              } else if (step.key === "completed") {
+                // Future : uniquement l'étape Terminée porte une date prévisionnelle
+                dateNode = (
+                  <span
+                    className={`${dateLineCls} max-sm:hidden`}
+                    style={{ color: "#B4AC9E" }}
+                  >
+                    <Calendar className="size-3" />
+                    Prévu le {formatDateShort(r.departure_date)}
+                  </span>
+                );
+              }
+
+              return (
+                <div
+                  key={step.key}
+                  className="relative flex flex-col items-center text-center px-1.5"
+                >
+                  {/* Ligne de liaison vers l'étape suivante */}
+                  {!isLast && (
                     <div
-                      className="flex-1 h-0.5 mt-[10px]"
-                      style={{ backgroundColor: i < currentStepIndex ? "#1A1F2E" : "#E0DACF" }}
+                      className="absolute z-0"
+                      style={{
+                        left: "50%",
+                        top: 10,
+                        width: "100%",
+                        height: 2,
+                        backgroundColor: i < currentStepIndex ? "#1A1F2E" : "#E0DACF",
+                      }}
+                      aria-hidden
                     />
                   )}
-                </Fragment>
+
+                  {/* Pastille */}
+                  <div
+                    className="relative z-10 size-[22px] rounded-full flex items-center justify-center text-[11px] font-medium border-2"
+                    style={
+                      done
+                        ? { backgroundColor: "#1A1F2E", color: "#fff", borderColor: "transparent" }
+                        : current
+                          ? {
+                              backgroundColor: "#fff",
+                              color: "#0F6E56",
+                              borderColor: "#0F6E56",
+                              boxShadow: "0 0 0 4px rgba(15,110,86,0.12)",
+                            }
+                          : { backgroundColor: "#fff", color: "#968F84", borderColor: "#E0DACF" }
+                    }
+                  >
+                    {done ? <Check className="size-3" /> : i + 1}
+                  </div>
+
+                  {/* Nom */}
+                  <span className="text-[13px] font-medium mt-2" style={{ color: nameColor }}>
+                    {step.label}
+                  </span>
+
+                  {/* Légende */}
+                  <span
+                    className="text-[11px] leading-snug mt-0.5 max-sm:text-[10px]"
+                    style={{ color: current ? "#58524A" : "#968F84" }}
+                  >
+                    {STEP_LEGENDS[step.key]}
+                    {step.key === "paid" && current && (
+                      <span className="font-medium">
+                        {" — "}
+                        {Math.round(totalPaid).toLocaleString("fr-FR")} /{" "}
+                        {Math.round(totalAmount).toLocaleString("fr-FR")} MAD
+                      </span>
+                    )}
+                  </span>
+
+                  {/* Ligne date / état */}
+                  {dateNode}
+                </div>
               );
             })}
           </div>
