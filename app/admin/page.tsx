@@ -204,13 +204,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
 
   const trendMax = Math.max(...trend.flatMap((t) => [t.current, t.previous]), 1);
   const previousLegendLabel = trendView === "12m" ? "N-1" : String(parseInt(trendView) - 1);
-  const currentLegendLabel = trendView === "12m" ? "N" : trendView;
 
   // Points de la trajectoire (nouvelles coordonnées, mois avec données uniquement)
   const trajectoryPoints = trend
     .map((t, i) => ({
       x: 79 + i * 56,
-      y: 220 - (t.current / trendMax) * 190,
+      y: 230 - (t.current / trendMax) * 180,
       isCurrent: t.isCurrent,
       hasData: t.current > 0,
     }))
@@ -218,6 +217,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
 
   // Index du mois courant pour le surlignage en arrière-plan
   const currentMonthIndex = trend.findIndex((t) => t.isCurrent);
+
+  // Synthèse performance vs N-1 (mois avec de la donnée d'un côté ou de l'autre)
+  const consideredMonths = trend.filter((t) => t.previous > 0 || t.current > 0);
+  const progressingMonths = consideredMonths.filter((t) => t.current >= t.previous).length;
+  const retreatingMonths = consideredMonths.filter((t) => t.current < t.previous).length;
 
   // Label compact du max (33k au lieu de 33 000)
   const maxLabel =
@@ -561,16 +565,41 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           </div>
         </div>
 
+        {/* Synthèse + échelle */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 mb-2 text-[12px] text-[#6B6862]">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "#0C6B8A" }} />
+              {progressingMonths} mois en progression
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "#D98324" }} />
+              {retreatingMonths} mois en retrait
+            </span>
+            <span className="flex items-center gap-1.5">
+              <svg width="18" height="6" aria-hidden>
+                <line x1="0" y1="3" x2="18" y2="3" stroke="#968F84" strokeWidth="2" strokeDasharray="4 3" />
+              </svg>
+              Niveau {previousLegendLabel}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-4 h-0.5 rounded-full" style={{ background: "#1A1F2E" }} />
+              Trajectoire
+            </span>
+          </div>
+          <span className="text-[#968F84]">Échelle max · {maxLabel} MAD</span>
+        </div>
+
         <svg
-          viewBox="0 0 760 270"
+          viewBox="0 0 760 285"
           style={{ width: "100%", height: "auto", display: "block" }}
           role="img"
-          aria-label="Tendance mensuelle comparée année actuelle et précédente"
+          aria-label="Tendance mensuelle : performance de chaque mois comparée au même mois de l'année précédente"
         >
           {currentMonthIndex >= 0 && (
             <rect
-              x={40 + currentMonthIndex * 56 - 4}
-              y="22"
+              x={47 + currentMonthIndex * 56}
+              y="30"
               width="64"
               height="200"
               fill="#FAECE7"
@@ -579,34 +608,82 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
             />
           )}
 
-          <line x1="40" y1="78" x2="720" y2="78" stroke="#F5F5F4" strokeWidth="1" />
-          <line x1="40" y1="125" x2="720" y2="125" stroke="#F5F5F4" strokeWidth="1" />
-          <line x1="40" y1="173" x2="720" y2="173" stroke="#F5F5F4" strokeWidth="1" />
-          <line x1="40" y1="222" x2="720" y2="222" stroke="#E7E5E4" strokeWidth="1" />
+          <line x1="40" y1="50" x2="720" y2="50" stroke="#F5F5F4" strokeWidth="1" />
+          <line x1="40" y1="110" x2="720" y2="110" stroke="#F5F5F4" strokeWidth="1" />
+          <line x1="40" y1="170" x2="720" y2="170" stroke="#F5F5F4" strokeWidth="1" />
+          <line x1="40" y1="230" x2="720" y2="230" stroke="#E7E5E4" strokeWidth="1" />
 
           {trend.map((t, i) => {
-            const xPrev = 48 + i * 56;
-            const xCur = 70 + i * 56;
-            const hPrev = (t.previous / trendMax) * 190;
-            const hCur = (t.current / trendMax) * 190;
-            const yPrev = 220 - hPrev;
-            const yCur = 220 - hCur;
-            const labelX = 68 + i * 56;
+            const cx = 79 + i * 56;
+            const barW = 24;
+            const hCur = (t.current / trendMax) * 180;
+            const hPrev = (t.previous / trendMax) * 180;
+            const bothZero = t.current <= 0 && t.previous <= 0;
+            const up = t.previous === 0 ? t.current > 0 : t.current >= t.previous;
+
+            // Barre unique = valeur N, couleur selon la performance vs N-1
+            const fill = bothZero ? "#E0DACF" : up ? "#0C6B8A" : "#D98324";
+            const barH = bothZero ? 4 : hCur;
+            const barY = 230 - barH;
+            const prevY = 230 - hPrev;
+
+            // Delta % au-dessus de la barre
+            let deltaText: string | null = null;
+            let deltaColor = "#0C6B8A";
+            if (t.previous === 0) {
+              if (t.current > 0) deltaText = "new";
+            } else {
+              const pct = Math.round(((t.current - t.previous) / t.previous) * 100);
+              if (pct >= 0) {
+                deltaText = `+${pct} %`;
+                deltaColor = "#0C6B8A";
+              } else {
+                deltaText = `−${Math.abs(pct)} %`;
+                deltaColor = "#B25F0B";
+              }
+            }
+            const topRef = t.previous > 0 ? Math.min(barY, prevY) : barY;
+            const deltaY = Math.max(14, topRef - 6);
+
             return (
               <g key={i}>
+                <rect x={cx - barW / 2} y={barY} width={barW} height={barH} rx="3" fill={fill}>
+                  <title>
+                    {`${t.label} : ${formatMad(t.current)} MAD${
+                      t.previous > 0 ? ` (${previousLegendLabel} ${formatMad(t.previous)} MAD)` : ""
+                    }`}
+                  </title>
+                </rect>
+
+                {/* Référence N-1 : tiret pointillé à la hauteur du previous */}
                 {t.previous > 0 && (
-                  <rect x={xPrev} y={yPrev} width="18" height={hPrev} rx="3" fill="#E0DACF">
-                    <title>{`${t.label} ${previousLegendLabel} : ${formatMad(t.previous)} MAD`}</title>
-                  </rect>
+                  <line
+                    x1={cx - barW / 2 - 4}
+                    y1={prevY}
+                    x2={cx + barW / 2 + 4}
+                    y2={prevY}
+                    stroke="#968F84"
+                    strokeWidth="2"
+                    strokeDasharray="4 3"
+                  />
                 )}
-                {t.current > 0 && (
-                  <rect x={xCur} y={yCur} width="18" height={hCur} rx="3" fill="#C84B31">
-                    <title>{`${t.label} ${currentLegendLabel} : ${formatMad(t.current)} MAD`}</title>
-                  </rect>
+
+                {deltaText && (
+                  <text
+                    x={cx}
+                    y={deltaY}
+                    fontSize="9.5"
+                    fontWeight={500}
+                    fill={deltaColor}
+                    textAnchor="middle"
+                  >
+                    {deltaText}
+                  </text>
                 )}
+
                 <text
-                  x={labelX}
-                  y="240"
+                  x={cx}
+                  y="250"
                   fontSize="11"
                   fill={t.isCurrent ? "#712B13" : "#A8A29E"}
                   textAnchor="middle"
@@ -614,6 +691,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
                 >
                   {t.label}
                 </text>
+                {t.isCurrent && (
+                  <text x={cx} y="263" fontSize="8.5" fill="#712B13" textAnchor="middle">
+                    mois en cours
+                  </text>
+                )}
               </g>
             );
           })}
@@ -642,25 +724,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
             </>
           )}
         </svg>
-
-        {/* Légende */}
-        <div className="flex flex-wrap items-center justify-between gap-2 mt-1">
-          <p className="text-xs text-[#968F84]">Échelle max · {maxLabel} MAD</p>
-          <div className="flex gap-4 text-xs text-[#6B6862]">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "#C84B31" }} />
-              {currentLegendLabel}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm" style={{ background: "#E0DACF" }} />
-              {previousLegendLabel}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-4 h-0.5 rounded-full" style={{ background: "#1A1F2E" }} />
-              Trajectoire
-            </span>
-          </div>
-        </div>
       </div>
 
       {/* 6. PILOTAGE */}
