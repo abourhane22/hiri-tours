@@ -10,7 +10,6 @@ import {
   Phone,
   Printer,
   Receipt,
-  CreditCard,
   Clock,
   CircleCheck,
   CircleX,
@@ -263,15 +262,6 @@ export default async function ReservationDetailPage({
                 defaultTvaRate={Number((companySettings as any)?.tva_default_rate ?? 0.2)}
               />
             ))}
-          {balance > 0 && !isCancelled && (
-            <Link
-              href={`/payer/${id}`}
-              target="_blank"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#1A1F2E] text-white text-[12.5px] font-medium px-3.5 py-2 hover:bg-[#2A3142] transition-colors"
-            >
-              <CreditCard className="size-4" /> Encaisser en ligne
-            </Link>
-          )}
         </div>
       </div>
 
