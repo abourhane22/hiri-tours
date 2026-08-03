@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
-import { Input, Label, Textarea } from "@/components/ui/input";
 import { Card, CardBody } from "@/components/ui/card";
 import { ImageUpload } from "@/components/image-upload";
 import { GalleryEditor } from "@/components/gallery-editor";
@@ -10,7 +8,8 @@ import { SeasonsEditor } from "@/components/seasons-editor";
 import { CategoryFieldsSection } from "@/components/category-fields-section";
 import { CategoryFieldsSummary } from "@/components/category-fields-summary";
 import { CircuitDangerZone } from "@/components/circuit-danger-zone";
-import { ArrowLeft } from "lucide-react";
+import { CircuitPreviewPanel } from "@/components/circuit-preview-panel";
+import { ArrowLeft, ShieldCheck, Image as ImageIcon } from "lucide-react";
 import type { Circuit, CircuitSeason, CircuitCategory } from "@/lib/types";
 import {
   parseCategoryFieldsFromForm,
@@ -20,6 +19,10 @@ import {
 } from "@/lib/category-fields";
 
 const VALID_CATEGORIES: readonly CircuitCategory[] = ["circuit", "excursion", "transfert", "sejour"];
+
+const labelCls = "block text-[12px] font-medium text-[#58524A] mb-1.5";
+const fieldCls =
+  "h-10 w-full rounded-lg border border-[#E0DACF] bg-white px-3 text-sm text-[#1A1F2E] placeholder:text-sand-400 focus:border-[#1A1F2E] focus:outline-none focus:ring-2 focus:ring-[#1A1F2E]/10 transition-colors";
 
 export default async function EditCircuitPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -53,7 +56,6 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
 
     if (c.category === "circuit") {
       const base: AnyCategoryFields = hasStored ? { ...stored } : {};
-      // Pré-remplit l'itinéraire depuis le legacy s'il est absent du category_fields.
       if (normalizeItinerary(base.itinerary).length === 0 && legacyItineraryDays.length > 0) {
         base.itinerary = legacyItineraryDays;
       }
@@ -131,17 +133,23 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
     redirect("/admin/circuits");
   }
 
+  const initialDayCount =
+    normalizeItinerary(currentCategoryFields.itinerary).length || c.duration_days || 1;
+
   return (
-    <div className="p-8 max-w-3xl mx-auto">
-      <Link href="/admin/circuits" className="inline-flex items-center gap-1 text-sm text-sand-700 hover:text-ink mb-4">
+    <div className="p-8 max-w-5xl mx-auto">
+      <Link href="/admin/circuits" className="inline-flex items-center gap-1 text-sm text-[#6B6862] hover:text-[#1A1F2E] mb-4">
         <ArrowLeft className="size-4" /> Retour au catalogue
       </Link>
-      <div className="mb-8">
-        <p className="eyebrow mb-2">Module 2 — Catalogue</p>
-        <h1 className="font-display text-3xl text-ink">Modifier le circuit</h1>
+      <div className="mb-6">
+        <p className="text-[10px] tracking-[2px] uppercase text-[#C84B31] font-medium">
+          Catalogue · Édition
+        </p>
+        <h1 className="font-display text-3xl text-[#1A1F2E] mt-1">{c.title}</h1>
       </div>
 
-      <Card className="mb-6">
+      {/* Aperçu détaillé de la fiche (résumé des champs spécifiques) */}
+      <Card className="mb-4">
         <div className="px-5 py-4 border-b border-sand-200">
           <h2 className="font-display text-lg text-ink">Aperçu de la fiche</h2>
           {c.description && (
@@ -156,48 +164,91 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
         </CardBody>
       </Card>
 
-      <form action={updateCircuit} className="bg-white border border-sand-200 rounded-lg p-6 space-y-5">
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div className="sm:col-span-2"><Label htmlFor="title">Titre</Label><Input id="title" name="title" required defaultValue={c.title} /></div>
-          <div><Label htmlFor="slug">Slug (URL)</Label><Input id="slug" name="slug" required pattern="[a-z0-9\-]+" defaultValue={c.slug} /></div>
-          <div><Label htmlFor="max_participants">Max participants</Label><Input id="max_participants" name="max_participants" type="number" min="1" defaultValue={c.max_participants} required /></div>
+      <form action={updateCircuit} className="grid gap-4 lg:grid-cols-[1fr_250px] items-start">
+        <div className="space-y-4">
+          {/* Section 1 */}
+          <section className="bg-white border border-[#E5E0D7] rounded-xl p-4">
+            <SectionHeader n={1} title="Informations générales" />
+            <div className="grid sm:grid-cols-2 gap-4 mt-4">
+              <div className="sm:col-span-2">
+                <label htmlFor="title" className={labelCls}>Titre <span className="text-red-600">*</span></label>
+                <input id="title" name="title" required defaultValue={c.title} className={fieldCls} />
+              </div>
+              <div>
+                <label htmlFor="slug" className={labelCls}>Slug (URL) <span className="text-red-600">*</span></label>
+                <input id="slug" name="slug" required pattern="[a-z0-9\-]+" defaultValue={c.slug} className={fieldCls} />
+              </div>
+              <div>
+                <label htmlFor="short_description" className={labelCls}>Description courte</label>
+                <input id="short_description" name="short_description" defaultValue={c.short_description || ""} className={fieldCls} />
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="description" className={labelCls}>Description</label>
+                <textarea id="description" name="description" rows={2} defaultValue={c.description || ""} placeholder="Ce que le client vivra, en 2 phrases." className={`${fieldCls} h-auto py-2`} />
+              </div>
+            </div>
+          </section>
+
+          {/* Section 2 */}
+          <section className="bg-white border border-[#E5E0D7] rounded-xl p-4">
+            <SectionHeader n={2} title="Tarification & capacité" />
+            <div className="grid sm:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label htmlFor="base_price_mad" className={labelCls}>Prix adulte (MAD) <span className="text-red-600">*</span></label>
+                <input id="base_price_mad" name="base_price_mad" type="number" min="0" step="0.01" defaultValue={c.base_price_mad} required className={fieldCls} />
+              </div>
+              <div>
+                <label htmlFor="child_price_mad" className={labelCls}>Prix enfant (MAD)</label>
+                <input id="child_price_mad" name="child_price_mad" type="number" min="0" step="0.01" defaultValue={c.child_price_mad ?? ""} placeholder="= prix adulte si vide" className={fieldCls} />
+              </div>
+              <div>
+                <label htmlFor="max_participants" className={labelCls}>Capacité max (pax) <span className="text-red-600">*</span></label>
+                <input id="max_participants" name="max_participants" type="number" min="1" defaultValue={c.max_participants} required className={fieldCls} />
+              </div>
+              <div className="flex items-end">
+                <a href="#seasons" className="text-[12px] text-[#0C6B8A] hover:underline pb-2.5">
+                  Saisons tarifaires — gérées ci-dessous →
+                </a>
+              </div>
+            </div>
+            <p className="mt-3 flex items-start gap-1.5 text-[11px] text-[#968F84]">
+              <ShieldCheck className="size-3.5 shrink-0 mt-px text-[#0F6E56]" />
+              Le total d&apos;une réservation est recalculé côté serveur : prix × passagers × saison.
+            </p>
+          </section>
+
+          {/* Section 3 — catégorie + champs spécifiques */}
+          <section className="bg-white border border-[#E5E0D7] rounded-xl p-4 space-y-4">
+            <CategoryFieldsSection defaultCategory={c.category} defaultFields={currentCategoryFields} sectionNumber={3} />
+          </section>
+
+          {/* Médias */}
+          <section className="bg-white border border-[#E5E0D7] rounded-xl p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="size-4 text-[#968F84]" />
+              <h2 className="font-display text-base text-[#1A1F2E] m-0">Médias</h2>
+            </div>
+            <ImageUpload name="hero_image_url" label="Image principale" defaultValue={c.hero_image_url} />
+            <GalleryEditor name="gallery_urls" defaultValue={c.gallery_urls} />
+          </section>
         </div>
 
-        <div><Label htmlFor="short_description">Description courte</Label><Input id="short_description" name="short_description" defaultValue={c.short_description || ""} /></div>
-        <div><Label htmlFor="description">Description longue</Label><Textarea id="description" name="description" rows={5} defaultValue={c.description || ""} /></div>
-
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div><Label htmlFor="base_price_mad">Prix adulte (MAD)</Label><Input id="base_price_mad" name="base_price_mad" type="number" min="0" step="0.01" defaultValue={c.base_price_mad} required /></div>
-          <div><Label htmlFor="child_price_mad">Prix enfant (MAD)</Label><Input id="child_price_mad" name="child_price_mad" type="number" min="0" step="0.01" defaultValue={c.child_price_mad ?? ""} /></div>
-        </div>
-
-        <div className="pt-4 border-t border-sand-200 space-y-4">
-          <CategoryFieldsSection
-            defaultCategory={c.category}
-            defaultFields={currentCategoryFields}
-          />
-        </div>
-
-        <div className="pt-3 border-t border-sand-200">
-          <ImageUpload name="hero_image_url" label="Image principale" defaultValue={c.hero_image_url} />
-        </div>
-
-        <div className="pt-3 border-t border-sand-200">
-          <GalleryEditor name="gallery_urls" defaultValue={c.gallery_urls} />
-        </div>
-
-        <label className="flex items-center gap-2 pt-3 border-t border-sand-200">
-          <input type="checkbox" name="is_active" defaultChecked={c.is_active} className="size-4 rounded border-sand-300 text-terracotta-600 focus:ring-terracotta-500" />
-          <span className="text-sm text-ink">Actif (visible)</span>
-        </label>
-
-        <div className="flex justify-end items-center gap-3 pt-3 border-t border-sand-200">
-          <Link href="/admin/circuits"><Button type="button" variant="secondary">Annuler</Button></Link>
-          <Button type="submit">Enregistrer</Button>
-        </div>
+        {/* Panneau latéral */}
+        <CircuitPreviewPanel
+          mode="edit"
+          initial={{
+            title: c.title,
+            price: Number(c.base_price_mad),
+            max: c.max_participants,
+            category: c.category,
+            dayCount: initialDayCount,
+            imageUrl: c.hero_image_url ?? "",
+          }}
+          initialActive={c.is_active}
+        />
       </form>
 
-      <Card className="mt-6">
+      <Card id="seasons" className="mt-6">
         <div className="px-5 py-4 border-b border-sand-200">
           <h2 className="font-display text-lg text-ink">Tarification saisonnière</h2>
           <p className="text-xs text-sand-700 mt-1">Définissez des périodes avec un multiplicateur de prix. Le bon tarif s&apos;applique automatiquement à la création d&apos;une réservation selon la date de départ.</p>
@@ -212,6 +263,17 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
         reservationCount={reservationCount ?? 0}
         isActive={c.is_active}
       />
+    </div>
+  );
+}
+
+function SectionHeader({ n, title }: { n: number; title: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="size-5 rounded-md bg-[#1A1F2E] text-white text-[11px] font-medium flex items-center justify-center">
+        {n}
+      </span>
+      <h2 className="font-display text-base text-[#1A1F2E] m-0">{title}</h2>
     </div>
   );
 }

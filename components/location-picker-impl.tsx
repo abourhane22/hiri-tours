@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { MapPin, Loader2 } from "lucide-react";
+import { MapPin, Loader2, CircleCheck } from "lucide-react";
 
 // Fix Leaflet's default marker icon paths (broken with webpack bundlers).
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
@@ -212,7 +212,8 @@ export function LocationPickerImpl({
       {error ? (
         <p className="text-xs text-red-600">{error}</p>
       ) : lat !== null && lng !== null ? (
-        <p className="text-xs text-sand-600">
+        <p className="text-xs flex items-center gap-1" style={{ color: "#085041" }}>
+          <CircleCheck className="size-3.5" />
           Position validée · {lat.toFixed(4)}, {lng.toFixed(4)}
         </p>
       ) : (

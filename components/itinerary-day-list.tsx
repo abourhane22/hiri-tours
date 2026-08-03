@@ -57,21 +57,16 @@ export function ItineraryDayList({ label, required, defaultValue }: Props) {
 
   return (
     <div className="sm:col-span-2 space-y-2">
-      <div className="flex items-baseline justify-between flex-wrap gap-2">
-        <Label className="mb-0">
-          {label}
-          {required && <span className="text-red-600"> *</span>}
-        </Label>
-        <span className="text-xs text-sand-600">
-          Durée : {days.length} jour{days.length > 1 ? "s" : ""}
-        </span>
-      </div>
+      <Label className="mb-0 text-[12px] font-medium text-[#58524A]">
+        {label}
+        {required && <span className="text-red-600"> *</span>}
+      </Label>
 
       <div className="space-y-2">
         {days.map((d, idx) => (
           <div key={d.id} className="flex items-center gap-2">
             <span
-              className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-xs font-medium tabular-nums"
+              className="shrink-0 size-[26px] rounded-full flex items-center justify-center text-[11px] font-medium tabular-nums"
               style={{ backgroundColor: "#EEEDFE", color: "#3C3489" }}
             >
               J{idx + 1}
@@ -104,10 +99,14 @@ export function ItineraryDayList({ label, required, defaultValue }: Props) {
       <button
         type="button"
         onClick={addDay}
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md border-2 border-dashed border-sand-300 text-sm text-sand-700 hover:border-sand-400 hover:bg-sand-50 hover:text-ink transition"
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 border-dashed border-[#E0DACF] text-sm text-[#58524A] hover:border-[#C9C0AE] hover:bg-[#FAF5F0] hover:text-[#1A1F2E] transition"
       >
         <Plus className="size-4" /> Ajouter une journée
       </button>
+
+      <p className="text-[11px] text-[#968F84]">
+        Durée calculée : {days.length} jour{days.length > 1 ? "s" : ""}
+      </p>
     </div>
   );
 }
