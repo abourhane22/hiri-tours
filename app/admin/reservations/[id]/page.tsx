@@ -583,7 +583,18 @@ export default async function ReservationDetailPage({
             )}
 
             {balance > 0 && !isCancelled && (
-              <PaymentLinkPanel reservationId={id} initialLink={activeLink} />
+              <PaymentLinkPanel
+                reservationId={id}
+                initialLink={activeLink}
+                share={{
+                  firstName: (r.customers?.full_name || "").trim().split(/\s+/)[0] || "",
+                  reference: r.reference,
+                  circuitTitle: r.circuits?.title ?? "",
+                  departureDate: r.departure_date,
+                  remaining: balance,
+                  phone: r.customers?.phone ?? null,
+                }}
+              />
             )}
 
             {isSettled && !isCancelled ? (
