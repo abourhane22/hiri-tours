@@ -96,7 +96,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     supabase
       .from("vehicles")
       .select("id, registration")
-      .or(`insurance_expires_on.lte.${thirtyDaysOut},inspection_expires_on.lte.${thirtyDaysOut},vignette_expires_on.lte.${thirtyDaysOut},next_maintenance_date.lte.${thirtyDaysOut}`),
+      // Cohérent avec la page Flotte : expiré (date passée) OU sous 30 j OU non renseigné (null).
+      .or(
+        `insurance_expires_on.lte.${thirtyDaysOut},inspection_expires_on.lte.${thirtyDaysOut},vignette_expires_on.lte.${thirtyDaysOut},next_maintenance_date.lte.${thirtyDaysOut},` +
+          `insurance_expires_on.is.null,inspection_expires_on.is.null,vignette_expires_on.is.null,next_maintenance_date.is.null`,
+      ),
     supabase
       .from("reservations")
       .select("id")

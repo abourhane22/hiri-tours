@@ -1,20 +1,32 @@
 import type { Vehicle } from "@/lib/types";
 
-export type DeadlineStatus = "expired" | "soon" | "ok" | "none";
-export type VehicleAlertStatus = "expired" | "soon" | "ok" | "none";
+export type DeadlineStatus = "expired" | "soon" | "ok";
+export type VehicleAlertStatus = "expired" | "soon" | "ok";
 
 export type DeadlineEntry = {
   label: string;
   date: string | null;
   status: DeadlineStatus;
+  daysLeft: number | null;
 };
 
 export type VehicleAlert = {
   status: VehicleAlertStatus;
   deadlines: DeadlineEntry[];
+  /** Timestamp de l'échéance la plus proche (ou Infinity si aucune date). */
+  nextDeadline: number;
 };
 
-export function getVehicleAlertStatus(v: Pick<Vehicle, "next_maintenance_date" | "insurance_expires_on" | "inspection_expires_on" | "vignette_expires_on">): VehicleAlert {
+/**
+ * Statut par échéance :
+ *  - 'expired' si date passée OU non renseignée (null),
+ *  - 'soon'    si date ≤ aujourd'hui + 30 jours,
+ *  - 'ok'      sinon.
+ * Urgence du véhicule = pire statut (expired > soon > ok).
+ */
+export function getVehicleAlertStatus(
+  v: Pick<Vehicle, "next_maintenance_date" | "insurance_expires_on" | "inspection_expires_on" | "vignette_expires_on">,
+): VehicleAlert {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const in30 = new Date(today);
@@ -28,20 +40,29 @@ export function getVehicleAlertStatus(v: Pick<Vehicle, "next_maintenance_date" |
   ];
 
   const deadlines: DeadlineEntry[] = checks.map((c) => {
-    if (!c.date) return { label: c.label, date: null, status: "none" as DeadlineStatus };
+    if (!c.date) {
+      // Non renseignée = à traiter en priorité (expiré).
+      return { label: c.label, date: null, status: "expired", daysLeft: null };
+    }
     const d = new Date(c.date);
     d.setHours(0, 0, 0, 0);
+    const daysLeft = Math.round((d.getTime() - today.getTime()) / 86400000);
     let status: DeadlineStatus = "ok";
     if (d < today) status = "expired";
-    else if (d < in30) status = "soon";
-    return { label: c.label, date: c.date, status };
+    else if (d <= in30) status = "soon";
+    return { label: c.label, date: c.date, status, daysLeft };
   });
 
-  const settled = deadlines.filter((d) => d.status !== "none");
-  let status: VehicleAlertStatus = "none";
-  if (settled.some((d) => d.status === "expired")) status = "expired";
-  else if (settled.some((d) => d.status === "soon")) status = "soon";
-  else if (settled.length > 0) status = "ok";
+  const status: VehicleAlertStatus = deadlines.some((d) => d.status === "expired")
+    ? "expired"
+    : deadlines.some((d) => d.status === "soon")
+      ? "soon"
+      : "ok";
 
-  return { status, deadlines };
+  const times = deadlines
+    .map((d) => (d.date ? new Date(d.date).getTime() : null))
+    .filter((t): t is number => t !== null);
+  const nextDeadline = times.length ? Math.min(...times) : Infinity;
+
+  return { status, deadlines, nextDeadline };
 }
