@@ -92,16 +92,20 @@ export async function updateStatus(
 
 export async function addPayment(
   reservationId: string,
-  _prev: ActionResult | null,
+  _prev: ActionResult<{ warning?: string }> | null,
   formData: FormData,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ warning?: string }>> {
   const method = formData.get("method") as string;
   const amount = parseFloat(formData.get("amount_mad") as string);
-  const transactionRef =
-    (formData.get("transaction_ref") as string)?.trim() || null;
+  const externalRef = ((formData.get("external_ref") as string) || "").trim();
 
   if (!method || isNaN(amount) || amount <= 0) {
     return { ok: false, error: "Montant invalide" };
+  }
+
+  // Le numéro de virement est obligatoire pour un paiement par virement.
+  if (method === "transfer" && !externalRef) {
+    return { ok: false, error: "Le numéro de virement est obligatoire." };
   }
 
   const supabase = await createClient();
@@ -133,11 +137,26 @@ export async function addPayment(
     };
   }
 
+  // Unicité souple : un même numéro déjà saisi sur CE dossier est suspect,
+  // mais on avertit sans bloquer (une réf tronquée peut être partagée).
+  let warning: string | undefined;
+  if (externalRef) {
+    const { data: dup } = await supabase
+      .from("payments")
+      .select("id")
+      .eq("reservation_id", reservationId)
+      .eq("external_ref", externalRef)
+      .limit(1);
+    if (dup && dup.length > 0) {
+      warning = "Ce numéro de virement a déjà été saisi sur ce dossier.";
+    }
+  }
+
   const { error } = await supabase.from("payments").insert({
     reservation_id: reservationId,
     method,
     amount_mad: amount,
-    transaction_ref: transactionRef,
+    external_ref: externalRef || null,
   });
 
   if (error) {
@@ -149,7 +168,7 @@ export async function addPayment(
   revalidatePath("/admin/reservations");
   revalidatePath("/admin");
 
-  return { ok: true };
+  return warning ? { ok: true, warning } : { ok: true };
 }
 
 export async function updateNotes(id: string, formData: FormData) {
