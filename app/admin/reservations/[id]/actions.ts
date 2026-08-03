@@ -27,21 +27,49 @@ export async function updateStatus(
 
   const supabase = await createClient();
 
+  // État courant + encaissements pour les règles de cohérence.
+  const { data: current } = await supabase
+    .from("reservations")
+    .select("status, paid_amount_mad, total_amount_mad")
+    .eq("id", id)
+    .single();
+
+  if (!current) {
+    return { ok: false, error: "Réservation introuvable" };
+  }
+
+  const cur = current as any;
+  const paid = Number(cur.paid_amount_mad);
+  const total = Number(cur.total_amount_mad);
+  const isSettled = total > 0 && paid >= total;
+  const hasPartial = paid > 0;
+  const paidLabel = `${Math.round(paid).toLocaleString("fr-FR")} MAD`;
+
   // "Terminée" est attribué automatiquement par le cron (payé + départ passé).
-  // On interdit toute transition manuelle VERS 'completed', sauf si le dossier
+  // Interdit toute transition manuelle VERS 'completed', sauf si le dossier
   // est déjà 'completed' (pour permettre une correction en sortie).
-  if (status === "completed") {
-    const { data: current } = await supabase
-      .from("reservations")
-      .select("status")
-      .eq("id", id)
-      .single();
-    if (!current || (current as any).status !== "completed") {
-      return {
-        ok: false,
-        error: "Le statut Terminée est attribué automatiquement après le départ.",
-      };
-    }
+  if (status === "completed" && cur.status !== "completed") {
+    return {
+      ok: false,
+      error: "Le statut Terminée est attribué automatiquement après le départ.",
+    };
+  }
+
+  // L'annulation reste toujours autorisée (remboursement géré à part).
+  // Pas de rétrogradation d'un dossier SOLDÉ vers 'pending' / 'confirmed'.
+  if (isSettled && (status === "pending" || status === "confirmed")) {
+    return {
+      ok: false,
+      error: `Impossible de rétrograder : la réservation est soldée (${paidLabel} encaissés). Annulez ou corrigez les paiements d'abord.`,
+    };
+  }
+
+  // Paiement partiel : pas de retour à 'pending'.
+  if (!isSettled && hasPartial && status === "pending") {
+    return {
+      ok: false,
+      error: `Impossible de revenir à « En attente » : ${paidLabel} déjà encaissés. Annulez ou corrigez les paiements d'abord.`,
+    };
   }
 
   const { error } = await supabase

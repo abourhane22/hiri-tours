@@ -621,7 +621,12 @@ export default async function ReservationDetailPage({
 
           {/* f. STATUT */}
           <InfoCard icon={RefreshCw} label="Statut du dossier">
-            <ReservationStatusForm reservationId={id} currentStatus={status} />
+            <ReservationStatusForm
+              reservationId={id}
+              currentStatus={status}
+              paidAmount={totalPaid}
+              totalAmount={totalAmount}
+            />
             <p className="text-xs text-[#968F84] mt-3 leading-relaxed">
               Le statut passe automatiquement en{" "}
               <span className="font-medium">Payée</span> dès que le solde est

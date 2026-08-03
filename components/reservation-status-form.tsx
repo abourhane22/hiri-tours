@@ -10,6 +10,8 @@ import { updateStatus, type ActionResult } from "@/app/admin/reservations/[id]/a
 type Props = {
   reservationId: string;
   currentStatus: string;
+  paidAmount: number;
+  totalAmount: number;
 };
 
 type Feedback =
@@ -17,7 +19,14 @@ type Feedback =
   | { tone: "error"; message: string }
   | null;
 
-export function ReservationStatusForm({ reservationId, currentStatus }: Props) {
+export function ReservationStatusForm({
+  reservationId,
+  currentStatus,
+  paidAmount,
+  totalAmount,
+}: Props) {
+  const isSettled = totalAmount > 0 && paidAmount >= totalAmount;
+  const hasPartial = paidAmount > 0;
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [selectedStatus, setSelectedStatus] = useState(currentStatus);
@@ -72,8 +81,28 @@ export function ReservationStatusForm({ reservationId, currentStatus }: Props) {
           onChange={(e) => setSelectedStatus(e.target.value)}
           disabled={isPending}
         >
-          <option value="pending">En attente</option>
-          <option value="confirmed">Confirmée</option>
+          <option
+            value="pending"
+            disabled={hasPartial}
+            title={
+              hasPartial
+                ? "Des paiements ont été encaissés — retour « En attente » impossible."
+                : undefined
+            }
+          >
+            En attente
+          </option>
+          <option
+            value="confirmed"
+            disabled={isSettled}
+            title={
+              isSettled
+                ? "Réservation soldée — rétrogradation impossible."
+                : undefined
+            }
+          >
+            Confirmée
+          </option>
           <option value="paid">Payée</option>
           <option value="completed" disabled={currentStatus !== "completed"}>
             {currentStatus !== "completed" ? "Terminée (automatique)" : "Terminée"}
