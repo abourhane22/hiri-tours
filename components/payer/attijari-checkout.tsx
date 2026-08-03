@@ -311,11 +311,21 @@ export function AttijariCheckout({
               }}
               className="w-full text-center text-sm text-sand-600 hover:text-[#1A1F2E]"
             >
-              Retour
+              Modifier la carte
             </button>
           )}
         </form>
       )}
+
+      {/* Retour au choix du moyen de paiement (Link, pas router.back()) */}
+      <div className="text-center">
+        <Link
+          href={`/payer/${reservationId}`}
+          className="text-sm text-sand-600 hover:text-[#1A1F2E] underline underline-offset-2"
+        >
+          Retour
+        </Link>
+      </div>
 
       {/* Pied de carte — gages de confiance */}
       <div className="flex items-center justify-center gap-x-3 gap-y-1.5 flex-wrap border-t border-[#E5E0D7] pt-4 text-[11px] text-[#968F84]">

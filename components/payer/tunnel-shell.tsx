@@ -16,7 +16,7 @@ export function TunnelShell({
     <main className="min-h-screen bg-sand-50 px-4 py-8 sm:py-12">
       <div className="max-w-[620px] mx-auto">
         {/* 1. Bandeau navy */}
-        <div className="rounded-t-xl bg-[#1A1F2E] px-6 py-3.5 flex items-center justify-between">
+        <div className="rounded-t-xl bg-[#1A1F2E] px-6 py-3.5 flex items-center justify-between print:hidden">
           <div className="flex flex-col leading-none">
             <span className="font-display text-white text-lg tracking-tight">
               Hiri Tours
@@ -32,7 +32,7 @@ export function TunnelShell({
         </div>
 
         {/* 2. Bandeau test */}
-        <div className="bg-[#FFF4E0] border-l-[3px] border-[#EF9F27] px-6 py-2 flex items-center gap-2">
+        <div className="bg-[#FFF4E0] border-l-[3px] border-[#EF9F27] px-6 py-2 flex items-center gap-2 print:hidden">
           <FlaskConical className="size-3.5 text-[#8A5A00] shrink-0" />
           <p className="text-xs text-[#8A5A00]">
             Environnement de test — aucune transaction réelle
