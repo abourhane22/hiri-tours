@@ -105,7 +105,8 @@ export type FieldConfig =
 
 export const CATEGORY_FIELDS_CONFIG: Record<CircuitCategory, FieldConfig[]> = {
   circuit: [
-    { key: "stage_cities", label: "Villes étapes", type: "text", placeholder: "Agadir → Taroudant → Tafraout" },
+    // "stage_cities" retiré du formulaire (redondant avec l'itinéraire) ;
+    // la clé reste tolérée en lecture pour les données existantes.
     { key: "itinerary", label: "Itinéraire jour par jour", type: "day_list", required: true },
     { key: "lodging_included", label: "Hébergement inclus", type: "checkbox" },
     { key: "meals_included", label: "Repas inclus", type: "checkbox" },

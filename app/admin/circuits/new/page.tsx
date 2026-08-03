@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { ImageUpload } from "@/components/image-upload";
 import { GalleryEditor } from "@/components/gallery-editor";
-import { ItineraryEditor } from "@/components/itinerary-editor";
 import { CategoryFieldsSection } from "@/components/category-fields-section";
 import { ArrowLeft } from "lucide-react";
 import {
@@ -28,15 +27,21 @@ export default function NewCircuitPage() {
       if (raw) galleryUrls = JSON.parse(raw);
     } catch {}
 
-    let itinerary: unknown[] = [];
-    try {
-      const raw = formData.get("itinerary") as string;
-      if (raw) itinerary = JSON.parse(raw);
-    } catch {}
-
     const category = formData.get("category") as CircuitCategory;
     if (!VALID_CATEGORIES.includes(category)) {
       throw new Error("Catégorie invalide");
+    }
+
+    // Validations de base (serveur)
+    const title = ((formData.get("title") as string) || "").trim();
+    if (!title) throw new Error("Le titre est obligatoire.");
+    const basePrice = parseFloat(formData.get("base_price_mad") as string);
+    if (!Number.isFinite(basePrice) || basePrice <= 0) {
+      throw new Error("Le prix adulte doit être un nombre supérieur à 0.");
+    }
+    const maxParticipants = parseInt(formData.get("max_participants") as string, 10);
+    if (!Number.isInteger(maxParticipants) || maxParticipants <= 0) {
+      throw new Error("Le nombre maximum de participants doit être un entier supérieur à 0.");
     }
 
     const parsed = parseCategoryFieldsFromForm(category, formData);
@@ -47,16 +52,17 @@ export default function NewCircuitPage() {
     const slug = (formData.get("slug") as string).trim().toLowerCase();
     const payload = {
       slug,
-      title: formData.get("title") as string,
+      title,
       category,
       short_description: formData.get("short_description") as string,
       description: formData.get("description") as string,
-      base_price_mad: parseFloat(formData.get("base_price_mad") as string),
+      base_price_mad: basePrice,
       child_price_mad: formData.get("child_price_mad") ? parseFloat(formData.get("child_price_mad") as string) : null,
-      max_participants: parseInt(formData.get("max_participants") as string, 10) || 20,
+      max_participants: maxParticipants,
       hero_image_url: formData.get("hero_image_url") as string,
       gallery_urls: galleryUrls.length > 0 ? galleryUrls : null,
-      itinerary: itinerary.length > 0 ? itinerary : null,
+      // Itinéraire : source de vérité = category_fields.itinerary (répéteur).
+      // La colonne legacy `itinerary` n'est plus écrite.
       is_active: formData.get("is_active") === "on",
       category_fields: parsed.fields,
       duration_days: legacy.duration_days,
@@ -111,10 +117,6 @@ export default function NewCircuitPage() {
 
         <div className="pt-3 border-t border-sand-200">
           <GalleryEditor name="gallery_urls" />
-        </div>
-
-        <div className="pt-3 border-t border-sand-200">
-          <ItineraryEditor name="itinerary" />
         </div>
 
         <label className="flex items-center gap-2 pt-3 border-t border-sand-200">

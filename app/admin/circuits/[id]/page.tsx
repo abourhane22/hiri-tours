@@ -6,16 +6,16 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { Card, CardBody } from "@/components/ui/card";
 import { ImageUpload } from "@/components/image-upload";
 import { GalleryEditor } from "@/components/gallery-editor";
-import { ItineraryEditor } from "@/components/itinerary-editor";
 import { SeasonsEditor } from "@/components/seasons-editor";
 import { CategoryFieldsSection } from "@/components/category-fields-section";
 import { CategoryFieldsSummary } from "@/components/category-fields-summary";
 import { CircuitDangerZone } from "@/components/circuit-danger-zone";
 import { ArrowLeft } from "lucide-react";
-import type { Circuit, CircuitSeason, CircuitCategory, ItineraryDay } from "@/lib/types";
+import type { Circuit, CircuitSeason, CircuitCategory } from "@/lib/types";
 import {
   parseCategoryFieldsFromForm,
   deriveLegacyColumns,
+  normalizeItinerary,
   type AnyCategoryFields,
 } from "@/lib/category-fields";
 
@@ -37,22 +37,32 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
   const c = circuit as Circuit;
   const seasonsList = (seasons as CircuitSeason[]) || [];
 
-  // Existing circuits may have empty category_fields; backfill from legacy columns
-  // so first-time edit shows sensible defaults and Save doesn't fail on required fields.
+  // Migration douce : les anciens circuits peuvent avoir category_fields vide,
+  // ou (pour un circuit) un category_fields sans itinéraire alors que la colonne
+  // legacy `itinerary` en contient. On pré-remplit le répéteur depuis le legacy
+  // sans jamais réécrire la colonne (désormais en lecture seule).
+  const legacyItineraryDays: string[] = Array.isArray(c.itinerary)
+    ? (c.itinerary as { title?: string; description?: string }[])
+        .map((d) => [d?.title, d?.description].filter(Boolean).join(" — "))
+        .filter(Boolean)
+    : [];
+
   const stored = (c.category_fields ?? {}) as AnyCategoryFields;
   const currentCategoryFields: AnyCategoryFields = (() => {
-    if (Object.keys(stored).length > 0) return stored;
+    const hasStored = Object.keys(stored).length > 0;
+
     if (c.category === "circuit") {
-      const legacyItinerary = Array.isArray(c.itinerary)
-        ? c.itinerary
-            .map((d) => [d?.title, d?.description].filter(Boolean).join(" — "))
-            .filter(Boolean)
-        : [];
-      return {
-        duration_days: c.duration_days || 1,
-        itinerary: legacyItinerary.length > 0 ? legacyItinerary : undefined,
-      };
+      const base: AnyCategoryFields = hasStored ? { ...stored } : {};
+      // Pré-remplit l'itinéraire depuis le legacy s'il est absent du category_fields.
+      if (normalizeItinerary(base.itinerary).length === 0 && legacyItineraryDays.length > 0) {
+        base.itinerary = legacyItineraryDays;
+      }
+      if (!base.duration_days) base.duration_days = c.duration_days || 1;
+      return base;
     }
+
+    if (hasStored) return stored;
+
     if (c.category === "excursion") {
       return {
         duration_hours: c.duration_hours ?? undefined,
@@ -75,15 +85,21 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
       if (raw) galleryUrls = JSON.parse(raw);
     } catch {}
 
-    let itinerary: ItineraryDay[] = [];
-    try {
-      const raw = formData.get("itinerary") as string;
-      if (raw) itinerary = JSON.parse(raw);
-    } catch {}
-
     const category = formData.get("category") as CircuitCategory;
     if (!VALID_CATEGORIES.includes(category)) {
       throw new Error("Catégorie invalide");
+    }
+
+    // Validations de base (serveur)
+    const title = ((formData.get("title") as string) || "").trim();
+    if (!title) throw new Error("Le titre est obligatoire.");
+    const basePrice = parseFloat(formData.get("base_price_mad") as string);
+    if (!Number.isFinite(basePrice) || basePrice <= 0) {
+      throw new Error("Le prix adulte doit être un nombre supérieur à 0.");
+    }
+    const maxParticipants = parseInt(formData.get("max_participants") as string, 10);
+    if (!Number.isInteger(maxParticipants) || maxParticipants <= 0) {
+      throw new Error("Le nombre maximum de participants doit être un entier supérieur à 0.");
     }
 
     const parsed = parseCategoryFieldsFromForm(category, formData);
@@ -92,17 +108,17 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
     const legacy = deriveLegacyColumns(category, parsed.fields as AnyCategoryFields);
 
     const payload = {
-      title: formData.get("title") as string,
+      title,
       slug: (formData.get("slug") as string).trim().toLowerCase(),
       category,
       short_description: formData.get("short_description") as string,
       description: formData.get("description") as string,
-      base_price_mad: parseFloat(formData.get("base_price_mad") as string),
+      base_price_mad: basePrice,
       child_price_mad: formData.get("child_price_mad") ? parseFloat(formData.get("child_price_mad") as string) : null,
-      max_participants: parseInt(formData.get("max_participants") as string, 10) || 20,
+      max_participants: maxParticipants,
       hero_image_url: formData.get("hero_image_url") as string,
       gallery_urls: galleryUrls.length > 0 ? galleryUrls : null,
-      itinerary: itinerary.length > 0 ? itinerary : null,
+      // Colonne legacy `itinerary` volontairement non écrite (lecture seule).
       is_active: formData.get("is_active") === "on",
       category_fields: parsed.fields,
       duration_days: legacy.duration_days,
@@ -168,10 +184,6 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
 
         <div className="pt-3 border-t border-sand-200">
           <GalleryEditor name="gallery_urls" defaultValue={c.gallery_urls} />
-        </div>
-
-        <div className="pt-3 border-t border-sand-200">
-          <ItineraryEditor name="itinerary" defaultValue={c.itinerary} />
         </div>
 
         <label className="flex items-center gap-2 pt-3 border-t border-sand-200">

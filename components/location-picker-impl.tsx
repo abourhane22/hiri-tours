@@ -116,7 +116,14 @@ export function LocationPickerImpl({
     setGeocoding(true);
     setError(null);
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
+      // Politique d'usage Nominatim (OSM) : max 1 requête/seconde, pas de
+      // requêtes en masse, identifiant de contact requis. Ici le géocodage
+      // n'est déclenché QUE sur action explicite (clic « Localiser » / Entrée),
+      // jamais à la frappe. On ajoute &email= (si configuré) pour l'identification.
+      const contact = process.env.NEXT_PUBLIC_CONTACT_EMAIL;
+      const url =
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}` +
+        (contact ? `&email=${encodeURIComponent(contact)}` : "");
       const res = await fetch(url, {
         headers: { Accept: "application/json" },
       });
