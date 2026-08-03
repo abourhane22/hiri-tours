@@ -1,18 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { formatMAD } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDayCell, type DayItem } from "@/components/calendar-day-cell";
+import { CalendarCircuitSelect } from "@/components/calendar-circuit-select";
 
 const MONTHS_FR = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-const DAYS_FR = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-50 border-amber-200 text-amber-900",
-  confirmed: "bg-atlantic-50 border-atlantic-200 text-atlantic-900",
-  paid: "bg-emerald-50 border-emerald-200 text-emerald-900",
-  cancelled: "bg-red-50 border-red-200 text-red-900 line-through",
-  completed: "bg-sand-100 border-sand-300 text-sand-800",
-};
+const DAYS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 function getCalendarDays(year: number, month: number): Date[] {
   const firstDay = new Date(year, month, 1);
@@ -32,128 +25,193 @@ function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export default async function CalendrierPage({ searchParams }: { searchParams: Promise<{ y?: string; m?: string; circuit?: string }> }) {
+export default async function CalendrierPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ y?: string; m?: string; circuit?: string }>;
+}) {
   const { y, m, circuit } = await searchParams;
   const today = new Date();
   const year = y ? parseInt(y, 10) : today.getFullYear();
   const month = m !== undefined ? parseInt(m, 10) : today.getMonth();
 
   const supabase = await createClient();
-  const { data: circuits } = await supabase.from("circuits").select("id, title").eq("is_active", true).order("title");
+  const { data: circuits } = await supabase
+    .from("circuits")
+    .select("id, title")
+    .eq("is_active", true)
+    .order("title");
 
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month + 2, 0);
-  const startStr = dateKey(startDate);
-  const endStr = dateKey(endDate);
 
-  let query = supabase.from("reservations")
-    .select("id, reference, departure_date, adults, children, status, total_amount_mad, circuits(title), customers(full_name)")
-    .gte("departure_date", startStr)
-    .lte("departure_date", endStr)
+  let query = supabase
+    .from("reservations")
+    .select("id, reference, departure_date, adults, children, status, circuits(title), customers(full_name)")
+    .gte("departure_date", dateKey(startDate))
+    .lte("departure_date", dateKey(endDate))
     .order("departure_date", { ascending: true });
   if (circuit) query = query.eq("circuit_id", circuit);
 
   const { data: reservations } = await query;
 
-  const byDate: Record<string, any[]> = {};
+  const byDate: Record<string, DayItem[]> = {};
   (reservations || []).forEach((r: any) => {
-    const key = r.departure_date;
-    if (!byDate[key]) byDate[key] = [];
-    byDate[key].push(r);
+    (byDate[r.departure_date] ||= []).push({
+      id: r.id,
+      status: r.status,
+      title: r.circuits?.title ?? "—",
+      pax: (r.adults || 0) + (r.children || 0),
+      reference: r.reference,
+      client: r.customers?.full_name ?? "—",
+    });
   });
+
+  // Synthèse du mois affiché (après filtre circuit).
+  const monthRes = (reservations || []).filter((r: any) => {
+    const d = new Date(r.departure_date);
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
+  const activeRes = monthRes.filter((r: any) => r.status !== "cancelled");
+  const departsCount = activeRes.length;
+  const paxCount = activeRes.reduce((s: number, r: any) => s + (r.adults || 0) + (r.children || 0), 0);
+  const cancelCount = monthRes.filter((r: any) => r.status === "cancelled").length;
 
   const days = getCalendarDays(year, month);
   const prevMonth = month === 0 ? { y: year - 1, m: 11 } : { y: year, m: month - 1 };
   const nextMonth = month === 11 ? { y: year + 1, m: 0 } : { y: year, m: month + 1 };
-
   const circuitQS = circuit ? `&circuit=${circuit}` : "";
   const todayKey = dateKey(today);
 
+  const navBtn =
+    "size-[30px] shrink-0 rounded-lg border border-[#E0DACF] bg-white flex items-center justify-center text-[#1A1F2E] hover:bg-[#FAF5F0] transition-colors";
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <p className="eyebrow mb-2">Module 1 — Vue calendaire</p>
-        <h1 className="font-display text-3xl text-ink">Calendrier des départs</h1>
+      <div className="mb-5">
+        <p className="text-[10px] tracking-[2px] uppercase text-[#C84B31] font-medium">
+          Opérations · Calendrier
+        </p>
+        <h1 className="font-display text-3xl text-[#1A1F2E] mt-1">
+          Calendrier des départs
+        </h1>
       </div>
 
-      <div className="bg-white border border-sand-200 rounded-lg p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Link href={`/admin/calendrier?y=${prevMonth.y}&m=${prevMonth.m}${circuitQS}`}>
-              <button className="size-9 rounded-md border border-sand-300 hover:bg-sand-100 flex items-center justify-center"><ChevronLeft className="size-4" /></button>
-            </Link>
-            <h2 className="font-display text-xl text-ink min-w-[200px] text-center">{MONTHS_FR[month]} {year}</h2>
-            <Link href={`/admin/calendrier?y=${nextMonth.y}&m=${nextMonth.m}${circuitQS}`}>
-              <button className="size-9 rounded-md border border-sand-300 hover:bg-sand-100 flex items-center justify-center"><ChevronRight className="size-4" /></button>
-            </Link>
-            <Link href={`/admin/calendrier${circuit ? `?circuit=${circuit}` : ""}`}>
-              <button className="px-3 h-9 rounded-md border border-sand-300 hover:bg-sand-100 text-sm">Aujourd&apos;hui</button>
-            </Link>
+      {/* Barre d'outils */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Link href={`/admin/calendrier?y=${prevMonth.y}&m=${prevMonth.m}${circuitQS}`} className={navBtn}>
+            <ChevronLeft className="size-4" />
+          </Link>
+          <h2 className="font-display text-xl text-[#1A1F2E] min-w-[160px] text-center">
+            {MONTHS_FR[month]} {year}
+          </h2>
+          <Link href={`/admin/calendrier?y=${nextMonth.y}&m=${nextMonth.m}${circuitQS}`} className={navBtn}>
+            <ChevronRight className="size-4" />
+          </Link>
+          <Link
+            href={`/admin/calendrier${circuit ? `?circuit=${circuit}` : ""}`}
+            className="h-[30px] px-3 rounded-lg border border-[#E0DACF] bg-white flex items-center text-[12px] font-medium text-[#1A1F2E] hover:bg-[#FAF5F0] transition-colors"
+          >
+            Aujourd&apos;hui
+          </Link>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1.5">
+            {[year - 1, year, year + 1].map((yr) => (
+              <Link
+                key={yr}
+                href={`/admin/calendrier?y=${yr}&m=${month}${circuitQS}`}
+                className="px-2.5 h-[30px] flex items-center rounded-full text-[12px] font-medium transition"
+                style={
+                  year === yr
+                    ? { backgroundColor: "#1A1F2E", color: "#fff" }
+                    : { backgroundColor: "#F1EFE8", color: "#5F5E5A" }
+                }
+              >
+                {yr}
+              </Link>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-sand-700">Année :</span>
-            <div className="inline-flex gap-0.5 bg-sand-100 p-0.5 rounded-md">
-              {[year - 1, year, year + 1].map(yr => (
-                <Link key={yr} href={`/admin/calendrier?y=${yr}&m=${month}${circuitQS}`}
-                  className={`px-3 py-1 text-sm rounded transition ${year === yr ? "bg-white shadow-sm font-medium text-ink" : "text-sand-700 hover:text-ink"}`}>
-                  {yr}
-                </Link>
-              ))}
-            </div>
+          <CalendarCircuitSelect
+            circuits={(circuits as any) || []}
+            current={circuit || ""}
+            year={year}
+            month={month}
+          />
+        </div>
+      </div>
+
+      {/* Synthèse */}
+      <p className="text-[12px] text-[#6B6862] mt-3 mb-4">
+        {departsCount} départ{departsCount > 1 ? "s" : ""} · {paxCount} passager
+        {paxCount > 1 ? "s" : ""} ce mois
+        {cancelCount > 0 && (
+          <span style={{ color: "#B4AC9E" }}>
+            {" "}
+            · {cancelCount} annulation{cancelCount > 1 ? "s" : ""}
+          </span>
+        )}
+      </p>
+
+      {/* En-têtes jours */}
+      <div className="grid grid-cols-7 gap-1.5 mb-1.5">
+        {DAYS_FR.map((d) => (
+          <div
+            key={d}
+            className="text-[10px] tracking-wider uppercase text-[#968F84] text-center"
+          >
+            {d}
           </div>
-        </div>
-        <form method="get" className="flex items-center gap-2">
-          <input type="hidden" name="y" value={year} />
-          <input type="hidden" name="m" value={month} />
-          <select name="circuit" defaultValue={circuit || ""} className="h-9 rounded-md border border-sand-300 bg-white px-3 text-sm">
-            <option value="">Tous les circuits</option>
-            {circuits?.map((c: any) => <option key={c.id} value={c.id}>{c.title}</option>)}
-          </select>
-          <button type="submit" className="h-9 px-3 rounded-md bg-navy-700 text-white text-sm hover:bg-navy-800">Filtrer</button>
-        </form>
+        ))}
       </div>
 
-      <div className="bg-white border border-sand-200 rounded-lg overflow-hidden">
-        <div className="grid grid-cols-7 border-b border-sand-200 bg-sand-100">
-          {DAYS_FR.map((d) => <div key={d} className="px-2 py-2 text-xs uppercase tracking-wide text-sand-700 font-medium text-center">{d}</div>)}
-        </div>
-        <div className="grid grid-cols-7">
-          {days.map((d, i) => {
-            const key = dateKey(d);
-            const isCurrentMonth = d.getMonth() === month;
-            const isToday = key === todayKey;
-            const dayReservations = byDate[key] || [];
-            return (
-              <div key={i} className={`min-h-[100px] border-r border-b border-sand-200 p-1.5 ${!isCurrentMonth ? "bg-sand-50/50" : ""}`}>
-                <div className={`text-xs font-medium mb-1 ${isToday ? "size-6 rounded-full bg-terracotta-600 text-white flex items-center justify-center" : !isCurrentMonth ? "text-sand-400" : "text-sand-700"}`}>
-                  {d.getDate()}
-                </div>
-                <div className="space-y-1">
-                  {dayReservations.slice(0, 3).map((r: any) => (
-                    <Link key={r.id} href={`/admin/reservations/${r.id}`}
-                      className={`block px-1.5 py-1 rounded text-[10px] leading-tight border ${STATUS_COLORS[r.status] ?? STATUS_COLORS.pending} hover:opacity-80 truncate`}
-                      title={`${r.reference} — ${r.customers?.full_name} — ${r.circuits?.title} — ${r.adults + r.children} pax`}>
-                      <div className="font-mono">{r.reference}</div>
-                      <div className="truncate">{r.customers?.full_name ?? "—"}</div>
-                    </Link>
-                  ))}
-                  {dayReservations.length > 3 && (
-                    <div className="text-[10px] text-sand-600 px-1.5">+{dayReservations.length - 3} autre{dayReservations.length - 3 > 1 ? "s" : ""}</div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {/* Grille */}
+      <div className="grid grid-cols-7 gap-1.5">
+        {days.map((d, i) => {
+          const key = dateKey(d);
+          return (
+            <CalendarDayCell
+              key={i}
+              day={d.getDate()}
+              isCurrentMonth={d.getMonth() === month}
+              isToday={key === todayKey}
+              isWeekend={d.getDay() === 0 || d.getDay() === 6}
+              items={byDate[key] || []}
+            />
+          );
+        })}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-3 text-xs">
-        <div className="flex items-center gap-1.5"><span className="size-3 rounded bg-amber-50 border border-amber-200" /> En attente</div>
-        <div className="flex items-center gap-1.5"><span className="size-3 rounded bg-atlantic-50 border border-atlantic-200" /> Confirmée</div>
-        <div className="flex items-center gap-1.5"><span className="size-3 rounded bg-emerald-50 border border-emerald-200" /> Payée</div>
-        <div className="flex items-center gap-1.5"><span className="size-3 rounded bg-sand-100 border border-sand-300" /> Terminée</div>
-        <div className="flex items-center gap-1.5"><span className="size-3 rounded bg-red-50 border border-red-200" /> Annulée</div>
+      {/* Légende */}
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-[#6B6862]">
+        <LegendSquare color="#0F6E56" label="Payée" />
+        <LegendSquare color="#0C6B8A" label="Confirmée" />
+        <LegendSquare color="#D98324" label="Demande" />
+        <span className="flex items-center gap-1.5">
+          <span className="size-3 rounded-sm" style={{ backgroundColor: "#C9C4BA" }} />
+          <s>Annulée</s>
+        </span>
+        <span className="ml-auto flex items-center gap-1.5">
+          <span
+            className="inline-block text-[10px] text-white rounded-full px-1.5"
+            style={{ backgroundColor: "#C84B31" }}
+          >
+            {today.getDate()}
+          </span>
+          Aujourd&apos;hui
+        </span>
       </div>
     </div>
+  );
+}
+
+function LegendSquare({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="size-3 rounded-sm" style={{ backgroundColor: color }} />
+      {label}
+    </span>
   );
 }
