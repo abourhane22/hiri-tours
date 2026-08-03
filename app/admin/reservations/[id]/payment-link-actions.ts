@@ -99,7 +99,17 @@ export async function sendPaymentLinkEmailAction(reservationId: string): Promise
   const l = link as any;
   const result = await sendPaymentLinkEmail(reservationId, linkUrl(l.token), l.expires_at);
   if (!result.success) {
-    return { ok: false, error: result.skipped || result.error || "Erreur d'envoi." };
+    const raw = result.skipped || result.error || "Erreur d'envoi.";
+    // Mode test Resend : envoi limité à l'adresse du compte.
+    if (/only send testing emails to your own email address/i.test(raw)) {
+      const match = raw.match(/([\w.+-]+@[\w.-]+\.\w+)/);
+      const addr = match ? match[1] : "l'adresse du compte Resend";
+      return {
+        ok: false,
+        error: `Mode test Resend : l'envoi n'est possible que vers ${addr}. Utilisez « Copier le lien » pour les autres destinataires (domaine à vérifier sur resend.com pour lever la limite).`,
+      };
+    }
+    return { ok: false, error: raw };
   }
   return { ok: true };
 }
