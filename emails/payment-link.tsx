@@ -18,6 +18,16 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 }
 
+function formatDateTime(d: string) {
+  return new Date(d).toLocaleString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function PaymentLinkEmail(props: Props) {
   return (
     <Html lang="fr">
@@ -60,7 +70,7 @@ export default function PaymentLinkEmail(props: Props) {
             <Hr style={{ borderColor: "#e5d6c0", margin: "20px 0" }} />
 
             <Text style={{ fontSize: 12, color: "#7a6a55", margin: 0, textAlign: "center" as const }}>
-              Lien valable jusqu&apos;au {formatDate(props.expiresAt)}.
+              Lien valable 24 heures, jusqu&apos;au {formatDateTime(props.expiresAt)}.
             </Text>
           </Section>
 

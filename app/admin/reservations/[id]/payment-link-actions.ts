@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPaymentLinkEmail } from "@/lib/email";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://hiri-tours.vercel.app";
-const LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 jours
+const LINK_TTL_MS = 24 * 60 * 60 * 1000; // 24 heures
 
 export type CreateLinkResult =
   | { ok: true; url: string; expiresAt: string }
