@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Link2, Copy, Check, Mail, Loader2 } from "lucide-react";
+import Image from "next/image";
+import { Copy, Check, Mail, Loader2 } from "lucide-react";
 import {
   createPaymentLink,
   revokePaymentLink,
@@ -73,6 +74,7 @@ export function PaymentLinkPanel({
   const [link, setLink] = useState<ActiveLink | null>(initialLink);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [logoFailed, setLogoFailed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [emailState, setEmailState] = useState<"idle" | "sent" | "error">("idle");
   const [emailMsg, setEmailMsg] = useState<string | null>(null);
@@ -133,8 +135,24 @@ export function PaymentLinkPanel({
           disabled={isPending}
           className="inline-flex items-center gap-2 rounded-lg border border-[#E0DACF] bg-white px-3.5 py-2 text-[13px] font-medium text-[#1A1F2E] hover:bg-[#FAF5F0] transition-colors disabled:opacity-60"
         >
-          {isPending ? <Loader2 className="size-4 animate-spin" /> : <Link2 className="size-4" />}
-          Lien de paiement
+          {isPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            !logoFailed && (
+              <Image
+                src="/attijari-logo.png"
+                alt="Attijari Payment"
+                width={627}
+                height={318}
+                className="h-[15px] w-auto"
+                onError={() => setLogoFailed(true)}
+              />
+            )
+          )}
+          <span>
+            Lien de paiement en ligne
+            <span className="opacity-65 font-normal"> · EDP partenaire</span>
+          </span>
         </button>
         {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
       </div>
