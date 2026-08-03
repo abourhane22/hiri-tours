@@ -12,13 +12,9 @@ import { ArrowLeft, Info } from "lucide-react";
 import type { Circuit, Customer, CircuitSeason } from "@/lib/types";
 import { sendBookingConfirmationAction } from "@/app/admin/reservations/[id]/email-actions";
 import { createReservation } from "./actions";
+import { findSeasonForDate, computeReservationTotal } from "@/lib/pricing";
 
 type CircuitWithSeasons = Circuit & { circuit_seasons: CircuitSeason[] };
-
-function findSeasonForDate(date: string, seasons: CircuitSeason[]): CircuitSeason | null {
-  if (!date || !seasons) return null;
-  return seasons.find((s) => date >= s.starts_on && date <= s.ends_on) || null;
-}
 
 export default function NewReservationPage() {
   const router = useRouter();
@@ -54,7 +50,15 @@ export default function NewReservationPage() {
   const baseChild = selectedCircuit ? Number(selectedCircuit.child_price_mad ?? selectedCircuit.base_price_mad) : 0;
   const effectiveAdult = baseAdult * multiplier;
   const effectiveChild = baseChild * multiplier;
-  const total = adults * effectiveAdult + children * effectiveChild;
+  const total = selectedCircuit
+    ? computeReservationTotal({
+        basePriceMad: selectedCircuit.base_price_mad,
+        childPriceMad: selectedCircuit.child_price_mad,
+        adults,
+        children,
+        multiplier,
+      })
+    : 0;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

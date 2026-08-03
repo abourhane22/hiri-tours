@@ -9,6 +9,27 @@ export async function updateAffectation(reservationId: string, formData: FormDat
   const driverId = (formData.get("driver_id") as string) || null;
 
   const supabase = await createClient();
+
+  // Capacité : le véhicule doit pouvoir transporter tous les passagers du dossier.
+  if (vehicleId) {
+    const [{ data: resa }, { data: veh }] = await Promise.all([
+      supabase.from("reservations").select("adults, children").eq("id", reservationId).single(),
+      supabase.from("vehicles").select("capacity, make, model, registration").eq("id", vehicleId).single(),
+    ]);
+    if (resa && veh) {
+      const pax = (resa as any).adults + (resa as any).children;
+      const capacity = Number((veh as any).capacity) || 0;
+      if (capacity < pax) {
+        const modele =
+          [(veh as any).make, (veh as any).model].filter(Boolean).join(" ") ||
+          (veh as any).registration;
+        throw new Error(
+          `Le ${modele} ne peut transporter que ${capacity} passagers (${pax} sur ce dossier).`,
+        );
+      }
+    }
+  }
+
   const { error } = await supabase.from("reservations").update({
     vehicle_id: vehicleId || null,
     guide_id: guideId || null,

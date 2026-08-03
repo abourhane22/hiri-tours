@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { seasonMultiplier, computeReservationTotal } from "@/lib/pricing";
 
 export type CreateReservationInput = {
   circuit_id: string;
@@ -38,6 +39,41 @@ export async function createReservation(
   }
 
   const supabase = await createClient();
+
+  // Recharge le circuit (prix + saisons + capacité) — jamais confiance au client.
+  const { data: circuit, error: circuitError } = await supabase
+    .from("circuits")
+    .select("base_price_mad, child_price_mad, max_participants, circuit_seasons(starts_on, ends_on, price_multiplier)")
+    .eq("id", input.circuit_id)
+    .single();
+
+  if (circuitError || !circuit) {
+    return { ok: false, error: "Circuit introuvable" };
+  }
+  const c = circuit as any;
+
+  // A2 — capacité
+  const pax = input.adults + input.children;
+  const maxPax = Number(c.max_participants) || 0;
+  if (maxPax > 0 && pax > maxPax) {
+    return { ok: false, error: `Ce circuit accepte au maximum ${maxPax} passagers.` };
+  }
+
+  // A1 — recalcul serveur du total (le montant client sert de contrôle)
+  const multiplier = seasonMultiplier(input.departure_date, c.circuit_seasons);
+  const serverTotal = computeReservationTotal({
+    basePriceMad: c.base_price_mad,
+    childPriceMad: c.child_price_mad,
+    adults: input.adults,
+    children: input.children,
+    multiplier,
+  });
+  if (Math.abs(serverTotal - Number(input.total_amount_mad)) > 1) {
+    console.warn(
+      `[createReservation] Écart prix client/serveur — client=${input.total_amount_mad} serveur=${serverTotal} (circuit ${input.circuit_id}, ${input.departure_date}). Valeur serveur retenue.`,
+    );
+  }
+
   const { data, error } = await supabase
     .from("reservations")
     .insert({
@@ -46,7 +82,7 @@ export async function createReservation(
       departure_date: input.departure_date,
       adults: input.adults,
       children: input.children,
-      total_amount_mad: input.total_amount_mad,
+      total_amount_mad: serverTotal,
       status: input.status,
       notes: trimmedNotes,
     })

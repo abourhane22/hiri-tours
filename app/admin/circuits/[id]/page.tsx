@@ -10,7 +10,8 @@ import { ItineraryEditor } from "@/components/itinerary-editor";
 import { SeasonsEditor } from "@/components/seasons-editor";
 import { CategoryFieldsSection } from "@/components/category-fields-section";
 import { CategoryFieldsSummary } from "@/components/category-fields-summary";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { CircuitDangerZone } from "@/components/circuit-danger-zone";
+import { ArrowLeft } from "lucide-react";
 import type { Circuit, CircuitSeason, CircuitCategory, ItineraryDay } from "@/lib/types";
 import {
   parseCategoryFieldsFromForm,
@@ -27,6 +28,11 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
   if (!circuit) notFound();
 
   const { data: seasons } = await supabase.from("circuit_seasons").select("*").eq("circuit_id", id).order("starts_on", { ascending: true });
+
+  const { count: reservationCount } = await supabase
+    .from("reservations")
+    .select("id", { count: "exact", head: true })
+    .eq("circuit_id", id);
 
   const c = circuit as Circuit;
   const seasonsList = (seasons as CircuitSeason[]) || [];
@@ -106,13 +112,6 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
 
     const { error } = await supabase.from("circuits").update(payload).eq("id", id);
     if (error) throw new Error(error.message);
-    redirect("/admin/circuits");
-  }
-
-  async function deleteCircuit() {
-    "use server";
-    const supabase = await createClient();
-    await supabase.from("circuits").delete().eq("id", id);
     redirect("/admin/circuits");
   }
 
@@ -196,13 +195,11 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
         </CardBody>
       </Card>
 
-      <form action={deleteCircuit} className="mt-6 bg-white border border-red-200 rounded-lg p-6 flex items-center justify-between">
-        <div>
-          <h3 className="font-medium text-ink">Zone de danger</h3>
-          <p className="text-sm text-sand-700">La suppression est définitive et entraînera l&apos;échec des réservations associées.</p>
-        </div>
-        <Button type="submit" variant="danger" size="sm"><Trash2 className="size-3.5" />Supprimer</Button>
-      </form>
+      <CircuitDangerZone
+        circuitId={id}
+        reservationCount={reservationCount ?? 0}
+        isActive={c.is_active}
+      />
     </div>
   );
 }
