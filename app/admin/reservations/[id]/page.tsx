@@ -36,6 +36,7 @@ import { WhatsAppButton } from "@/components/whatsapp-button";
 import { ReservationStatusForm } from "@/components/reservation-status-form";
 import { PaymentForm } from "@/components/payment-form";
 import { PaymentLinkPanel } from "@/components/payment-link-panel";
+import { PaymentLinkTrigger } from "@/components/payment-link-trigger";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   attijari: "Attijari Payment",
@@ -241,7 +242,10 @@ export default async function ReservationDetailPage({
         </div>
 
         {/* Actions */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2">
+          {balance > 0 && !isCancelled && (
+            <PaymentLinkTrigger reservationId={id} hasActiveLink={!!activeLink} />
+          )}
           <SendVoucherEmailButton reservationId={id} customerEmail={customer?.email ?? null} />
           <Link href={`/admin/reservations/${id}/voucher`} target="_blank" className={actionBtn}>
             <Printer className="size-4" /> Imprimer

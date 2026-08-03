@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Link2, Copy, Check, Mail, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Copy, Check, Mail, Loader2 } from "lucide-react";
 import {
-  createPaymentLink,
   revokePaymentLink,
   sendPaymentLinkEmailAction,
 } from "@/app/admin/reservations/[id]/payment-link-actions";
@@ -44,7 +44,6 @@ export function normalizePhoneForWa(phone: string | null | undefined): string | 
   } else if (!plus && d.startsWith("0")) {
     d = "212" + d.slice(1);
   } else if (d.length === 9) {
-    // mobile marocain sans indicatif ni 0 (ex. 661234567)
     d = "212" + d;
   }
   return d.length >= 8 ? d : null;
@@ -70,25 +69,19 @@ export function PaymentLinkPanel({
   initialLink: ActiveLink | null;
   share: ShareData;
 }) {
-  const [link, setLink] = useState<ActiveLink | null>(initialLink);
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [emailState, setEmailState] = useState<"idle" | "sent" | "error">("idle");
   const [emailMsg, setEmailMsg] = useState<string | null>(null);
 
-  function generate() {
-    if (isPending) return;
-    setError(null);
-    startTransition(async () => {
-      const res = await createPaymentLink(reservationId);
-      if (res.ok) setLink({ url: res.url, expiresAt: res.expiresAt });
-      else setError(res.error);
-    });
-  }
+  // Le lien vient du serveur (source de vérité). La génération se fait via le
+  // bouton d'en-tête ; ce panneau n'apparaît que lorsqu'un lien actif existe.
+  if (!initialLink) return null;
+  const link = initialLink;
 
   function copy() {
-    if (!link) return;
     navigator.clipboard?.writeText(link.url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -112,39 +105,18 @@ export function PaymentLinkPanel({
 
   function revoke() {
     if (isPending) return;
+    setError(null);
     startTransition(async () => {
       const res = await revokePaymentLink(reservationId);
-      if (res.ok) {
-        setLink(null);
-        setEmailState("idle");
-        setEmailMsg(null);
-      } else {
-        setError(res.error);
-      }
+      if (res.ok) router.refresh();
+      else setError(res.error);
     });
-  }
-
-  if (!link) {
-    return (
-      <div className="mb-4">
-        <button
-          type="button"
-          onClick={generate}
-          disabled={isPending}
-          className="inline-flex items-center gap-2 rounded-lg border border-[#E0DACF] bg-white px-3.5 py-2 text-[13px] font-medium text-[#1A1F2E] hover:bg-[#FAF5F0] transition-colors disabled:opacity-60"
-        >
-          {isPending ? <Loader2 className="size-4 animate-spin" /> : <Link2 className="size-4" />}
-          Lien de paiement
-        </button>
-        {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
-      </div>
-    );
   }
 
   const wa = whatsappHref(share, link.url);
 
   return (
-    <div className="mb-4 rounded-lg border border-[#E0DACF] bg-[#FBF9F5] p-3">
+    <div id="payment-link-panel" className="mb-4 rounded-lg border border-[#E0DACF] bg-[#FBF9F5] p-3">
       <input
         readOnly
         value={link.url}
