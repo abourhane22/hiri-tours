@@ -26,6 +26,24 @@ export async function updateStatus(
   }
 
   const supabase = await createClient();
+
+  // "Terminée" est attribué automatiquement par le cron (payé + départ passé).
+  // On interdit toute transition manuelle VERS 'completed', sauf si le dossier
+  // est déjà 'completed' (pour permettre une correction en sortie).
+  if (status === "completed") {
+    const { data: current } = await supabase
+      .from("reservations")
+      .select("status")
+      .eq("id", id)
+      .single();
+    if (!current || (current as any).status !== "completed") {
+      return {
+        ok: false,
+        error: "Le statut Terminée est attribué automatiquement après le départ.",
+      };
+    }
+  }
+
   const { error } = await supabase
     .from("reservations")
     .update({ status })

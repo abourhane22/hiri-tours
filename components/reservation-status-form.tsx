@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Label, Select } from "@/components/ui/input";
 import { AlertBanner } from "@/components/ui/alert-banner";
+import { Info } from "lucide-react";
 import { updateStatus, type ActionResult } from "@/app/admin/reservations/[id]/actions";
 
 type Props = {
@@ -74,9 +75,15 @@ export function ReservationStatusForm({ reservationId, currentStatus }: Props) {
           <option value="pending">En attente</option>
           <option value="confirmed">Confirmée</option>
           <option value="paid">Payée</option>
-          <option value="completed">Terminée</option>
+          <option value="completed" disabled={currentStatus !== "completed"}>
+            {currentStatus !== "completed" ? "Terminée (automatique)" : "Terminée"}
+          </option>
           <option value="cancelled">Annulée</option>
         </Select>
+        <p className="flex items-start gap-1.5 text-[11px] text-[#968F84]">
+          <Info className="size-3.5 shrink-0 mt-px" />« Terminée » s'applique
+          automatiquement le lendemain du départ, une fois la réservation payée.
+        </p>
         <Button type="submit" className="w-full" disabled={isPending}>
           {isPending ? "Mise à jour…" : "Mettre à jour"}
         </Button>
