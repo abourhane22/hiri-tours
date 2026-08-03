@@ -12,6 +12,7 @@ type Props = {
   label: string;
   required?: boolean;
   defaultValue?: unknown;
+  onCountChange?: (n: number) => void;
 };
 
 type Day = { id: string; text: string };
@@ -23,7 +24,7 @@ function makeId() {
   return `d-${Math.random().toString(36).slice(2)}-${Date.now()}`;
 }
 
-export function ItineraryDayList({ label, required, defaultValue }: Props) {
+export function ItineraryDayList({ label, required, defaultValue, onCountChange }: Props) {
   const initial = normalizeItinerary(defaultValue);
   const [days, setDays] = useState<Day[]>(() => {
     const seed = initial.length > 0 ? initial : [""];
@@ -32,6 +33,10 @@ export function ItineraryDayList({ label, required, defaultValue }: Props) {
 
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
   const focusIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    onCountChange?.(days.length);
+  }, [days.length, onCountChange]);
 
   useEffect(() => {
     if (focusIdRef.current) {

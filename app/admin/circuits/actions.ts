@@ -3,6 +3,128 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import {
+  parseCategoryFieldsFromForm,
+  deriveLegacyColumns,
+  type AnyCategoryFields,
+} from "@/lib/category-fields";
+import type { CircuitCategory } from "@/lib/types";
+
+export type CircuitActionState = { ok: true } | { ok: false; error: string };
+
+const VALID_CATEGORIES: readonly CircuitCategory[] = [
+  "circuit",
+  "excursion",
+  "transfert",
+  "sejour",
+];
+
+/**
+ * Construit le payload circuit depuis le FormData (validations Lot A/B).
+ * Retourne { error } au lieu de lever, pour affichage inline via useActionState.
+ */
+function buildCircuitPayload(
+  formData: FormData,
+): { ok: true; payload: Record<string, unknown> } | { ok: false; error: string } {
+  const category = formData.get("category") as CircuitCategory;
+  if (!VALID_CATEGORIES.includes(category)) {
+    return { ok: false, error: "Catégorie invalide." };
+  }
+
+  const title = ((formData.get("title") as string) || "").trim();
+  if (!title) return { ok: false, error: "Le titre est obligatoire." };
+
+  const slug = ((formData.get("slug") as string) || "").trim().toLowerCase();
+  if (!slug) return { ok: false, error: "Le slug est obligatoire." };
+
+  const basePrice = parseFloat(formData.get("base_price_mad") as string);
+  if (!Number.isFinite(basePrice) || basePrice <= 0) {
+    return { ok: false, error: "Le prix adulte doit être un nombre supérieur à 0." };
+  }
+
+  const maxParticipants = parseInt(formData.get("max_participants") as string, 10);
+  if (!Number.isInteger(maxParticipants) || maxParticipants <= 0) {
+    return { ok: false, error: "Le nombre maximum de participants doit être un entier supérieur à 0." };
+  }
+
+  const parsed = parseCategoryFieldsFromForm(category, formData);
+  if (!parsed.ok) return { ok: false, error: parsed.error };
+
+  const legacy = deriveLegacyColumns(category, parsed.fields as AnyCategoryFields);
+
+  let galleryUrls: string[] = [];
+  try {
+    const raw = formData.get("gallery_urls") as string;
+    if (raw) galleryUrls = JSON.parse(raw);
+  } catch {}
+
+  return {
+    ok: true,
+    payload: {
+      slug,
+      title,
+      category,
+      short_description: formData.get("short_description") as string,
+      description: formData.get("description") as string,
+      base_price_mad: basePrice,
+      child_price_mad: formData.get("child_price_mad")
+        ? parseFloat(formData.get("child_price_mad") as string)
+        : null,
+      max_participants: maxParticipants,
+      hero_image_url: formData.get("hero_image_url") as string,
+      gallery_urls: galleryUrls.length > 0 ? galleryUrls : null,
+      // Itinéraire : source de vérité = category_fields.itinerary (répéteur).
+      // Colonne legacy `itinerary` volontairement non écrite.
+      is_active: formData.get("is_active") === "on",
+      category_fields: parsed.fields,
+      duration_days: legacy.duration_days,
+      duration_hours: legacy.duration_hours,
+      meeting_point: legacy.meeting_point,
+    },
+  };
+}
+
+export async function createCircuit(
+  _prev: CircuitActionState,
+  formData: FormData,
+): Promise<CircuitActionState> {
+  const built = buildCircuitPayload(formData);
+  if (!built.ok) return built;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("circuits")
+    .insert(built.payload)
+    .select("id")
+    .single();
+  if (error || !data) {
+    console.error("[createCircuit] insert error:", error);
+    return { ok: false, error: error?.message || "Erreur lors de la création." };
+  }
+
+  revalidatePath("/admin/circuits");
+  redirect(`/admin/circuits/${data.id}`);
+}
+
+export async function updateCircuit(
+  id: string,
+  _prev: CircuitActionState,
+  formData: FormData,
+): Promise<CircuitActionState> {
+  const built = buildCircuitPayload(formData);
+  if (!built.ok) return built;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("circuits").update(built.payload).eq("id", id);
+  if (error) {
+    console.error("[updateCircuit] update error:", error);
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/admin/circuits");
+  revalidatePath(`/admin/circuits/${id}`);
+  redirect("/admin/circuits");
+}
 
 /**
  * Supprime un circuit — refuse si des réservations le référencent.

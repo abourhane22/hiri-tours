@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { Info } from "lucide-react";
 import { LocationPicker } from "@/components/location-picker";
 import { ItineraryDayList } from "@/components/itinerary-day-list";
 import {
@@ -13,92 +11,64 @@ import {
 } from "@/lib/category-fields";
 import type { CircuitCategory } from "@/lib/types";
 
-type Props = {
-  defaultCategory: CircuitCategory;
-  defaultFields: AnyCategoryFields | null;
-  /** Numéro affiché dans la pastille de section (défaut 3). */
-  sectionNumber?: number;
-};
-
 const labelCls = "block text-[12px] font-medium text-[#58524A] mb-1.5";
 const fieldCls =
   "h-10 w-full rounded-lg border border-[#E0DACF] bg-white px-3 text-sm text-[#1A1F2E] placeholder:text-sand-400 focus:border-[#1A1F2E] focus:outline-none focus:ring-2 focus:ring-[#1A1F2E]/10 transition-colors";
 
-export function CategoryFieldsSection({
-  defaultCategory,
-  defaultFields,
+/**
+ * Champs spécifiques à la catégorie (sans le sélecteur de catégorie, qui vit
+ * désormais dans CircuitForm). Contrôlé par la prop `category`.
+ */
+export function CategorySpecificFields({
+  category,
+  seedFields,
   sectionNumber = 3,
-}: Props) {
-  const [category, setCategory] = useState<CircuitCategory>(defaultCategory);
-
+  onDayCountChange,
+}: {
+  category: CircuitCategory;
+  seedFields: AnyCategoryFields;
+  sectionNumber?: number;
+  onDayCountChange?: (n: number) => void;
+}) {
   const meta = CATEGORY_META[category];
   const fields = CATEGORY_FIELDS_CONFIG[category];
-  const categoryChanged = category !== defaultCategory;
-  const seedFields: AnyCategoryFields =
-    category === defaultCategory ? (defaultFields ?? {}) : {};
 
   return (
-    <>
-      <div>
-        <label htmlFor="category" className={labelCls}>
-          Catégorie <span className="text-red-600">*</span>
-        </label>
-        <select
-          id="category"
-          name="category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value as CircuitCategory)}
-          required
-          className={fieldCls}
-        >
-          <option value="circuit">Circuit</option>
-          <option value="excursion">Excursion</option>
-          <option value="transfert">Transfert</option>
-          <option value="sejour">Séjour</option>
-        </select>
-        <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-[#968F84]">
-          <Info className="size-3.5 shrink-0 mt-px" />
-          Changer de catégorie réinitialise les champs spécifiques.
-          {categoryChanged && (
-            <span className="text-[#B25F0B] font-medium"> Champs réinitialisés.</span>
-          )}
-        </p>
-      </div>
-
-      <div className="pt-4 border-t border-[#EBE6DC]">
-        <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="size-5 rounded-md bg-[#1A1F2E] text-white text-[11px] font-medium flex items-center justify-center">
-              {sectionNumber}
-            </span>
-            <h2 className="font-display text-base text-[#1A1F2E] m-0">
-              Champs spécifiques
-            </h2>
-          </div>
-          <span
-            className="px-2 py-0.5 rounded-md text-xs font-medium"
-            style={meta.badgeStyle}
-          >
-            {meta.sectionSuffix}
+    <div>
+      <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="size-5 rounded-md bg-[#1A1F2E] text-white text-[11px] font-medium flex items-center justify-center">
+            {sectionNumber}
           </span>
+          <h2 className="font-display text-base text-[#1A1F2E] m-0">Champs spécifiques</h2>
         </div>
-
-        <div key={category} className="grid sm:grid-cols-2 gap-4">
-          {fields.map((f) => (
-            <FieldRenderer key={f.key} config={f} seed={seedFields} />
-          ))}
-        </div>
+        <span className="px-2 py-0.5 rounded-md text-xs font-medium" style={meta.badgeStyle}>
+          {meta.sectionSuffix}
+        </span>
       </div>
-    </>
+
+      <div key={category} className="grid sm:grid-cols-2 gap-4">
+        {fields.map((f) => (
+          <FieldRenderer
+            key={f.key}
+            config={f}
+            seed={seedFields}
+            onDayCountChange={onDayCountChange}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
 function FieldRenderer({
   config,
   seed,
+  onDayCountChange,
 }: {
   config: FieldConfig;
   seed: AnyCategoryFields;
+  onDayCountChange?: (n: number) => void;
 }) {
   const seedRecord = seed as Record<string, unknown>;
   const name = categoryFieldFormName(config.key);
@@ -114,6 +84,7 @@ function FieldRenderer({
         label={config.label}
         required={config.required}
         defaultValue={seedRecord[config.key]}
+        onCountChange={onDayCountChange}
       />
     );
   }

@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Upload, Link as LinkIcon, X, Loader2 } from "lucide-react";
 
@@ -12,12 +11,17 @@ type Props = {
   name: string;
   defaultValue?: string | null;
   label?: string;
+  onChange?: (url: string) => void;
 };
 
-export function ImageUpload({ name, defaultValue, label = "Image principale" }: Props) {
+export function ImageUpload({ name, defaultValue, label = "Image principale", onChange }: Props) {
   const supabase = createClient();
   const [mode, setMode] = useState<Mode>("url");
   const [currentUrl, setCurrentUrl] = useState<string>(defaultValue || "");
+
+  useEffect(() => {
+    onChange?.(currentUrl);
+  }, [currentUrl, onChange]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
