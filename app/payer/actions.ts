@@ -190,6 +190,14 @@ export async function confirmAttijariPayment(
     .update({ status: "paid" })
     .eq("order_id", orderId);
 
+  // Marque le lien de paiement actif comme utilisé (paiement abouti).
+  await supabase
+    .from("payment_links")
+    .update({ used_at: new Date().toISOString() })
+    .eq("reservation_id", o.reservation_id)
+    .is("used_at", null)
+    .is("revoked_at", null);
+
   revalidatePath(`/admin/reservations/${o.reservation_id}`);
   revalidatePath("/admin/reservations");
   revalidatePath("/admin");

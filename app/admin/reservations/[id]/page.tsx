@@ -36,6 +36,7 @@ import { SendVoucherEmailButton } from "@/components/send-voucher-email-button";
 import { WhatsAppButton } from "@/components/whatsapp-button";
 import { ReservationStatusForm } from "@/components/reservation-status-form";
 import { PaymentForm } from "@/components/payment-form";
+import { PaymentLinkPanel } from "@/components/payment-link-panel";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   attijari: "Attijari Payment",
@@ -163,6 +164,24 @@ export default async function ReservationDetailPage({
     .select("*")
     .eq("reservation_id", id)
     .order("paid_at", { ascending: false });
+
+  // Lien de paiement actif (staff read via RLS).
+  const { data: activeLinkRow } = await supabase
+    .from("payment_links")
+    .select("token, expires_at")
+    .eq("reservation_id", id)
+    .is("revoked_at", null)
+    .is("used_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const activeLink = activeLinkRow
+    ? {
+        url: `${process.env.NEXT_PUBLIC_APP_URL || "https://hiri-tours.vercel.app"}/payer/t/${(activeLinkRow as any).token}`,
+        expiresAt: (activeLinkRow as any).expires_at as string,
+      }
+    : null;
 
   const r = reservation as any;
   const status = r.status as string;
@@ -561,6 +580,10 @@ export default async function ReservationDetailPage({
                   );
                 })}
               </div>
+            )}
+
+            {balance > 0 && !isCancelled && (
+              <PaymentLinkPanel reservationId={id} initialLink={activeLink} />
             )}
 
             {isSettled && !isCancelled ? (

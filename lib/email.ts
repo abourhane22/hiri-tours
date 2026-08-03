@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
 import BookingConfirmationEmail from "@/emails/booking-confirmation";
 import VoucherDeliveryEmail from "@/emails/voucher-delivery";
+import PaymentLinkEmail from "@/emails/payment-link";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const FROM_EMAIL = process.env.EMAIL_FROM || "Hiri Tours <onboarding@resend.dev>";
@@ -41,6 +42,56 @@ export async function sendBookingConfirmation(reservationId: string): Promise<Em
     if (error) return { success: false, error: error.message };
     return { success: true, id: data?.id };
   } catch (e: any) {
+    return { success: false, error: e?.message || "Erreur d'envoi" };
+  }
+}
+
+export async function sendPaymentLinkEmail(
+  reservationId: string,
+  url: string,
+  expiresAt: string,
+): Promise<EmailResult> {
+  if (!resend) {
+    return { success: false, skipped: "Service email non configuré (RESEND_API_KEY absente)" };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data: reservation, error: readError } = await supabase
+      .from("reservations")
+      .select("reference, departure_date, total_amount_mad, paid_amount_mad, customers(full_name, email), circuits(title)")
+      .eq("id", reservationId)
+      .single();
+
+    if (readError || !reservation) {
+      return { success: false, error: "Réservation introuvable" };
+    }
+    const r = reservation as any;
+    if (!r.customers?.email) return { success: false, skipped: "Client sans email" };
+
+    const remaining = Math.max(0, Number(r.total_amount_mad) - Number(r.paid_amount_mad));
+
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: r.customers.email,
+      subject: `Votre réservation ${r.reference} — règlement en ligne`,
+      react: PaymentLinkEmail({
+        customerName: r.customers.full_name,
+        reference: r.reference,
+        circuitTitle: r.circuits?.title || "Excursion",
+        departureDate: r.departure_date,
+        remaining,
+        url,
+        expiresAt,
+      }),
+    });
+    if (error) {
+      console.error("[sendPaymentLinkEmail] Resend API error:", error);
+      return { success: false, error: error.message };
+    }
+    return { success: true, id: data?.id };
+  } catch (e: any) {
+    console.error("[sendPaymentLinkEmail] Exception:", e);
     return { success: false, error: e?.message || "Erreur d'envoi" };
   }
 }
