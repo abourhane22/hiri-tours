@@ -2,9 +2,17 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
 import { VoucherPrintButton } from "@/components/voucher-print-button";
+import { AutoPrint } from "@/components/auto-print";
 
-export default async function ManifestePage({ params }: { params: Promise<{ date: string; circuitId: string }> }) {
+export default async function ManifestePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ date: string; circuitId: string }>;
+  searchParams: Promise<{ print?: string }>;
+}) {
   const { date, circuitId } = await params;
+  const { print } = await searchParams;
   const supabase = await createClient();
 
   const { data: circuit } = await supabase.from("circuits").select("*").eq("id", circuitId).single();
@@ -24,6 +32,7 @@ export default async function ManifestePage({ params }: { params: Promise<{ date
 
   return (
     <div className="bg-white min-h-screen">
+      {print && <AutoPrint />}
       <div className="max-w-4xl mx-auto p-8 print:p-0">
         <div className="flex justify-between items-center mb-6 print:hidden">
           <p className="text-sm text-sand-700">Manifeste passagers — cliquez sur Imprimer pour télécharger en PDF.</p>
