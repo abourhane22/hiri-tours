@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Label, Select } from "@/components/ui/input";
 import { AlertBanner } from "@/components/ui/alert-banner";
-import { Info } from "lucide-react";
+import { Info, Lock } from "lucide-react";
 import { updateStatus, type ActionResult } from "@/app/admin/reservations/[id]/actions";
 
 type Props = {
@@ -80,13 +80,13 @@ export function ReservationStatusForm({
           name="status"
           value={selectedStatus}
           onChange={(e) => setSelectedStatus(e.target.value)}
-          disabled={isPending}
+          disabled={isPending || fromCancelled}
         >
           <option
             value="pending"
-            disabled={!fromCancelled && hasPartial}
+            disabled={hasPartial}
             title={
-              !fromCancelled && hasPartial
+              hasPartial
                 ? "Des paiements ont été encaissés — retour « En attente » impossible."
                 : undefined
             }
@@ -95,12 +95,8 @@ export function ReservationStatusForm({
           </option>
           <option
             value="confirmed"
-            disabled={!fromCancelled && isSettled}
-            title={
-              !fromCancelled && isSettled
-                ? "Réservation soldée — rétrogradation impossible."
-                : undefined
-            }
+            disabled={isSettled}
+            title={isSettled ? "Réservation soldée — rétrogradation impossible." : undefined}
           >
             Confirmée
           </option>
@@ -110,21 +106,30 @@ export function ReservationStatusForm({
           <option value="completed" disabled={currentStatus !== "completed"}>
             {currentStatus !== "completed" ? "Terminée (automatique)" : "Terminée"}
           </option>
-          <option value="cancelled" disabled={fromCancelled}>
-            Annulée
-          </option>
+          <option value="cancelled">Annulée</option>
         </Select>
-        <p className="flex items-start gap-1.5 text-[11px] text-[#968F84]">
-          <Info className="size-3.5 shrink-0 mt-px" />
-          <span>
-            {fromCancelled
-              ? "Dossier annulé. Vous pouvez le réactiver en le repassant en Demande ou Confirmée."
-              : "« Confirmée » et « Payée » s'appliquent automatiquement à l'encaissement · « Terminée » après le départ. Ce menu sert aux corrections et à l'annulation."}
-          </span>
-        </p>
-        <Button type="submit" className="w-full" disabled={isPending}>
-          {isPending ? "Mise à jour…" : "Mettre à jour"}
-        </Button>
+
+        {fromCancelled ? (
+          <p className="flex items-start gap-1.5 text-[11px] text-[#968F84]">
+            <Lock className="size-3.5 shrink-0 mt-px" />
+            <span>Dossier annulé — le statut ne peut plus être modifié.</span>
+          </p>
+        ) : (
+          <p className="flex items-start gap-1.5 text-[11px] text-[#968F84]">
+            <Info className="size-3.5 shrink-0 mt-px" />
+            <span>
+              « Confirmée » et « Payée » s'appliquent automatiquement à
+              l'encaissement · « Terminée » après le départ. Ce menu sert aux
+              corrections et à l'annulation.
+            </span>
+          </p>
+        )}
+
+        {!fromCancelled && (
+          <Button type="submit" className="w-full" disabled={isPending}>
+            {isPending ? "Mise à jour…" : "Mettre à jour"}
+          </Button>
+        )}
       </form>
     </div>
   );
