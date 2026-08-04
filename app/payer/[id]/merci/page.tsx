@@ -15,11 +15,14 @@ export default async function MerciPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ ref?: string }>;
+  searchParams: Promise<{ ref?: string; provider?: string; session_id?: string }>;
 }) {
   const { id } = await params;
-  const { ref } = await searchParams;
+  const { ref, provider, session_id } = await searchParams;
   const supabase = createAdminClient();
+
+  const isStripe = provider === "stripe";
+  const externalRef = ref ?? session_id ?? null;
 
   const { data: reservation, error } = await supabase
     .from("reservations")
@@ -36,11 +39,11 @@ export default async function MerciPage({
   if (!reservation) notFound();
 
   // Date du paiement lié à cette transaction (pour le reçu).
-  const { data: payment } = ref
+  const { data: payment } = externalRef
     ? await supabase
         .from("payments")
         .select("paid_at")
-        .eq("external_ref", ref)
+        .eq("external_ref", externalRef)
         .maybeSingle()
     : { data: null };
 
@@ -53,6 +56,13 @@ export default async function MerciPage({
   const circuitTitle = r.circuits?.title ?? null;
   const paidAt = (payment as any)?.paid_at ?? null;
   const emittedOn = formatDate(new Date());
+
+  // Stripe : le paiement arrive via webhook (1-2 s). Si pas encore en base,
+  // on confirme quand même (la session Stripe a réussi) — enregistrement en cours.
+  const stripePending = isStripe && !payment;
+  const methodLabel = isStripe ? "Stripe · carte internationale" : "Attijari Payment";
+  const refDisplay =
+    externalRef && externalRef.length > 22 ? `${externalRef.slice(0, 20)}…` : externalRef;
 
   return (
     <TunnelShell bodyClassName="text-center">
@@ -76,32 +86,40 @@ export default async function MerciPage({
           Paiement reçu
         </h1>
         <p className="text-[13px] text-[#6B6862] mb-6">
-          {fullyPaid
-            ? "Votre réservation est confirmée."
-            : "Votre acompte a bien été enregistré."}
+          {stripePending
+            ? "Votre paiement a été confirmé — enregistrement en cours…"
+            : fullyPaid
+              ? "Votre réservation est confirmée."
+              : "Votre acompte a bien été enregistré."}
         </p>
 
         {/* Montant payé */}
-        <div className="mb-5">
-          <div className="text-[11px] tracking-wider uppercase text-[#968F84]">
-            Montant réglé
+        {stripePending ? (
+          <div className="mb-5 text-[12px] text-[#968F84]">
+            Le paiement sera visible dans quelques secondes.
           </div>
-          <div className="font-display text-[30px] text-[#0F6E56] tabular-nums leading-tight">
-            {formatMAD(paid)}
+        ) : (
+          <div className="mb-5">
+            <div className="text-[11px] tracking-wider uppercase text-[#968F84]">
+              Montant réglé
+            </div>
+            <div className="font-display text-[30px] text-[#0F6E56] tabular-nums leading-tight">
+              {formatMAD(paid)}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Détails du reçu */}
         <div className="rounded-xl border border-[#E5E0D7] bg-white px-5 py-4 text-[13px] text-left space-y-2 max-w-xs mx-auto">
           {clientName && <ReceiptRow label="Client" value={clientName} />}
           {circuitTitle && <ReceiptRow label="Circuit" value={circuitTitle} />}
           <ReceiptRow label="Réservation" value={<span className="font-mono">{r.reference}</span>} />
-          {ref && (
-            <ReceiptRow label="Transaction" value={<span className="font-mono">{ref}</span>} />
+          {refDisplay && (
+            <ReceiptRow label="Transaction" value={<span className="font-mono">{refDisplay}</span>} />
           )}
-          <ReceiptRow label="Méthode" value="Attijari Payment" />
+          <ReceiptRow label="Méthode" value={methodLabel} />
           {paidAt && <ReceiptRow label="Payé le" value={formatDate(paidAt)} />}
-          {!fullyPaid && (
+          {!stripePending && !fullyPaid && (
             <div className="flex items-center justify-between gap-4 pt-2 border-t border-[#E5E0D7]">
               <span className="text-[#6B6862]">Restant dû</span>
               <span className="text-[#C84B31] font-medium tabular-nums">
@@ -114,7 +132,7 @@ export default async function MerciPage({
         {/* Actions (jamais imprimées) */}
         <div className="flex flex-wrap items-center justify-center gap-2 mt-6 print:hidden">
           <PrintReceiptButton />
-          {!fullyPaid && (
+          {!stripePending && !fullyPaid && (
             <Link
               href={`/payer/${id}`}
               className="inline-flex h-10 items-center justify-center rounded-lg border border-[#E0DACF] bg-white px-4 text-[13px] font-medium text-[#1A1F2E] hover:bg-sand-100 transition-colors"

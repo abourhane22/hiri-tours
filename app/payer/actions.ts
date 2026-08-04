@@ -2,9 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { autoConfirmOnPayment } from "@/lib/payments";
+import { stripe } from "@/lib/stripe";
 import {
   generateOrderId,
   signOrder,
@@ -119,6 +120,108 @@ export async function initiateAttijariPayment(
 
   // Redirection vers la page de paiement de la gateway (simulée).
   redirect(`/payer/attijari/${orderId}`);
+}
+
+/**
+ * Stripe Checkout (mode test) — carte internationale.
+ * Jumeau de initiateAttijariPayment : mêmes contrôles (restant dû, lien),
+ * mais délègue le paiement à Stripe puis le webhook enregistre en base.
+ */
+export async function createStripeCheckout(
+  reservationId: string,
+): Promise<PayError | never> {
+  if (!stripe) {
+    return { error: "Paiement par carte indisponible (Stripe non configuré)." };
+  }
+
+  const supabase = createAdminClient();
+  const { data: reservation, error } = await supabase
+    .from("reservations")
+    .select("id, status, reference, total_amount_mad, paid_amount_mad, circuits(title)")
+    .eq("id", reservationId)
+    .single();
+
+  if (error || !reservation) return { error: "Réservation introuvable." };
+  const rr = reservation as any;
+  if (rr.status === "cancelled") {
+    return { error: "Cette réservation est annulée.", reservationId };
+  }
+  const remaining = Math.max(0, Number(rr.total_amount_mad) - Number(rr.paid_amount_mad));
+  if (remaining <= 0) {
+    return { error: "Cette réservation est déjà soldée.", reservationId };
+  }
+
+  // Lien tokenisé (cookie) : refuse si révoqué/expiré (même règle qu'Attijari).
+  const store = await cookies();
+  const cookieLinkId = store.get(LINK_COOKIE)?.value || null;
+  let paymentLinkId: string | null = null;
+  if (cookieLinkId) {
+    const { data: link } = await supabase
+      .from("payment_links")
+      .select("reservation_id, revoked_at, expires_at")
+      .eq("id", cookieLinkId)
+      .maybeSingle();
+    if (link && (link as any).reservation_id === reservationId) {
+      if (linkIsDead(link as any)) return { error: LINK_REVOKED_MSG, reservationId };
+      paymentLinkId = cookieLinkId;
+    }
+  }
+
+  const h = await headers();
+  const origin = h.get("origin") || `https://${h.get("host") ?? ""}`;
+  const circuitTitle = rr.circuits?.title ?? "Réservation";
+  const metadata: Record<string, string> = {
+    reservation_id: reservationId,
+    amount_mad: String(remaining),
+  };
+  if (paymentLinkId) metadata.payment_link_id = paymentLinkId;
+
+  const successUrl = `${origin}/payer/${reservationId}/merci?provider=stripe&session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${origin}/payer/${reservationId}`;
+
+  const createSession = (currency: string, unitAmount: number, description?: string) =>
+    stripe!.checkout.sessions.create({
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency,
+            product_data: {
+              name: `Réservation ${rr.reference} — ${circuitTitle}`,
+              ...(description ? { description } : {}),
+            },
+            unit_amount: unitAmount,
+          },
+          quantity: 1,
+        },
+      ],
+      metadata,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    });
+
+  let session: Awaited<ReturnType<typeof createSession>> | undefined;
+  try {
+    // MAD d'abord (Stripe le supporte en principe).
+    session = await createSession("mad", Math.round(remaining * 100));
+  } catch (e: any) {
+    console.warn("[createStripeCheckout] devise MAD refusée, fallback EUR:", e?.message);
+    try {
+      session = await createSession(
+        "eur",
+        Math.round(remaining * 10),
+        `Montant réel : ${Math.round(remaining).toLocaleString("fr-FR")} MAD`,
+      );
+    } catch (e2: any) {
+      console.error("[createStripeCheckout] échec création session:", e2?.message);
+      return { error: "Impossible de démarrer le paiement par carte.", reservationId };
+    }
+  }
+
+  if (!session?.url) {
+    return { error: "Session de paiement invalide.", reservationId };
+  }
+  redirect(session.url);
 }
 
 /**

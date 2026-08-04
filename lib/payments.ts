@@ -1,6 +1,60 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
+ * Enregistre un paiement provenant d'une gateway externe (Attijari, Stripe…),
+ * en respectant le plafond du restant dû, avec idempotence sur external_ref,
+ * puis auto-confirmation / horodatage via autoConfirmOnPayment.
+ * Fonction partagée : le trigger DB met à jour paid_amount_mad + promotion.
+ */
+export async function recordExternalPayment(
+  supabase: SupabaseClient,
+  params: {
+    reservationId: string;
+    amountMad: number;
+    method: string;
+    source: string;
+    externalRef: string;
+  },
+): Promise<{ ok: true; skipped?: boolean } | { ok: false; error: string }> {
+  const { reservationId, amountMad, method, source, externalRef } = params;
+
+  // Idempotence : ne pas dupliquer si ce external_ref est déjà enregistré.
+  const { data: existing } = await supabase
+    .from("payments")
+    .select("id")
+    .eq("external_ref", externalRef)
+    .maybeSingle();
+  if (existing) return { ok: true, skipped: true };
+
+  const { data: reservation } = await supabase
+    .from("reservations")
+    .select("total_amount_mad, paid_amount_mad")
+    .eq("id", reservationId)
+    .single();
+  if (!reservation) return { ok: false, error: "Réservation introuvable" };
+
+  const total = Number((reservation as any).total_amount_mad);
+  const paid = Number((reservation as any).paid_amount_mad);
+  const remaining = Math.max(0, total - paid);
+  const payAmount = Math.min(amountMad, remaining);
+
+  if (payAmount > 0) {
+    const { error } = await supabase.from("payments").insert({
+      reservation_id: reservationId,
+      method,
+      amount_mad: payAmount,
+      source,
+      external_ref: externalRef,
+      transaction_ref: externalRef,
+    });
+    if (error) return { ok: false, error: error.message };
+  }
+
+  await autoConfirmOnPayment(supabase, reservationId);
+  return { ok: true };
+}
+
+/**
  * Auto-confirmation après enregistrement d'un paiement.
  * Le trigger DB a déjà mis à jour paid_amount_mad (et promu en 'paid' si le
  * solde est intégral). Ici : si le dossier est ENCORE 'pending' avec un

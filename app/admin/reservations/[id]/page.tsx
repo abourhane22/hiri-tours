@@ -40,7 +40,7 @@ import { PaymentLinkPanel } from "@/components/payment-link-panel";
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   attijari: "Attijari Payment",
   cmi: "Attijari Payment", // legacy : anciens paiements stockés en 'cmi'
-  stripe: "Stripe",
+  stripe: "Stripe · carte internationale",
   paypal: "PayPal",
   cash: "Espèces",
   transfer: "Virement",

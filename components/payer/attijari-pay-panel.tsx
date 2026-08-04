@@ -11,13 +11,15 @@ import {
   Loader2,
 } from "lucide-react";
 import { formatMAD } from "@/lib/utils";
-import { initiateAttijariPayment } from "@/app/payer/actions";
+import { initiateAttijariPayment, createStripeCheckout } from "@/app/payer/actions";
 import { AttijariLogo } from "@/components/payer/attijari-logo";
 
+type Method = "attijari" | "stripe";
+
 /**
- * Sélecteur de moyen de paiement + bouton principal + rangée de confiance.
- * Le clic sur la carte Attijari OU sur le bouton lance la même server action
- * (aucune logique modifiée — seule la présentation change).
+ * Sélecteur de moyen de paiement (Attijari carte marocaine · Stripe carte
+ * internationale) + bouton principal. Le bouton lance la server action du
+ * moyen sélectionné (les deux redirigent en cas de succès).
  */
 export function AttijariPayPanel({
   reservationId,
@@ -30,53 +32,72 @@ export function AttijariPayPanel({
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [method, setMethod] = useState<Method>("attijari");
 
   function pay() {
     if (isPending) return;
     setError(null);
     startTransition(async () => {
       // En cas de succès, l'action redirige (ne renvoie rien).
-      const result = await initiateAttijariPayment(reservationId);
+      const result =
+        method === "stripe"
+          ? await createStripeCheckout(reservationId)
+          : await initiateAttijariPayment(reservationId);
       if (result?.error) setError(result.error);
     });
   }
+
+  const cardCls = (active: boolean) =>
+    `text-left rounded-xl border-2 p-4 transition-colors disabled:opacity-70 disabled:pointer-events-none ${
+      active
+        ? "border-[#0F6E56] bg-[#F7FCFA] hover:bg-[#EFF9F5]"
+        : "border-[#E5E0D7] bg-white hover:border-[#C9C0AE]"
+    }`;
 
   return (
     <div className="space-y-4">
       {/* Sélecteur moyen de paiement */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Attijari — actif */}
+        {/* Attijari — carte marocaine */}
         <button
           type="button"
-          onClick={pay}
+          onClick={() => setMethod("attijari")}
           disabled={isPending}
-          className="text-left rounded-xl border-2 border-[#0F6E56] bg-[#F7FCFA] p-4 transition-colors hover:bg-[#EFF9F5] disabled:opacity-70 disabled:pointer-events-none"
+          aria-pressed={method === "attijari"}
+          className={cardCls(method === "attijari")}
         >
-          {/* Le logo Attijari EST le titre de la carte (fallback texte si absent). */}
           <div className="flex items-center justify-between gap-2">
             <AttijariLogo hasLogo={hasLogo} className="h-7" />
-            <CircleCheck className="size-5 text-[#0F6E56] shrink-0" />
+            {method === "attijari" && <CircleCheck className="size-5 text-[#0F6E56] shrink-0" />}
           </div>
           <div className="text-xs text-[#6B6862] mt-2.5">
             Carte bancaire marocaine · CIH, Attijariwafa, BP…
           </div>
         </button>
 
-        {/* Carte internationale — lot 2, désactivé */}
-        <div className="rounded-xl border-2 border-[#E5E0D7] bg-white p-4 opacity-55 cursor-not-allowed select-none">
-          <div className="flex items-center justify-between">
-            <CreditCard className="size-5 text-[#968F84]" />
-            <span className="inline-flex items-center rounded-full bg-sand-100 border border-[#E5E0D7] px-2 py-0.5 text-[10px] font-medium text-[#6B6862]">
-              Bientôt
+        {/* Stripe — carte internationale */}
+        <button
+          type="button"
+          onClick={() => setMethod("stripe")}
+          disabled={isPending}
+          aria-pressed={method === "stripe"}
+          className={cardCls(method === "stripe")}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-2">
+              <CreditCard className="size-5 text-[#3C3489]" />
+              <span
+                className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                style={{ backgroundColor: "#EEEDFE", color: "#3C3489" }}
+              >
+                Stripe
+              </span>
             </span>
+            {method === "stripe" && <CircleCheck className="size-5 text-[#0F6E56] shrink-0" />}
           </div>
-          <div className="mt-2.5 text-sm font-semibold text-[#1A1F2E]">
-            Carte internationale
-          </div>
-          <div className="text-xs text-[#6B6862] mt-0.5">
-            Visa · Mastercard · Amex
-          </div>
-        </div>
+          <div className="mt-2.5 text-sm font-semibold text-[#1A1F2E]">Carte internationale</div>
+          <div className="text-xs text-[#6B6862] mt-0.5">Visa · Mastercard · Amex</div>
+        </button>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
