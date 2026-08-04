@@ -204,6 +204,19 @@ export default async function ReservationDetailPage({
   const updateNotesBound = updateNotes.bind(null, id);
   const cancelReservationBound = cancelReservation.bind(null, id);
 
+  // WhatsApp : message d'annulation dédié quand le dossier est annulé.
+  const firstName = (customer?.full_name || "").trim().split(/\s+/)[0] || "";
+  const paxCount = r.adults + r.children;
+  const mad = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} MAD`;
+  const refundPart =
+    totalPaid > 0
+      ? `Un montant de ${mad(totalPaid)} a été encaissé sur ce dossier — notre équipe vous recontacte pour les modalités de remboursement. `
+      : "";
+  const waMessage = isCancelled
+    ? `Bonjour ${firstName}, nous vous confirmons l'annulation de votre réservation ${r.reference} — ${circuit?.title ?? ""}, départ prévu le ${formatDate(r.departure_date)}, ${paxCount} passager${paxCount > 1 ? "s" : ""}, montant ${mad(totalAmount)}. ${refundPart}Pour toute question : Hiri Tours.`
+    : `Bonjour ${customer?.full_name ?? ""}, voici votre référence de réservation Hiri Tours : ${r.reference}. Date de départ : ${r.departure_date}.`;
+  const waLabel = isCancelled ? "Confirmer l'annulation (WhatsApp)" : "WhatsApp";
+
   const actionBtn =
     "inline-flex items-center gap-1.5 rounded-lg border border-[#E5E0D7] bg-white text-[12.5px] font-medium px-3.5 py-2 text-[#1A1F2E] hover:bg-[#FAF5F0] transition-colors";
 
@@ -242,15 +255,16 @@ export default async function ReservationDetailPage({
 
         {/* Actions */}
         <div className="flex flex-wrap items-center gap-2">
-          <SendVoucherEmailButton reservationId={id} customerEmail={customer?.email ?? null} />
-          <Link href={`/admin/reservations/${id}/voucher`} target="_blank" className={actionBtn}>
-            <Printer className="size-4" /> Imprimer
-          </Link>
-          <WhatsAppButton
-            phone={customer?.phone ?? null}
-            message={`Bonjour ${customer?.full_name ?? ""}, voici votre référence de réservation Hiri Tours : ${r.reference}. Date de départ : ${r.departure_date}.`}
-            label="WhatsApp"
-          />
+          {/* Voucher & impression : sans objet sur un dossier annulé → masqués. */}
+          {!isCancelled && (
+            <>
+              <SendVoucherEmailButton reservationId={id} customerEmail={customer?.email ?? null} />
+              <Link href={`/admin/reservations/${id}/voucher`} target="_blank" className={actionBtn}>
+                <Printer className="size-4" /> Imprimer
+              </Link>
+            </>
+          )}
+          <WhatsAppButton phone={customer?.phone ?? null} message={waMessage} label={waLabel} />
           {canInvoice &&
             (existingInvoice ? (
               <Link href={`/admin/factures/${(existingInvoice as any).id}`} target="_blank" className={actionBtn}>
@@ -273,7 +287,7 @@ export default async function ReservationDetailPage({
             style={{ backgroundColor: "#FCEBEB", borderColor: "#F7C1C1", color: "#791F1F" }}
           >
             <CircleX className="size-4 shrink-0" />
-            <span>Réservation annulée le {formatDate(r.updated_at)}.</span>
+            <span>Réservation annulée le {formatDate(r.cancelled_at ?? r.updated_at)}.</span>
           </div>
         ) : (
           <div className="grid grid-cols-4">
@@ -616,37 +630,54 @@ export default async function ReservationDetailPage({
 
           {/* e. LOGISTIQUE */}
           <InfoCard icon={Truck} label="Logistique">
-            <div className="flex justify-end mb-3">
-              {allAssigned ? (
-                <span
-                  className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium"
-                  style={{ backgroundColor: "#E1F5EE", color: "#085041" }}
-                >
-                  <Check className="size-3" /> Équipage affecté
-                </span>
-              ) : (
-                <span
-                  className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium"
-                  style={{ backgroundColor: "#FAEEDA", color: "#633806" }}
-                >
-                  <AlertTriangle className="size-3" /> À affecter
-                </span>
-              )}
-            </div>
-            <AffectationForm
-              reservationId={id}
-              totalPax={r.adults + r.children}
-              current={{
-                vehicle_id: af?.vehicle_id ?? null,
-                guide_id: af?.guide_id ?? null,
-                driver_id: af?.driver_id ?? null,
-              }}
-              currentNames={affectationNames}
-              vehicles={vehiclesList as any}
-              staff={staffList as any}
-              conflictedVehicleIds={conflictedVehicleIds}
-              conflictedStaffIds={conflictedStaffIds}
-            />
+            {isCancelled ? (
+              <div className="space-y-1.5">
+                <p className="text-[12px] text-[#968F84]">
+                  Dossier annulé — aucune affectation requise.
+                </p>
+                {(affectationNames.vehicle || affectationNames.guide || affectationNames.driver) && (
+                  <div className="text-[12px] text-[#B4AC9E] line-through space-y-0.5">
+                    {affectationNames.vehicle && <div>Véhicule : {affectationNames.vehicle}</div>}
+                    {affectationNames.guide && <div>Guide : {affectationNames.guide}</div>}
+                    {affectationNames.driver && <div>Chauffeur : {affectationNames.driver}</div>}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-end mb-3">
+                  {allAssigned ? (
+                    <span
+                      className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium"
+                      style={{ backgroundColor: "#E1F5EE", color: "#085041" }}
+                    >
+                      <Check className="size-3" /> Équipage affecté
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium"
+                      style={{ backgroundColor: "#FAEEDA", color: "#633806" }}
+                    >
+                      <AlertTriangle className="size-3" /> À affecter
+                    </span>
+                  )}
+                </div>
+                <AffectationForm
+                  reservationId={id}
+                  totalPax={r.adults + r.children}
+                  current={{
+                    vehicle_id: af?.vehicle_id ?? null,
+                    guide_id: af?.guide_id ?? null,
+                    driver_id: af?.driver_id ?? null,
+                  }}
+                  currentNames={affectationNames}
+                  vehicles={vehiclesList as any}
+                  staff={staffList as any}
+                  conflictedVehicleIds={conflictedVehicleIds}
+                  conflictedStaffIds={conflictedStaffIds}
+                />
+              </>
+            )}
           </InfoCard>
 
           {/* f. STATUT */}

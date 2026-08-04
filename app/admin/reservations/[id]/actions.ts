@@ -46,6 +46,15 @@ export async function updateStatus(
   const hasPartial = paid > 0;
   const paidLabel = `${Math.round(paid).toLocaleString("fr-FR")} MAD`;
 
+  // Réactivation d'un dossier annulé : uniquement vers Demande ou Confirmée
+  // (correction d'une annulation par erreur). cancelled_at reste en base.
+  if (cur.status === "cancelled" && status !== "pending" && status !== "confirmed" && status !== "cancelled") {
+    return {
+      ok: false,
+      error: "Dossier annulé : réactivez-le en Demande ou Confirmée.",
+    };
+  }
+
   // "Terminée" est attribué automatiquement par le cron (payé + départ passé).
   // Interdit toute transition manuelle VERS 'completed', sauf si le dossier
   // est déjà 'completed' (pour permettre une correction en sortie).
@@ -66,8 +75,9 @@ export async function updateStatus(
   }
 
   // L'annulation reste toujours autorisée (remboursement géré à part).
-  // Pas de rétrogradation d'un dossier SOLDÉ vers 'pending' / 'confirmed'.
-  if (isSettled && (status === "pending" || status === "confirmed")) {
+  // Pas de rétrogradation d'un dossier SOLDÉ vers 'pending' / 'confirmed'
+  // (sauf réactivation d'un dossier annulé, qui contourne ces verrous).
+  if (cur.status !== "cancelled" && isSettled && (status === "pending" || status === "confirmed")) {
     return {
       ok: false,
       error: `Impossible de rétrograder : la réservation est soldée (${paidLabel} encaissés). Annulez ou corrigez les paiements d'abord.`,
@@ -75,7 +85,7 @@ export async function updateStatus(
   }
 
   // Paiement partiel : pas de retour à 'pending'.
-  if (!isSettled && hasPartial && status === "pending") {
+  if (cur.status !== "cancelled" && !isSettled && hasPartial && status === "pending") {
     return {
       ok: false,
       error: `Impossible de revenir à « En attente » : ${paidLabel} déjà encaissés. Annulez ou corrigez les paiements d'abord.`,

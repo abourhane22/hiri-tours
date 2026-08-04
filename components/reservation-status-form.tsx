@@ -27,6 +27,7 @@ export function ReservationStatusForm({
 }: Props) {
   const isSettled = totalAmount > 0 && paidAmount >= totalAmount;
   const hasPartial = paidAmount > 0;
+  const fromCancelled = currentStatus === "cancelled";
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [selectedStatus, setSelectedStatus] = useState(currentStatus);
@@ -83,9 +84,9 @@ export function ReservationStatusForm({
         >
           <option
             value="pending"
-            disabled={hasPartial}
+            disabled={!fromCancelled && hasPartial}
             title={
-              hasPartial
+              !fromCancelled && hasPartial
                 ? "Des paiements ont été encaissés — retour « En attente » impossible."
                 : undefined
             }
@@ -94,9 +95,9 @@ export function ReservationStatusForm({
           </option>
           <option
             value="confirmed"
-            disabled={isSettled}
+            disabled={!fromCancelled && isSettled}
             title={
-              isSettled
+              !fromCancelled && isSettled
                 ? "Réservation soldée — rétrogradation impossible."
                 : undefined
             }
@@ -109,14 +110,16 @@ export function ReservationStatusForm({
           <option value="completed" disabled={currentStatus !== "completed"}>
             {currentStatus !== "completed" ? "Terminée (automatique)" : "Terminée"}
           </option>
-          <option value="cancelled">Annulée</option>
+          <option value="cancelled" disabled={fromCancelled}>
+            Annulée
+          </option>
         </Select>
         <p className="flex items-start gap-1.5 text-[11px] text-[#968F84]">
           <Info className="size-3.5 shrink-0 mt-px" />
           <span>
-            « Confirmée » et « Payée » s'appliquent automatiquement à
-            l'encaissement · « Terminée » après le départ. Ce menu sert aux
-            corrections et à l'annulation.
+            {fromCancelled
+              ? "Dossier annulé. Vous pouvez le réactiver en le repassant en Demande ou Confirmée."
+              : "« Confirmée » et « Payée » s'appliquent automatiquement à l'encaissement · « Terminée » après le départ. Ce menu sert aux corrections et à l'annulation."}
           </span>
         </p>
         <Button type="submit" className="w-full" disabled={isPending}>
