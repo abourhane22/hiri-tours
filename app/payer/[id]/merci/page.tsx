@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CircleCheck } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { stripe } from "@/lib/stripe";
 import { formatMAD, formatDate } from "@/lib/utils";
 import { TunnelShell } from "@/components/payer/tunnel-shell";
 import { PrintReceiptButton } from "@/components/payer/print-receipt-button";
@@ -38,31 +39,64 @@ export default async function MerciPage({
   }
   if (!reservation) notFound();
 
-  // Date du paiement lié à cette transaction (pour le reçu).
-  const { data: payment } = externalRef
-    ? await supabase
-        .from("payments")
-        .select("paid_at")
-        .eq("external_ref", externalRef)
-        .maybeSingle()
-    : { data: null };
-
   const r = reservation as any;
   const total = Number(r.total_amount_mad);
-  const paid = Number(r.paid_amount_mad);
-  const remaining = Math.max(0, total - paid);
-  const fullyPaid = remaining <= 0;
+  const paidCumulative = Number(r.paid_amount_mad);
+
+  // ---- Montant de LA transaction (jamais total_amount_mad) ----
+  let transactionAmount: number | null = null;
+  let paidAt: string | null = null;
+  let recorded = false; // le paiement est-il déjà écrit en base ?
+
+  if (externalRef) {
+    // Le paiement réellement enregistré (Attijari ET Stripe : external_ref).
+    const { data: payment } = await supabase
+      .from("payments")
+      .select("amount_mad, paid_at")
+      .eq("external_ref", externalRef)
+      .maybeSingle();
+
+    if (payment) {
+      transactionAmount = Number((payment as any).amount_mad);
+      paidAt = (payment as any).paid_at ?? null;
+      recorded = true;
+    } else if (isStripe && session_id && stripe) {
+      // Webhook pas encore passé → montant depuis la metadata de la session.
+      try {
+        const sess = await stripe.checkout.sessions.retrieve(session_id);
+        const meta = Number(sess.metadata?.amount_mad);
+        if (Number.isFinite(meta)) transactionAmount = meta;
+      } catch (e: any) {
+        console.error("[payer/merci] retrieve session Stripe:", e?.message);
+      }
+    } else if (!isStripe) {
+      // Attijari : repli sur l'ordre payé rattaché à cette réservation.
+      const { data: order } = await supabase
+        .from("payment_orders")
+        .select("amount_mad, status, reservation_id")
+        .eq("order_id", ref)
+        .maybeSingle();
+      if (order && (order as any).reservation_id === id && (order as any).status === "paid") {
+        transactionAmount = Number((order as any).amount_mad);
+        recorded = true;
+      }
+    }
+  }
+
+  // Reste à payer APRÈS cette transaction.
+  const remainingAfter = recorded
+    ? Math.max(0, total - paidCumulative)
+    : Math.max(0, total - paidCumulative - (transactionAmount ?? 0));
+  const settledAfter = remainingAfter <= 0;
+
+  const pending = isStripe && !recorded; // Stripe en attente du webhook
+  const showAmount = transactionAmount !== null;
   const clientName = r.customers?.full_name ?? null;
   const circuitTitle = r.circuits?.title ?? null;
-  const paidAt = (payment as any)?.paid_at ?? null;
-  const emittedOn = formatDate(new Date());
-
-  // Stripe : le paiement arrive via webhook (1-2 s). Si pas encore en base,
-  // on confirme quand même (la session Stripe a réussi) — enregistrement en cours.
-  const stripePending = isStripe && !payment;
   const methodLabel = isStripe ? "Stripe · carte internationale" : "Attijari Payment";
   const refDisplay =
     externalRef && externalRef.length > 22 ? `${externalRef.slice(0, 20)}…` : externalRef;
+  const emittedOn = formatDate(new Date());
 
   return (
     <TunnelShell bodyClassName="text-center">
@@ -82,30 +116,40 @@ export default async function MerciPage({
           <CircleCheck className="size-10 text-[#0F6E56]" />
         </div>
 
-        <h1 className="font-display text-[22px] text-[#1A1F2E] mb-1.5">
-          Paiement reçu
-        </h1>
+        <h1 className="font-display text-[22px] text-[#1A1F2E] mb-1.5">Paiement reçu</h1>
         <p className="text-[13px] text-[#6B6862] mb-6">
-          {stripePending
+          {pending
             ? "Votre paiement a été confirmé — enregistrement en cours…"
-            : fullyPaid
+            : settledAfter
               ? "Votre réservation est confirmée."
               : "Votre acompte a bien été enregistré."}
         </p>
 
-        {/* Montant payé */}
-        {stripePending ? (
-          <div className="mb-5 text-[12px] text-[#968F84]">
-            Le paiement sera visible dans quelques secondes.
-          </div>
-        ) : (
+        {/* Montant de LA transaction */}
+        {showAmount ? (
           <div className="mb-5">
             <div className="text-[11px] tracking-wider uppercase text-[#968F84]">
               Montant réglé
             </div>
             <div className="font-display text-[30px] text-[#0F6E56] tabular-nums leading-tight">
-              {formatMAD(paid)}
+              {formatMAD(transactionAmount as number)}
             </div>
+            {/* Contexte : total prestation + reste à payer */}
+            <div className="mt-2 space-y-0.5 text-[12px] text-[#6B6862]">
+              <div>Total de la prestation : {formatMAD(total)}</div>
+              {settledAfter ? (
+                <div className="font-medium" style={{ color: "#0F6E56" }}>Prestation soldée</div>
+              ) : (
+                <div>Reste à payer : {formatMAD(remainingAfter)}</div>
+              )}
+            </div>
+            {pending && (
+              <div className="text-[11px] text-[#968F84] mt-1">Enregistrement en cours…</div>
+            )}
+          </div>
+        ) : (
+          <div className="mb-5 text-[12px] text-[#968F84]">
+            Le paiement sera visible dans quelques secondes.
           </div>
         )}
 
@@ -119,20 +163,12 @@ export default async function MerciPage({
           )}
           <ReceiptRow label="Méthode" value={methodLabel} />
           {paidAt && <ReceiptRow label="Payé le" value={formatDate(paidAt)} />}
-          {!stripePending && !fullyPaid && (
-            <div className="flex items-center justify-between gap-4 pt-2 border-t border-[#E5E0D7]">
-              <span className="text-[#6B6862]">Restant dû</span>
-              <span className="text-[#C84B31] font-medium tabular-nums">
-                {formatMAD(remaining)}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Actions (jamais imprimées) */}
         <div className="flex flex-wrap items-center justify-center gap-2 mt-6 print:hidden">
           <PrintReceiptButton />
-          {!stripePending && !fullyPaid && (
+          {!pending && !settledAfter && (
             <Link
               href={`/payer/${id}`}
               className="inline-flex h-10 items-center justify-center rounded-lg border border-[#E0DACF] bg-white px-4 text-[13px] font-medium text-[#1A1F2E] hover:bg-sand-100 transition-colors"
