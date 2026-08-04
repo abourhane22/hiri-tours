@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   generateOrderId,
@@ -15,6 +16,30 @@ import {
  * En cas de succès, l'action fait un redirect() (la promesse ne résout pas).
  */
 export type PayError = { error: string; reservationId?: string };
+
+const LINK_COOKIE = "pl_session";
+const LINK_REVOKED_MSG =
+  "Ce lien de paiement a été révoqué par l'agence. Contactez-la pour obtenir un nouveau lien.";
+
+/** Vrai si le lien est révoqué ou expiré. */
+function linkIsDead(link: { revoked_at: string | null; expires_at: string }): boolean {
+  return !!link.revoked_at || new Date(link.expires_at).getTime() < Date.now();
+}
+
+/**
+ * Pose un cookie httpOnly de courte durée (30 min, scope /payer) portant
+ * l'identité du lien de paiement, à la validation du token. Appelé depuis
+ * l'écran de bascule /payer/t/[token].
+ */
+export async function setLinkSessionCookie(linkId: string): Promise<void> {
+  const store = await cookies();
+  store.set(LINK_COOKIE, linkId, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/payer",
+    maxAge: 30 * 60,
+  });
+}
 
 /**
  * Étape 1 — création de l'ordre de paiement (équivalent "initier la session"
@@ -54,6 +79,26 @@ export async function initiateAttijariPayment(
     return { error: "Cette réservation est déjà soldée." };
   }
 
+  // Rattachement au lien tokenisé (cookie posé à l'entrée /payer/t/[token]).
+  // On refuse de créer un ordre depuis un lien déjà révoqué/expiré.
+  let paymentLinkId: string | null = null;
+  const store = await cookies();
+  const cookieLinkId = store.get(LINK_COOKIE)?.value || null;
+  if (cookieLinkId) {
+    const { data: link } = await supabase
+      .from("payment_links")
+      .select("reservation_id, revoked_at, expires_at")
+      .eq("id", cookieLinkId)
+      .maybeSingle();
+    // On ne rattache que si le lien concerne bien cette réservation.
+    if (link && (link as any).reservation_id === reservationId) {
+      if (linkIsDead(link as any)) {
+        return { error: LINK_REVOKED_MSG, reservationId };
+      }
+      paymentLinkId = cookieLinkId;
+    }
+  }
+
   const orderId = generateOrderId();
   const signature = signOrder(orderId, remaining);
 
@@ -63,6 +108,7 @@ export async function initiateAttijariPayment(
     amount_mad: remaining,
     status: "pending",
     signature,
+    payment_link_id: paymentLinkId,
   });
 
   if (insertError) {
@@ -103,6 +149,7 @@ export async function confirmAttijariPayment(
     amount_mad: number | string;
     status: string;
     signature: string;
+    payment_link_id: string | null;
   };
 
   if (o.status !== "pending") {
@@ -124,6 +171,24 @@ export async function confirmAttijariPayment(
       error: "Signature de paiement invalide. Transaction rejetée.",
       reservationId: o.reservation_id,
     };
+  }
+
+  // Revérification du lien : une révocation/expiration APRÈS l'ouverture du
+  // parcours doit bloquer la confirmation, même si l'ordre est déjà 'pending'.
+  if (o.payment_link_id) {
+    const { data: link } = await supabase
+      .from("payment_links")
+      .select("revoked_at, expires_at")
+      .eq("id", o.payment_link_id)
+      .maybeSingle();
+    if (!link || linkIsDead(link as any)) {
+      await supabase
+        .from("payment_orders")
+        .update({ status: "failed" })
+        .eq("order_id", orderId);
+      console.warn(`[confirmAttijariPayment] refus : lien révoqué ${o.payment_link_id}`);
+      return { error: LINK_REVOKED_MSG, reservationId: o.reservation_id };
+    }
   }
 
   const verdict = evaluateSimulatedPayment(cardNumberRaw, otpCode);

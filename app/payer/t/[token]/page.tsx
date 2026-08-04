@@ -1,8 +1,8 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { XCircle, Clock, CircleCheck } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TunnelShell } from "@/components/payer/tunnel-shell";
+import { StartLinkSession } from "@/components/payer/start-link-session";
 
 export const metadata = {
   title: "Paiement — Hiri Tours",
@@ -50,7 +50,7 @@ export default async function TokenPayPage({
 
   const { data: link } = await supabase
     .from("payment_links")
-    .select("reservation_id, expires_at, used_at, revoked_at")
+    .select("id, reservation_id, expires_at, used_at, revoked_at")
     .eq("token", token)
     .maybeSingle();
 
@@ -136,6 +136,6 @@ export default async function TokenPayPage({
     );
   }
 
-  // Valide → le parcours de paiement existant prend le relais.
-  redirect(`/payer/${l.reservation_id}`);
+  // Valide → pose le cookie de session (lien) puis bascule vers le parcours.
+  return <StartLinkSession linkId={l.id} target={`/payer/${l.reservation_id}`} />;
 }
