@@ -67,6 +67,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     pendingReservationsResult,
     companyResult,
     newCustomersResult,
+    expiredPendingResult,
   ] = await Promise.all([
     supabase
       .from("reservations")
@@ -111,6 +112,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       .from("customers")
       .select("id")
       .gte("created_at", monthStart.toISOString()),
+    // Demandes périmées : en attente ET départ déjà passé.
+    supabase
+      .from("reservations")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .lt("departure_date", todayStr),
   ]);
 
   const allReservations = (allReservationsResult.data ?? []) as any[];
@@ -262,7 +269,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const pendingPaymentsCount = pendingReservations.length;
   const vehicleAlertCount = vehicleAlerts.length;
   const oldInvoicesCount = issuedInvoices.filter((inv) => ageInDays(inv.issued_at) > 90).length;
-  const totalActions = pendingPaymentsCount + vehicleAlertCount + oldInvoicesCount;
+  const expiredPendingCount = expiredPendingResult.count ?? 0;
+  const totalActions =
+    pendingPaymentsCount + vehicleAlertCount + oldInvoicesCount + expiredPendingCount;
 
   // Nombre de catégories d'actions "rouges" (créances anciennes, véhicules) — pour l'accueil.
   const redActionCategories = [oldInvoicesCount > 0, vehicleAlertCount > 0].filter(Boolean).length;
@@ -289,6 +298,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       label: `${oldInvoicesCount > 1 ? "factures" : "facture"} > 90 j (créance ancienne)`,
       href: "/admin/factures?status=issued",
       red: true,
+    },
+    expiredPendingCount > 0 && {
+      count: expiredPendingCount,
+      label:
+        expiredPendingCount > 1
+          ? "demandes dont le départ est passé"
+          : "demande dont le départ est passé",
+      href: "/admin/reservations?status=pending",
+      red: false,
     },
   ].filter(Boolean) as { count: number; label: string; href: string; red: boolean }[];
 

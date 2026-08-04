@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { autoConfirmOnPayment } from "@/lib/payments";
 import {
   generateOrderId,
   signOrder,
@@ -249,6 +250,9 @@ export async function confirmAttijariPayment(
       }
     }
   }
+
+  // Demande → Confirmée au premier encaissement.
+  await autoConfirmOnPayment(supabase, o.reservation_id);
 
   await supabase
     .from("payment_orders")

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { autoConfirmOnPayment } from "@/lib/payments";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "En attente",
@@ -163,6 +164,9 @@ export async function addPayment(
     console.error("[addPayment] Supabase insert error:", error);
     return { ok: false, error: error.message };
   }
+
+  // Demande → Confirmée au premier encaissement.
+  await autoConfirmOnPayment(supabase, reservationId);
 
   revalidatePath(`/admin/reservations/${reservationId}`);
   revalidatePath("/admin/reservations");

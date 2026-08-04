@@ -110,8 +110,11 @@ export function ReservationStatusForm({
           <option value="cancelled">Annulée</option>
         </Select>
         <p className="flex items-start gap-1.5 text-[11px] text-[#968F84]">
-          <Info className="size-3.5 shrink-0 mt-px" />« Terminée » s'applique
-          automatiquement le lendemain du départ, une fois la réservation payée.
+          <Info className="size-3.5 shrink-0 mt-px" />
+          <span>
+            « Confirmée » s'applique automatiquement au premier encaissement ·
+            « Terminée » s'applique automatiquement après le départ.
+          </span>
         </p>
         <Button type="submit" className="w-full" disabled={isPending}>
           {isPending ? "Mise à jour…" : "Mettre à jour"}
