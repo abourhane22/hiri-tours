@@ -288,10 +288,16 @@ export default async function ReservationDetailPage({
               // Ligne date / état sous l'étape
               let dateNode: React.ReactNode = null;
               if (done) {
+                const doneDate =
+                  step.key === "pending" ? r.created_at
+                  : step.key === "confirmed" ? r.confirmed_at
+                  : step.key === "paid" ? r.paid_at
+                  : step.key === "completed" ? r.completed_at
+                  : null;
                 dateNode = (
                   <span className={dateLineCls} style={{ color: "#0F6E56" }}>
                     <Check className="size-3" />
-                    {step.key === "pending" && formatDateShort(r.created_at)}
+                    {doneDate && formatDateShort(doneDate)}
                   </span>
                 );
               } else if (current) {

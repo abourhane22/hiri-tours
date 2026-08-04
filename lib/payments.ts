@@ -13,15 +13,35 @@ export async function autoConfirmOnPayment(
 ): Promise<void> {
   const { data } = await supabase
     .from("reservations")
-    .select("status, paid_amount_mad, reference")
+    .select("status, paid_amount_mad, reference, confirmed_at, paid_at")
     .eq("id", reservationId)
     .single();
 
   if (!data) return;
-  const d = data as { status: string; paid_amount_mad: number | string; reference: string };
+  const d = data as {
+    status: string;
+    paid_amount_mad: number | string;
+    reference: string;
+    confirmed_at: string | null;
+    paid_at: string | null;
+  };
+
+  const nowIso = new Date().toISOString();
 
   if (d.status === "pending" && Number(d.paid_amount_mad) > 0) {
-    await supabase.from("reservations").update({ status: "confirmed" }).eq("id", reservationId);
+    // Paiement partiel : Demande → Confirmée.
+    await supabase
+      .from("reservations")
+      .update({ status: "confirmed", confirmed_at: d.confirmed_at ?? nowIso })
+      .eq("id", reservationId);
     console.log(`[payment] auto-confirm ${d.reference}`);
+  } else if (d.status === "paid") {
+    // Le trigger DB vient de promouvoir en Payée : on horodate (sans écraser).
+    const patch: Record<string, unknown> = {};
+    if (!d.paid_at) patch.paid_at = nowIso;
+    if (!d.confirmed_at) patch.confirmed_at = nowIso;
+    if (Object.keys(patch).length > 0) {
+      await supabase.from("reservations").update(patch).eq("id", reservationId);
+    }
   }
 }

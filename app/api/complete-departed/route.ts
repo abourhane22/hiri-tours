@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const today = new Date().toISOString().split("T")[0];
     const { data, error } = await supabase
       .from("reservations")
-      .update({ status: "completed" })
+      .update({ status: "completed", completed_at: new Date().toISOString() })
       .eq("status", "paid")
       .lt("departure_date", today)
       .select("id");

@@ -31,7 +31,7 @@ export async function updateStatus(
   // État courant + encaissements pour les règles de cohérence.
   const { data: current } = await supabase
     .from("reservations")
-    .select("status, paid_amount_mad, total_amount_mad")
+    .select("status, paid_amount_mad, total_amount_mad, confirmed_at")
     .eq("id", id)
     .single();
 
@@ -56,6 +56,15 @@ export async function updateStatus(
     };
   }
 
+  // "Payée" est attribué automatiquement à l'encaissement du solde.
+  if (status === "paid" && cur.status !== "paid") {
+    return {
+      ok: false,
+      error:
+        "Le statut Payée s'applique automatiquement quand le solde est encaissé. Enregistrez le paiement dans la carte Paiements.",
+    };
+  }
+
   // L'annulation reste toujours autorisée (remboursement géré à part).
   // Pas de rétrogradation d'un dossier SOLDÉ vers 'pending' / 'confirmed'.
   if (isSettled && (status === "pending" || status === "confirmed")) {
@@ -73,10 +82,14 @@ export async function updateStatus(
     };
   }
 
-  const { error } = await supabase
-    .from("reservations")
-    .update({ status })
-    .eq("id", id);
+  // Horodatage de la transition (sans écraser un timestamp déjà posé,
+  // sauf cancelled_at qui peut se re-remplir après re-annulation).
+  const nowIso = new Date().toISOString();
+  const patch: Record<string, unknown> = { status };
+  if (status === "confirmed" && !cur.confirmed_at) patch.confirmed_at = nowIso;
+  if (status === "cancelled") patch.cancelled_at = nowIso;
+
+  const { error } = await supabase.from("reservations").update(patch).eq("id", id);
 
   if (error) {
     console.error("[updateStatus] Supabase error:", error);

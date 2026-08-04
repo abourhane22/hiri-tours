@@ -103,7 +103,9 @@ export function ReservationStatusForm({
           >
             Confirmée
           </option>
-          <option value="paid">Payée</option>
+          <option value="paid" disabled={currentStatus !== "paid"}>
+            {currentStatus !== "paid" ? "Payée (automatique)" : "Payée"}
+          </option>
           <option value="completed" disabled={currentStatus !== "completed"}>
             {currentStatus !== "completed" ? "Terminée (automatique)" : "Terminée"}
           </option>
@@ -112,8 +114,9 @@ export function ReservationStatusForm({
         <p className="flex items-start gap-1.5 text-[11px] text-[#968F84]">
           <Info className="size-3.5 shrink-0 mt-px" />
           <span>
-            « Confirmée » s'applique automatiquement au premier encaissement ·
-            « Terminée » s'applique automatiquement après le départ.
+            « Confirmée » et « Payée » s'appliquent automatiquement à
+            l'encaissement · « Terminée » après le départ. Ce menu sert aux
+            corrections et à l'annulation.
           </span>
         </p>
         <Button type="submit" className="w-full" disabled={isPending}>
