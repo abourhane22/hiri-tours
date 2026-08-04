@@ -66,14 +66,11 @@ export function PaymentLinkPanel({
   reservationId,
   initialLink,
   share,
-  variant = "default",
 }: {
   reservationId: string;
   initialLink: ActiveLink | null;
   share: ShareData;
-  variant?: "default" | "rail";
 }) {
-  const isRail = variant === "rail";
   const [link, setLink] = useState<ActiveLink | null>(initialLink);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -131,33 +128,17 @@ export function PaymentLinkPanel({
 
   if (!link) {
     return (
-      <div className={isRail ? "" : "mb-4"}>
+      <div className="mb-4">
         <button
           type="button"
           onClick={generate}
           disabled={isPending}
-          className={
-            isRail
-              ? "w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#C84B31] hover:bg-[#A83D28] text-white px-3 py-1.5 text-[11.5px] font-medium transition-colors disabled:opacity-60"
-              : "inline-flex items-center gap-2 rounded-lg border border-[#E0DACF] bg-white px-3.5 py-2 text-[13px] font-medium text-[#1A1F2E] hover:bg-[#FAF5F0] transition-colors disabled:opacity-60"
-          }
+          className="inline-flex items-center gap-2 rounded-lg border border-[#E0DACF] bg-white px-3.5 py-2 text-[13px] font-medium text-[#1A1F2E] hover:bg-[#FAF5F0] transition-colors disabled:opacity-60"
         >
           {isPending ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
-            !logoFailed &&
-            (isRail ? (
-              <span className="bg-white rounded-md px-1 py-0.5 inline-flex items-center shrink-0">
-                <Image
-                  src="/attijari-logo.png"
-                  alt="Attijari Payment"
-                  width={627}
-                  height={318}
-                  className="h-[13px] w-auto"
-                  onError={() => setLogoFailed(true)}
-                />
-              </span>
-            ) : (
+            !logoFailed && (
               <Image
                 src="/attijari-logo.png"
                 alt="Attijari Payment"
@@ -166,18 +147,14 @@ export function PaymentLinkPanel({
                 className="h-[15px] w-auto"
                 onError={() => setLogoFailed(true)}
               />
-            ))
+            )
           )}
           <span>
             Lien de paiement en ligne
             <span className="opacity-65 font-normal"> · EDP partenaire</span>
           </span>
         </button>
-        {error && (
-          <p className={isRail ? "text-[11px] text-red-300 mt-1.5" : "text-sm text-red-600 mt-2"}>
-            {error}
-          </p>
-        )}
+        {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
       </div>
     );
   }
@@ -193,7 +170,7 @@ export function PaymentLinkPanel({
         className="w-full h-9 rounded-md border border-[#E0DACF] bg-white px-2.5 text-[12px] text-[#1A1F2E] font-mono"
       />
 
-      <div className={`flex gap-2 mt-2.5 ${isRail ? "flex-col" : "flex-col sm:flex-row"}`}>
+      <div className="flex flex-col sm:flex-row gap-2 mt-2.5">
         <button
           type="button"
           onClick={copy}
