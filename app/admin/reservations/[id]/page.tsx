@@ -187,7 +187,7 @@ export default async function ReservationDetailPage({
   const totalPaid = Number(r.paid_amount_mad);
   const totalAmount = Number(r.total_amount_mad);
   const balance = totalAmount - totalPaid;
-  const paymentProgress = totalAmount > 0 ? Math.min(100, (totalPaid / totalAmount) * 100) : 0;
+  const paymentProgress = totalAmount > 0 ? Math.round(Math.min(100, (totalPaid / totalAmount) * 100)) : 0;
   const isCancelled = status === "cancelled";
   const isSettled = balance <= 0 && totalAmount > 0;
   const attijariHasLogo = hasAttijariLogo();
