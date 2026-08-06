@@ -8,9 +8,9 @@ import {
   sendPaymentLinkEmailAction,
 } from "@/app/admin/reservations/[id]/payment-link-actions";
 
-type ActiveLink = { url: string; expiresAt: string };
+export type ActiveLink = { url: string; expiresAt: string };
 
-type ShareData = {
+export type ShareData = {
   firstName: string;
   reference: string;
   circuitTitle: string;
@@ -65,10 +65,12 @@ export function PaymentLinkPanel({
   reservationId,
   initialLink,
   share,
+  generateMainLabel = "Lien de paiement en ligne",
 }: {
   reservationId: string;
   initialLink: ActiveLink | null;
   share: ShareData;
+  generateMainLabel?: string;
 }) {
   const [link, setLink] = useState<ActiveLink | null>(initialLink);
   const [isPending, startTransition] = useTransition();
@@ -139,7 +141,7 @@ export function PaymentLinkPanel({
             <Link className="size-3.5" />
           )}
           <span>
-            Lien de paiement en ligne
+            {generateMainLabel}
             <span className="opacity-60 font-normal"> · EDP partenaire</span>
           </span>
         </button>

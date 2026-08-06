@@ -34,8 +34,7 @@ import { AffectationForm } from "@/components/affectation-form";
 import { SendVoucherEmailButton } from "@/components/send-voucher-email-button";
 import { WhatsAppButton } from "@/components/whatsapp-button";
 import { ReservationStatusForm } from "@/components/reservation-status-form";
-import { PaymentForm } from "@/components/payment-form";
-import { PaymentLinkPanel } from "@/components/payment-link-panel";
+import { PaymentCollector } from "@/components/payment-collector";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   attijari: "Attijari Payment",
@@ -521,13 +520,36 @@ export default async function ReservationDetailPage({
         {/* COLONNE DROITE */}
         <div className="flex flex-col gap-4">
           {/* d. PAIEMENTS */}
-          <InfoCard icon={Banknote} label="Paiements">
+          <InfoCard
+            icon={Banknote}
+            label="Paiements"
+            headerRight={
+              isSettled ? (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-medium"
+                  style={{ backgroundColor: "#E1F5EE", color: "#085041" }}
+                >
+                  <CircleCheck className="size-3.5" /> Réservation soldée
+                </span>
+              ) : balance > 0 ? (
+                <span
+                  className="inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] font-medium tabular-nums"
+                  style={{ backgroundColor: "#FAEEDA", color: "#633806" }}
+                >
+                  Solde restant : {formatMAD(balance)}
+                </span>
+              ) : null
+            }
+          >
             <div className="mb-4">
               <div className="flex items-baseline justify-between mb-1.5 text-sm tabular-nums">
                 <span className="text-[#6B6862]">Encaissé</span>
                 <span>
                   <span className="text-[#0F6E56] font-medium">{formatMAD(totalPaid)}</span>
                   <span className="text-[#B4AC9E]"> / {formatMAD(totalAmount)}</span>
+                  {totalAmount > 0 && (
+                    <span className="text-[#B4AC9E]"> · {paymentProgress} %</span>
+                  )}
                 </span>
               </div>
               <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "#EEE9E0" }}>
@@ -536,12 +558,6 @@ export default async function ReservationDetailPage({
                   style={{ width: `${paymentProgress}%`, backgroundColor: "#0F6E56" }}
                 />
               </div>
-              {balance > 0 && (
-                <div className="text-xs text-[#968F84] mt-1.5">
-                  Solde restant :{" "}
-                  <span className="font-medium tabular-nums text-[#6B6862]">{formatMAD(balance)}</span>
-                </div>
-              )}
             </div>
 
             {payments && payments.length > 0 && (
@@ -593,8 +609,9 @@ export default async function ReservationDetailPage({
             )}
 
             {balance > 0 && !isCancelled && (
-              <PaymentLinkPanel
+              <PaymentCollector
                 reservationId={id}
+                balance={balance}
                 initialLink={activeLink}
                 share={{
                   firstName: (r.customers?.full_name || "").trim().split(/\s+/)[0] || "",
@@ -605,18 +622,6 @@ export default async function ReservationDetailPage({
                   phone: r.customers?.phone ?? null,
                 }}
               />
-            )}
-
-            {isSettled && !isCancelled ? (
-              <div
-                className="flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium"
-                style={{ backgroundColor: "#E1F5EE", color: "#085041" }}
-              >
-                <CircleCheck className="size-4" /> Réservation soldée
-              </div>
-            ) : (
-              balance > 0 &&
-              !isCancelled && <PaymentForm reservationId={id} balance={balance} />
             )}
           </InfoCard>
 
@@ -724,19 +729,24 @@ export default async function ReservationDetailPage({
 function InfoCard({
   icon: Icon,
   label,
+  headerRight,
   children,
 }: {
   icon: typeof Clock;
   label: string;
+  headerRight?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="bg-white border border-[#E5E0D7] rounded-xl p-4">
-      <div className="flex items-center gap-1.5 mb-3">
-        <Icon className="size-[13px] text-[#968F84]" />
-        <span className="text-[10.5px] tracking-[1.4px] uppercase text-[#968F84] font-medium">
-          {label}
-        </span>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-1.5">
+          <Icon className="size-[13px] text-[#968F84]" />
+          <span className="text-[10.5px] tracking-[1.4px] uppercase text-[#968F84] font-medium">
+            {label}
+          </span>
+        </div>
+        {headerRight}
       </div>
       {children}
     </div>
