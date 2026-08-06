@@ -19,8 +19,8 @@ export function normalizePhone(phone: string | null | undefined): string | null 
   if (d.startsWith("00")) {
     // Préfixe d'appel international (00…) → on le retire.
     d = d.slice(2);
-  } else if (d.startsWith("0")) {
-    // Numéro national marocain (0X…) → préfixe pays 212.
+  } else if (/^0[567]/.test(d)) {
+    // Numéro marocain (mobile 06/07, fixe 05) → préfixe pays 212.
     d = "212" + d.slice(1);
   }
   return d || null;

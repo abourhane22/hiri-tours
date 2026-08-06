@@ -14,7 +14,9 @@ const SOURCE_LABELS: Record<string, string> = {
   website: "Site web",
   referral: "Recommandation",
   social_media: "Réseaux sociaux",
-  partner: "Partenaire",
+  partner: "Agence partenaire",
+  hotel: "Hôtel",
+  event: "Salon / événement",
   other: "Autre",
 };
 

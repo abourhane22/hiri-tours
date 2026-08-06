@@ -1,14 +1,9 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { CustomerNewForm } from "@/components/customer-new-form";
+import { CustomerForm } from "@/components/customer-form";
+import { createCustomer } from "../actions";
 
-export default async function NewClientPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const { error } = await searchParams;
-
+export default async function NewClientPage() {
   return (
     <div className="p-8 max-w-2xl mx-auto">
       <Link
@@ -19,17 +14,30 @@ export default async function NewClientPage({
       </Link>
 
       <div className="mb-8">
-        <p className="eyebrow mb-2">Module 3 — Base clients</p>
+        <p className="eyebrow mb-2">CRM · Base clients</p>
         <h1 className="font-display text-3xl text-ink">Nouveau client</h1>
+        <p className="text-sm text-sand-700 mt-1.5">
+          Le téléphone et l&apos;email sont vérifiés contre la base pour éviter les
+          doublons.
+        </p>
       </div>
 
-      {error && (
-        <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-sm text-red-800">
-          {decodeURIComponent(error)}
-        </div>
-      )}
-
-      <CustomerNewForm />
+      <CustomerForm
+        mode="create"
+        action={createCustomer}
+        defaults={{
+          firstName: "",
+          lastName: "",
+          email: "",
+          phone: "",
+          country: "",
+          nationality: "",
+          city: "",
+          source: "",
+          language: "fr",
+          notes: "",
+        }}
+      />
     </div>
   );
 }
