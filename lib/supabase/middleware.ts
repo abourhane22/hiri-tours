@@ -33,6 +33,11 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Utilisateur déjà connecté visitant /login → backoffice (jamais la vitrine).
+  if (request.nextUrl.pathname === "/login" && user) {
+    return NextResponse.redirect(new URL("/admin", request.url));
+  }
+
   if (request.nextUrl.pathname.startsWith("/admin")) {
     if (!user) {
       const redirectUrl = request.nextUrl.clone();

@@ -14,7 +14,9 @@ export default async function LoginPage({
     "use server";
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
-    const nextPath = (formData.get("next") as string) || "/";
+    // "/" est désormais la vitrine publique → l'accueil backoffice est /admin.
+    const rawNext = (formData.get("next") as string) || "/admin";
+    const nextPath = rawNext === "/" ? "/admin" : rawNext;
 
     const supabase = await createClient();
     const { error: authError } = await supabase.auth.signInWithPassword({
@@ -74,7 +76,7 @@ export default async function LoginPage({
 
       {/* Right panel — form */}
       <div className="flex-1 flex items-center justify-center bg-[#FAF5F0] px-9 py-11">
-        <LoginForm action={signIn} error={error} next={next || "/"} />
+        <LoginForm action={signIn} error={error} next={next || "/admin"} />
       </div>
     </main>
   );
