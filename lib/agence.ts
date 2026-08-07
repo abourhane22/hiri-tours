@@ -27,7 +27,7 @@ export async function getAgence(): Promise<Agence> {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("company_settings")
-    .select("commercial_name, legal_name, phone, email, address_line, postal_code, city, country")
+    .select("commercial_name, legal_name, phone, email, whatsapp, address_line, postal_code, city, country")
     .limit(1)
     .maybeSingle();
 
@@ -42,7 +42,8 @@ export async function getAgence(): Promise<Agence> {
     tel: c.phone || FALLBACK.tel,
     email: c.email || FALLBACK.email,
     address,
-    whatsapp: FALLBACK.whatsapp,
+    // Colonne whatsapp de company_settings (normalisée wa.me) ; repli maquette si NULL.
+    whatsapp: normalizePhone(c.whatsapp) || FALLBACK.whatsapp,
   };
 }
 

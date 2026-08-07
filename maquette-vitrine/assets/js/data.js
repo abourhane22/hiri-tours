@@ -1,0 +1,241 @@
+/* =========================================================
+   HIRI TOURS — Données du site (circuits, destinations, activités, blog, avis)
+   Sert de source de contenu pour le catalogue, la recherche et les fiches.
+   ========================================================= */
+
+const IMG = {
+  agadir:   "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80",
+  taghazout:"https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=900&q=80",
+  desert:   "https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=900&q=80",
+  surf:     "https://images.unsplash.com/photo-1502933691298-84fc14542831?auto=format&fit=crop&w=900&q=80",
+  quad:     "https://images.unsplash.com/photo-1451337516015-6b6e9a44a8a3?auto=format&fit=crop&w=900&q=80",
+  souk:     "https://images.unsplash.com/photo-1489493887464-892be6d1daae?auto=format&fit=crop&w=900&q=80",
+  paradis:  "https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=900&q=80",
+  camel:    "https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=900&q=80",
+  argan:    "https://images.unsplash.com/photo-1516834474-48c0abc2a902?auto=format&fit=crop&w=900&q=80",
+  mountain: "https://images.unsplash.com/photo-1489749798305-4fea3ae63d43?auto=format&fit=crop&w=900&q=80",
+  boat:     "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=900&q=80",
+  tiznit:   "https://images.unsplash.com/photo-1539020140153-e479b8c22e70?auto=format&fit=crop&w=900&q=80",
+  legzira:  "https://images.unsplash.com/photo-1548574505-5e239809ee19?auto=format&fit=crop&w=900&q=80",
+  medina:   "https://images.unsplash.com/photo-1531761535209-180857e963b9?auto=format&fit=crop&w=900&q=80",
+};
+
+/* Thèmes : plage, desert, culture, aventure, montagne, gastronomie */
+const CIRCUITS = [
+  {
+    id: "sahara-2j",
+    titre: "Escapade au Sahara — Dunes & Bivouac",
+    destination: "Sahara (Zagora)",
+    theme: ["desert", "aventure"],
+    duree: 2, dureeTxt: "2 jours / 1 nuit",
+    prix: 1290, saison: ["automne", "hiver", "printemps"],
+    note: 4.9, avis: 128, populaire: true,
+    depart: "Agadir centre-ville",
+    img: IMG.desert,
+    galerie: [IMG.desert, IMG.camel, IMG.mountain, IMG.agadir],
+    resume: "Le grand classique : traversée de l'Anti-Atlas, coucher de soleil sur les dunes de Tinfou et nuit sous les étoiles en bivouac berbère.",
+    itineraire: [
+      { t: "Jour 1 — Agadir → Taroudant → Zagora", d: "Départ matinal, arrêt à Taroudant (la « petite Marrakech »), déjeuner en vallée du Draâ, arrivée à Zagora et balade à dos de dromadaire au coucher du soleil, dîner et nuit au bivouac." },
+      { t: "Jour 2 — Dunes → Agadir", d: "Lever de soleil sur les dunes, petit-déjeuner, retour par la palmeraie et les kasbahs, arrêt photo au col de Tizi n'Tichka, retour à Agadir en soirée." },
+    ],
+    inclus: ["Transport 4x4 / minibus climatisé", "Guide accompagnateur francophone", "1 nuit en bivouac (tente confort)", "Balade à dos de dromadaire", "Petit-déjeuner et dîner"],
+    exclus: ["Déjeuners", "Boissons", "Pourboires", "Dépenses personnelles"],
+  },
+  {
+    id: "paradis-plage",
+    titre: "Journée Paradis Plage & Vallée du Paradis",
+    destination: "Imouzzer - Tamraght",
+    theme: ["plage", "aventure", "montagne"],
+    duree: 1, dureeTxt: "1 journée",
+    prix: 390, saison: ["ete", "printemps", "automne"],
+    note: 4.8, avis: 96, populaire: true,
+    depart: "Agadir / Taghazout",
+    img: IMG.paradis,
+    galerie: [IMG.paradis, IMG.mountain, IMG.argan, IMG.taghazout],
+    resume: "Baignade dans les piscines naturelles de la Vallée du Paradis, randonnée douce dans les gorges et déjeuner tajine face à la palmeraie.",
+    itineraire: [
+      { t: "Matin — Route panoramique", d: "Départ vers Imouzzer des Ida Outanane par la route des cascades, arrêt coopérative d'huile d'argan." },
+      { t: "Midi — Vallée du Paradis", d: "Randonnée facile jusqu'aux piscines naturelles, baignade et saut dans l'eau turquoise, déjeuner berbère." },
+      { t: "Après-midi — Retour", d: "Temps libre, retour à Agadir en fin d'après-midi." },
+    ],
+    inclus: ["Transport A/R climatisé", "Guide local", "Déjeuner tajine", "Arrêt coopérative d'argan"],
+    exclus: ["Boissons", "Assurance annulation", "Pourboires"],
+  },
+  {
+    id: "surf-taghazout",
+    titre: "Initiation Surf à Taghazout — Demi-journée",
+    destination: "Taghazout",
+    theme: ["plage", "aventure"],
+    duree: 1, dureeTxt: "Demi-journée (3h)",
+    prix: 320, saison: ["ete", "automne", "hiver", "printemps"],
+    note: 4.9, avis: 210, populaire: true,
+    depart: "Taghazout — spot Panorama",
+    img: IMG.surf,
+    galerie: [IMG.surf, IMG.taghazout, IMG.boat, IMG.paradis],
+    resume: "Cours de surf encadré par des moniteurs diplômés sur l'un des meilleurs spots du Maroc. Matériel fourni, tous niveaux.",
+    itineraire: [
+      { t: "Briefing sécurité", d: "Accueil au surf-camp, échauffement et théorie sur la plage." },
+      { t: "Session à l'eau", d: "2h de pratique encadrée, planches et combinaisons fournies." },
+      { t: "Débrief", d: "Retour vidéo optionnel et boisson au camp." },
+    ],
+    inclus: ["Planche + combinaison", "Moniteur diplômé", "Assurance", "Transfert depuis Agadir (option)"],
+    exclus: ["Photos/vidéos souvenir", "Déjeuner"],
+  },
+  {
+    id: "quad-dunes",
+    titre: "Quad dans les dunes de sable & oued",
+    destination: "Agadir - Sud",
+    theme: ["aventure", "desert"],
+    duree: 1, dureeTxt: "2h30",
+    prix: 450, saison: ["ete", "automne", "hiver", "printemps"],
+    note: 4.7, avis: 74, populaire: false,
+    depart: "Sortie sud d'Agadir",
+    img: IMG.quad,
+    galerie: [IMG.quad, IMG.desert, IMG.camel, IMG.agadir],
+    resume: "Sensations garanties : parcours en quad à travers dunes, oueds et pistes eucalyptus avec pause thé berbère.",
+    itineraire: [
+      { t: "Prise en main", d: "Équipement, consignes et test sur circuit d'essai." },
+      { t: "Randonnée quad", d: "Traversée des dunes et villages, arrêt panoramique." },
+      { t: "Pause thé", d: "Thé à la menthe chez l'habitant avant le retour." },
+    ],
+    inclus: ["Quad + équipement", "Guide moto", "Thé à la menthe", "Assurance"],
+    exclus: ["Transfert hôtel", "Pourboires"],
+  },
+  {
+    id: "souk-medina",
+    titre: "Agadir Authentique — Souk El Had & Medina",
+    destination: "Agadir",
+    theme: ["culture", "gastronomie"],
+    duree: 1, dureeTxt: "Demi-journée",
+    prix: 260, saison: ["ete", "automne", "hiver", "printemps"],
+    note: 4.6, avis: 58, populaire: false,
+    depart: "Hôtels d'Agadir",
+    img: IMG.souk,
+    galerie: [IMG.souk, IMG.medina, IMG.argan, IMG.agadir],
+    resume: "Immersion dans le plus grand souk du Maroc, la Medina Polizzi et dégustation de spécialités locales.",
+    itineraire: [
+      { t: "Souk El Had", d: "Visite guidée des allées d'épices, argan, artisanat et poterie." },
+      { t: "Medina Polizzi", d: "Découverte de l'architecture berbère reconstituée et ateliers d'artisans." },
+      { t: "Dégustation", d: "Pause gourmande : msemen, amlou et thé." },
+    ],
+    inclus: ["Guide culturel francophone", "Dégustations", "Transferts locaux"],
+    exclus: ["Achats personnels", "Déjeuner complet"],
+  },
+  {
+    id: "sejour-taghazout-3j",
+    titre: "Séjour Taghazout Bay — 3 jours tout inclus",
+    destination: "Taghazout Bay",
+    theme: ["plage", "aventure"],
+    duree: 3, dureeTxt: "3 jours / 2 nuits",
+    prix: 2450, saison: ["ete", "printemps", "automne"],
+    note: 4.8, avis: 63, populaire: true,
+    depart: "Transfert aéroport inclus",
+    img: IMG.taghazout,
+    galerie: [IMG.taghazout, IMG.surf, IMG.paradis, IMG.boat],
+    resume: "Package hébergement + activités : surf, yoga, spa et coucher de soleil sur la baie. Idéal couples et groupes d'amis.",
+    itineraire: [
+      { t: "Jour 1 — Arrivée & détente", d: "Transfert depuis l'aéroport Al Massira, installation, coucher de soleil sur la plage." },
+      { t: "Jour 2 — Surf & bien-être", d: "Session surf le matin, yoga et spa l'après-midi, dîner en bord de mer." },
+      { t: "Jour 3 — Vallée du Paradis & départ", d: "Excursion demi-journée puis transfert retour." },
+    ],
+    inclus: ["2 nuits en résidence 4★", "Transferts aéroport", "1 cours de surf", "1 séance yoga", "Petits-déjeuners"],
+    exclus: ["Vols", "Déjeuners & dîners", "Soins spa additionnels"],
+  },
+  {
+    id: "legzira-tiznit",
+    titre: "Légendes du Sud — Tiznit, Mirleft & Legzira",
+    destination: "Tiznit - Legzira",
+    theme: ["culture", "plage", "aventure"],
+    duree: 1, dureeTxt: "1 journée",
+    prix: 480, saison: ["printemps", "automne", "hiver"],
+    note: 4.7, avis: 41, populaire: false,
+    depart: "Agadir",
+    img: IMG.legzira,
+    galerie: [IMG.legzira, IMG.tiznit, IMG.medina, IMG.paradis],
+    resume: "Découverte de la cité des bijoutiers de Tiznit, du village bohème de Mirleft et de la plage aux arches rouges de Legzira.",
+    itineraire: [
+      { t: "Tiznit", d: "Remparts et souk des bijoutiers en argent." },
+      { t: "Mirleft", d: "Déjeuner de poisson frais face à l'océan." },
+      { t: "Legzira", d: "Balade sur la plage et ses célèbres arches naturelles au coucher du soleil." },
+    ],
+    inclus: ["Transport climatisé", "Guide", "Déjeuner poisson (option)"],
+    exclus: ["Boissons", "Entrées monuments"],
+  },
+  {
+    id: "location-4x4",
+    titre: "Location 4x4 avec ou sans chauffeur",
+    destination: "Région Souss-Massa",
+    theme: ["aventure", "montagne"],
+    duree: 1, dureeTxt: "À la journée",
+    prix: 650, saison: ["ete", "automne", "hiver", "printemps"],
+    note: 4.5, avis: 33, populaire: false,
+    depart: "Agence Agadir / Aéroport",
+    img: IMG.mountain,
+    galerie: [IMG.mountain, IMG.desert, IMG.quad, IMG.argan],
+    resume: "Explorez la région à votre rythme. Véhicules récents, kilométrage illimité, chauffeur-guide en option.",
+    itineraire: [
+      { t: "Prise du véhicule", d: "État des lieux, remise des papiers et itinéraires conseillés." },
+      { t: "Liberté totale", d: "Roadbook offert : Anti-Atlas, plages sauvages, palmeraies." },
+    ],
+    inclus: ["Véhicule 4x4 récent", "Assurance tous risques", "Kilométrage illimité", "Assistance 24/7"],
+    exclus: ["Carburant", "Chauffeur (en option +350 DH/j)", "Caution"],
+  },
+  {
+    id: "transfert-aeroport",
+    titre: "Transfert Aéroport Al Massira ↔ Hôtel",
+    destination: "Agadir Al Massira",
+    theme: ["culture"],
+    duree: 1, dureeTxt: "Trajet privé",
+    prix: 200, saison: ["ete", "automne", "hiver", "printemps"],
+    note: 4.9, avis: 302, populaire: false,
+    depart: "Aéroport Agadir Al Massira (AGA)",
+    img: IMG.boat,
+    galerie: [IMG.boat, IMG.agadir, IMG.taghazout, IMG.paradis],
+    resume: "Navette privée ou VTC entre l'aéroport Al Massira et votre hôtel à Agadir, Taghazout ou Taroudant. Accueil personnalisé.",
+    itineraire: [
+      { t: "Accueil", d: "Chauffeur avec pancarte à la sortie des bagages." },
+      { t: "Transfert", d: "Véhicule climatisé privé jusqu'à votre hébergement." },
+    ],
+    inclus: ["Véhicule privé climatisé", "Accueil avec pancarte", "Suivi de vol", "Eau à bord"],
+    exclus: ["Pourboire chauffeur"],
+  },
+];
+
+const DESTINATIONS = [
+  { nom: "Agadir", desc: "Baie & corniche", img: IMG.agadir, big: true },
+  { nom: "Taghazout", desc: "Spots de surf", img: IMG.taghazout },
+  { nom: "Sahara", desc: "Dunes & bivouac", img: IMG.desert },
+  { nom: "Vallée du Paradis", desc: "Piscines naturelles", img: IMG.paradis },
+  { nom: "Legzira", desc: "Arches rouges", img: IMG.legzira },
+  { nom: "Tiznit", desc: "Cité des bijoutiers", img: IMG.tiznit },
+  { nom: "Taroudant", desc: "Remparts & souks", img: IMG.medina },
+];
+
+const ACTIVITES = [
+  { ico: "surf", nom: "Surf & bodyboard", desc: "Cours et sessions encadrées sur les meilleurs spots de Taghazout et Tamraght." },
+  { ico: "desert", nom: "Désert & dromadaires", desc: "Bivouacs, dunes et nuits étoilées dans le Sahara marocain." },
+  { ico: "quad", nom: "Quad & buggy", desc: "Randonnées motorisées à travers dunes, oueds et pistes de l'arrière-pays." },
+  { ico: "hike", nom: "Randonnée & nature", desc: "Vallée du Paradis, Anti-Atlas et cascades d'Imouzzer." },
+  { ico: "souk", nom: "Culture & souks", desc: "Souk El Had, medinas et coopératives d'huile d'argan." },
+  { ico: "van", nom: "Transferts aéroport", desc: "Navettes et VTC privés depuis/vers Agadir Al Massira." },
+  { ico: "hotel", nom: "Séjours tout inclus", desc: "Packages hébergement + activités avec hôtels partenaires." },
+  { ico: "car", nom: "Location 4x4", desc: "Véhicules avec ou sans chauffeur pour explorer librement." },
+];
+
+const AVIS = [
+  { note: 5, txt: "Organisation parfaite pour notre excursion dans le désert. Guide passionnant et bivouac magnifique. Je recommande à 100% !", nom: "Camille D.", pays: "France", img: "https://i.pravatar.cc/100?img=32" },
+  { note: 5, txt: "Nous avons réservé le transfert et une journée surf à Taghazout. Ponctualité, matériel neuf, super moniteurs. Merci Hiri Tours !", nom: "Youssef B.", pays: "Maroc", img: "https://i.pravatar.cc/100?img=12" },
+  { note: 5, txt: "Excellent accueil, réservation par WhatsApp ultra simple. La Vallée du Paradis est un rêve. À refaire absolument.", nom: "Anna M.", pays: "Allemagne", img: "https://i.pravatar.cc/100?img=45" },
+];
+
+const BLOG = [
+  { cat: "Guide", titre: "Que faire à Agadir en 3 jours ?", img: IMG.agadir, date: "12 juin 2026", ext: "Notre itinéraire idéal pour découvrir la baie, la corniche, le souk et les environs." },
+  { cat: "Surf", titre: "Les meilleurs spots de surf autour de Taghazout", img: IMG.surf, date: "28 mai 2026", ext: "Anchor Point, Panorama, Devil's Rock… le guide complet par niveau." },
+  { cat: "Nature", titre: "Vallée du Paradis : conseils avant de partir", img: IMG.paradis, date: "5 mai 2026", ext: "Meilleure période, équipement, accès et bons plans pour la baignade." },
+];
+
+/* Utilitaires partagés */
+function getCircuit(id) { return CIRCUITS.find(c => c.id === id); }
+function stars(n) { const full = Math.round(n); return "★★★★★".slice(0, full) + "☆☆☆☆☆".slice(0, 5 - full); }
+const THEME_LABELS = { plage: "Plage & mer", desert: "Désert", culture: "Culture", aventure: "Aventure", montagne: "Montagne", gastronomie: "Gastronomie" };
+const SAISON_LABELS = { ete: "Été", hiver: "Hiver", printemps: "Printemps", automne: "Automne" };

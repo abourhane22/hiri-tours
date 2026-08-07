@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hiri Tours — Agence d'animation touristique à Agadir | Circuits, excursions & séjours</title>
+  <meta name="description" content="Hiri Tours, votre agence de voyage à Agadir : excursions désert, surf à Taghazout, Vallée du Paradis, transferts aéroport et séjours tout inclus dans la région Souss-Massa.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <div id="header-slot"></div>
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-inner">
+        <span class="eyebrow" style="background:rgba(255,255,255,.18);color:#fff">Agadir · Souss-Massa · Maroc</span>
+        <h1>Vivez la magie du Sud marocain</h1>
+        <p>Excursions dans le désert, surf à Taghazout, Vallée du Paradis, séjours tout inclus… Réservez vos plus beaux souvenirs en quelques clics.</p>
+        <div class="hero-cta">
+          <a href="circuits.html" class="btn btn-primary btn-lg">Découvrir nos circuits</a>
+          <a href="contact.html#devis" class="btn btn-ghost btn-lg" data-i18n="quote">Devis gratuit</a>
+        </div>
+        <div class="hero-badges">
+          <div><b>+2 500</b> voyageurs accompagnés</div>
+          <div><b>4.9/5</b> note moyenne clients</div>
+          <div><b>24/7</b> réservation en ligne</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Barre de recherche avec autocomplétion -->
+  <div class="wrap">
+    <form class="search-bar" id="heroSearchForm">
+      <div class="search-field">
+        <label>Destination ou activité</label>
+        <input type="text" id="heroSearch" placeholder="Ex. : désert, surf, Taghazout…" autocomplete="off">
+        <div class="autocomplete" id="heroAuto"></div>
+      </div>
+      <div class="search-field">
+        <label>Date souhaitée</label>
+        <input type="date">
+      </div>
+      <div class="search-field">
+        <label>Type de séjour</label>
+        <select>
+          <option>Tous les types</option>
+          <option>Excursion à la journée</option>
+          <option>Circuit 2-3 jours</option>
+          <option>Séjour tout inclus</option>
+          <option>Transfert aéroport</option>
+        </select>
+      </div>
+      <button class="btn btn-ocean btn-lg" type="submit" data-i18n="search_go">Rechercher</button>
+    </form>
+  </div>
+
+  <!-- ================= CIRCUITS POPULAIRES ================= -->
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head center">
+        <span class="eyebrow">Nos best-sellers</span>
+        <h2>Circuits & excursions populaires</h2>
+        <p>Les expériences préférées de nos voyageurs, organisées de A à Z par notre équipe locale.</p>
+      </div>
+      <div class="grid grid-3" id="popularList"></div>
+      <p class="center" style="margin-top:36px">
+        <a href="circuits.html" class="btn btn-outline">Voir tout le catalogue →</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= DESTINATIONS ================= -->
+  <section class="section tight" style="background:#fff">
+    <div class="wrap">
+      <div class="section-head center">
+        <span class="eyebrow">Destinations phares</span>
+        <h2>Où partirez-vous ?</h2>
+        <p>D'Agadir au Sahara, chaque destination raconte une histoire.</p>
+      </div>
+      <div class="dest-grid" id="destList"></div>
+    </div>
+  </section>
+
+  <!-- ================= ACTIVITÉS ================= -->
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head center">
+        <span class="eyebrow">Nos services</span>
+        <h2>Une agence, toutes vos envies</h2>
+      </div>
+      <div class="feature-grid" id="actList"></div>
+    </div>
+  </section>
+
+  <!-- ================= BANDEAU DEVIS ================= -->
+  <section class="section tight">
+    <div class="wrap">
+      <div class="strip">
+        <div>
+          <h2>Groupe, entreprise ou événement ?</h2>
+          <p>Voyages incentive, séminaires, sorties scolaires : nous créons un programme sur mesure pour votre groupe, avec devis gratuit sous 24h.</p>
+        </div>
+        <a href="contact.html#devis" class="btn btn-primary btn-lg">Demander un devis personnalisé</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CONFIANCE ================= -->
+  <section class="section tight" style="background:#fff">
+    <div class="wrap trust">
+      <div><div class="num">12+</div><div class="lbl">années d'expérience locale</div></div>
+      <div><div class="num">40+</div><div class="lbl">circuits & activités</div></div>
+      <div><div class="num">2 500+</div><div class="lbl">voyageurs satisfaits</div></div>
+      <div><div class="num">100%</div><div class="lbl">paiement sécurisé (CMI, 3D Secure)</div></div>
+    </div>
+  </section>
+
+  <!-- ================= TÉMOIGNAGES ================= -->
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head center">
+        <span class="eyebrow">Avis vérifiés</span>
+        <h2>Ils ont voyagé avec nous</h2>
+      </div>
+      <div class="grid grid-3" id="avisList"></div>
+    </div>
+  </section>
+
+  <!-- ================= BLOG ================= -->
+  <section class="section tight" style="background:#fff">
+    <div class="wrap">
+      <div class="section-head center">
+        <span class="eyebrow">Blog & guides</span>
+        <h2>Inspirations de voyage</h2>
+      </div>
+      <div class="grid grid-3" id="blogList"></div>
+      <p class="center" style="margin-top:32px"><a href="blog.html" class="btn btn-outline">Tous les articles →</a></p>
+    </div>
+  </section>
+
+  <div id="footer-slot"></div>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/catalog.js"></script>
+  <script>
+    initLayout("index.html");
+    initHomeSearch();
+
+    // circuits populaires
+    document.getElementById("popularList").innerHTML =
+      CIRCUITS.filter(c => c.populaire).slice(0, 3).map(circuitCard).join("");
+    bindFavs(document.getElementById("popularList"));
+
+    // destinations
+    document.getElementById("destList").innerHTML = DESTINATIONS.slice(0, 6).map((d, i) => `
+      <a class="dest ${i === 0 ? "big" : ""}" href="circuits.html?q=${encodeURIComponent(d.nom)}">
+        <img src="${d.img}" alt="${d.nom}" loading="lazy">
+        <div class="dest-info"><h3>${d.nom}</h3><span>${d.desc}</span></div>
+      </a>`).join("");
+
+    // activités
+    document.getElementById("actList").innerHTML = ACTIVITES.map(a => `
+      <div class="feature"><div class="ico">${icon(a.ico)}</div><h3>${a.nom}</h3><p>${a.desc}</p></div>`).join("");
+
+    // avis
+    document.getElementById("avisList").innerHTML = AVIS.map(a => `
+      <div class="testi">
+        <div class="stars">${stars(a.note)}</div>
+        <p>"${a.txt}"</p>
+        <div class="who">
+          <img src="${a.img}" alt="${a.nom}">
+          <div><b>${a.nom} <span class="verified">✓ vérifié</span></b><span>${a.pays}</span></div>
+        </div>
+      </div>`).join("");
+
+    // blog
+    document.getElementById("blogList").innerHTML = BLOG.map(b => `
+      <a class="post" href="blog.html">
+        <img src="${b.img}" alt="${b.titre}" loading="lazy">
+        <div class="body">
+          <span class="cat">${b.cat}</span>
+          <h3>${b.titre}</h3>
+          <p>${b.ext}</p>
+          <div class="date">${icon("cal")} ${b.date}</div>
+        </div>
+      </a>`).join("");
+  </script>
+</body>
+</html>

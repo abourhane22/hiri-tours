@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Destinations phares — Agadir, Taghazout, Sahara | Hiri Tours</title>
+  <meta name="description" content="Découvrez les destinations phares de Hiri Tours : Agadir, Taghazout, le Sahara, la Vallée du Paradis, Legzira, Tiznit et Taroudant. Guides et circuits pour chaque destination.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <div id="header-slot"></div>
+
+  <section class="page-hero" style="--ph:url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80')">
+    <div class="wrap">
+      <div class="breadcrumb"><a href="index.html">Accueil</a> / Destinations</div>
+      <h1>Nos destinations phares</h1>
+      <p>D'Agadir au Sahara, chaque destination du Souss-Massa raconte une histoire. Choisissez la vôtre.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="dest-grid" id="destGrid" style="grid-template-columns:repeat(3,1fr)"></div>
+    </div>
+  </section>
+
+  <section class="section tight" style="background:#fff">
+    <div class="wrap">
+      <div class="section-head center">
+        <span class="eyebrow">Guides par destination</span>
+        <h2>Que voir, que faire ?</h2>
+      </div>
+      <div id="destDetails"></div>
+    </div>
+  </section>
+
+  <section class="section tight">
+    <div class="wrap">
+      <div class="strip">
+        <div>
+          <h2>Une destination vous fait rêver ?</h2>
+          <p>Nos conseillers locaux connaissent chaque piste, chaque plage et chaque village de la région. Demandez votre programme sur mesure.</p>
+        </div>
+        <a href="contact.html#devis" class="btn btn-primary btn-lg">Créer mon voyage</a>
+      </div>
+    </div>
+  </section>
+
+  <div id="footer-slot"></div>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/catalog.js"></script>
+  <script>
+    initLayout("destinations.html");
+
+    const GUIDES = {
+      "Agadir": "Reconstruite après 1960, Agadir est la capitale balnéaire du Maroc : 10 km de plage de sable fin, une corniche animée, la kasbah Agadir Oufella avec sa vue panoramique, le Souk El Had (le plus grand souk du pays) et la marina. Climat doux toute l'année — 300 jours de soleil.",
+      "Taghazout": "Ancien village de pêcheurs devenu la capitale marocaine du surf. Spots mythiques (Anchor Point, Panorama, Killer Point), surf-camps, yoga et couchers de soleil inoubliables sur la baie de Taghazout Bay.",
+      "Sahara": "À une journée de route d'Agadir, les dunes de Zagora et du Draâ offrent l'expérience du grand Sud : balade à dos de dromadaire, nuit en bivouac berbère, ciel étoilé et silence absolu.",
+      "Vallée du Paradis": "Nichée dans les montagnes de l'Atlas à 60 km d'Agadir, la Vallée du Paradis émerveille avec ses gorges, ses palmiers et ses piscines naturelles d'eau turquoise. Randonnée facile et baignade rafraîchissante.",
+      "Legzira": "Classée parmi les plus belles plages du monde, Legzira est célèbre pour ses arches de pierre rouge sculptées par l'océan. Un spectacle grandiose, surtout au coucher du soleil.",
+      "Tiznit": "La « cité de l'argent » : remparts ocre, souk des bijoutiers berbères, médina paisible et authentique. Une étape culturelle incontournable sur la route du Sud.",
+      "Taroudant": "Surnommée « la petite Marrakech », Taroudant charme avec ses remparts du XVIe siècle, ses souks d'artisanat et son ambiance de ville marocaine authentique, loin des foules.",
+    };
+
+    // cartes destinations
+    document.getElementById("destGrid").innerHTML = DESTINATIONS.map(d => `
+      <a class="dest" href="circuits.html?q=${encodeURIComponent(d.nom)}" style="aspect-ratio:4/3">
+        <img src="${d.img}" alt="${d.nom}" loading="lazy">
+        <div class="dest-info"><h3>${d.nom}</h3><span>${d.desc} → voir les circuits</span></div>
+      </a>`).join("");
+
+    // guides SEO par destination
+    document.getElementById("destDetails").innerHTML = DESTINATIONS.map(d => {
+      const nb = CIRCUITS.filter(c => (c.destination + " " + c.titre).toLowerCase().includes(d.nom.toLowerCase().split(" ")[0])).length;
+      return `
+      <div style="display:grid;grid-template-columns:200px 1fr auto;gap:24px;align-items:center;background:var(--sand);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:16px" class="dest-row">
+        <img src="${d.img}" alt="${d.nom}" style="width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:var(--radius-s)" loading="lazy">
+        <div>
+          <h3 style="margin-bottom:6px">${d.nom} <span class="muted" style="font-size:.8rem;font-weight:500">· ${d.desc}</span></h3>
+          <p class="muted" style="font-size:.92rem">${GUIDES[d.nom] || ""}</p>
+        </div>
+        <a class="btn btn-ocean" href="circuits.html?q=${encodeURIComponent(d.nom)}">${nb ? nb + " circuit(s)" : "Explorer"} →</a>
+      </div>`;
+    }).join("");
+
+    // responsive du tableau destinations
+    const css = document.createElement("style");
+    css.textContent = "@media(max-width:820px){.dest-row{grid-template-columns:1fr !important}} @media(max-width:980px){#destGrid{grid-template-columns:repeat(2,1fr) !important}} @media(max-width:600px){#destGrid{grid-template-columns:1fr !important}}";
+    document.head.appendChild(css);
+  </script>
+</body>
+</html>

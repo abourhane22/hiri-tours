@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fiche circuit — Hiri Tours Agadir</title>
+  <meta name="description" content="Détail du circuit : itinéraire jour par jour, photos, inclus/exclus, avis clients et réservation en ligne sécurisée.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <div id="header-slot"></div>
+
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="breadcrumb"><a href="index.html">Accueil</a> / <a href="circuits.html">Circuits</a> / <span id="dCrumb">…</span></div>
+      <h1 id="dTitle">…</h1>
+      <p id="dMeta"></p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap detail-grid">
+
+      <!-- ============ CONTENU ============ -->
+      <div>
+        <div class="gallery" id="dGallery"></div>
+
+        <div class="detail-tabs">
+          <button class="active" data-tab="tabDesc">Description</button>
+          <button data-tab="tabItin">Itinéraire</button>
+          <button data-tab="tabIncl">Inclus / Exclus</button>
+          <button data-tab="tabMap">Point de départ</button>
+          <button data-tab="tabAvis">Avis clients</button>
+        </div>
+
+        <div class="tab-panel active" id="tabDesc"></div>
+        <div class="tab-panel" id="tabItin"></div>
+        <div class="tab-panel" id="tabIncl"></div>
+        <div class="tab-panel" id="tabMap">
+          <p class="muted" style="margin-bottom:14px">Localisation de notre agence et des principaux points de départ à Agadir :</p>
+          <iframe class="map-embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+            src="https://www.google.com/maps?q=Avenue+Hassan+II,+Agadir,+Maroc&output=embed"></iframe>
+        </div>
+        <div class="tab-panel" id="tabAvis"></div>
+
+        <!-- Circuits similaires -->
+        <div style="margin-top:52px">
+          <h2 style="font-size:1.5rem;margin-bottom:22px">Vous aimerez aussi</h2>
+          <div class="grid grid-3" id="similar"></div>
+        </div>
+      </div>
+
+      <!-- ============ RÉSERVATION ============ -->
+      <aside class="booking">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="from">à partir de</div>
+            <div class="big" id="bPrice"></div>
+          </div>
+          <button class="card-fav" id="dFav" style="position:static" aria-label="Favoris"><span data-icon="heart"></span></button>
+        </div>
+
+        <form id="bookForm">
+          <div class="field">
+            <label>Date du circuit</label>
+            <input type="date" id="bDate" required>
+          </div>
+
+          <div class="field">
+            <label>Adultes</label>
+            <div class="stepper">
+              <div class="row"><b id="nbAdults">2</b><small>12 ans et +</small></div>
+              <div style="display:flex;gap:8px">
+                <button type="button" id="aMinus">−</button>
+                <button type="button" id="aPlus">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Enfants <span class="muted" style="font-weight:400">(−40%)</span></label>
+            <div class="stepper">
+              <div class="row"><b id="nbKids">0</b><small>2 à 11 ans</small></div>
+              <div style="display:flex;gap:8px">
+                <button type="button" id="kMinus">−</button>
+                <button type="button" id="kPlus">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Mode de paiement</label>
+            <label class="check"><input type="radio" name="payopt" value="full" checked> Paiement en ligne 100% (CMI / CB / PayPal)</label>
+            <label class="check"><input type="radio" name="payopt" value="acompte"> Acompte 30% en ligne, solde à J-7</label>
+            <label class="check"><input type="radio" name="payopt" value="agence"> Règlement à l'agence d'Agadir</label>
+          </div>
+
+          <div class="field">
+            <label>Code promo</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="bPromo" placeholder="Ex. : HIRI10" style="flex:1">
+              <button type="button" class="btn btn-outline" id="bPromoBtn" style="padding:10px 18px">Appliquer</button>
+            </div>
+            <small id="bPromoMsg" style="font-size:.8rem"></small>
+          </div>
+
+          <div class="summary">
+            <div class="line"><span>Adultes</span><span id="sumAdults"></span></div>
+            <div class="line"><span>Enfants</span><span id="sumKids"></span></div>
+            <div class="line" id="sumPromoLine" style="display:none;color:var(--ok);font-weight:600"><span>Remise promo</span><span id="sumPromo"></span></div>
+            <div class="total"><span>Total</span><span id="sumTotal"></span></div>
+            <div class="line" style="margin-top:6px"><span id="sumDueLabel">À payer maintenant</span><b id="sumDue" style="color:var(--ocean-dark)"></b></div>
+          </div>
+
+          <button class="btn btn-primary btn-lg btn-block" type="submit" style="margin-top:16px">Réserver maintenant</button>
+          <a class="btn btn-outline btn-block" id="bWa" target="_blank" style="margin-top:10px"><span data-icon="wa"></span> Réserver via WhatsApp</a>
+
+          <div class="pay-note"><span data-icon="lock"></span> Paiement sécurisé 3D Secure · CMI · Visa · Mastercard · PayPal</div>
+          <div class="pay-note">✓ Annulation gratuite jusqu'à 48h avant le départ</div>
+          <div class="pay-note">✓ Confirmation immédiate par email &amp; SMS</div>
+        </form>
+
+        <!-- Confirmation -->
+        <div id="bookDone" style="display:none;text-align:center">
+          <div style="width:64px;height:64px;border-radius:50%;background:var(--ocean-light);color:var(--ocean);display:grid;place-items:center;margin:0 auto" data-icon="check"></div>
+          <h3 style="margin:10px 0 6px">Réservation enregistrée !</h3>
+          <p class="muted" style="font-size:.92rem">Votre numéro de dossier :</p>
+          <p style="font-size:1.4rem;font-weight:800;color:var(--ocean-dark)" id="doneRef"></p>
+          <p class="muted" style="font-size:.88rem;margin-top:10px">
+            Un email et un SMS de confirmation viennent de vous être envoyés avec votre voucher (QR code),
+            le point de rendez-vous et les consignes pratiques. Rappels automatiques à J-3 et J-1.
+          </p>
+          <a class="btn btn-primary btn-block" id="doneWa" target="_blank" style="margin-top:14px">Confirmer sur WhatsApp</a>
+          <a class="btn btn-outline btn-block" href="compte.html" style="margin-top:10px">Voir dans mon espace client</a>
+        </div>
+      </aside>
+
+    </div>
+  </section>
+
+  <div id="footer-slot"></div>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/catalog.js"></script>
+  <script src="assets/js/detail.js"></script>
+  <script>
+    initLayout("circuits.html");
+    initDetail();
+  </script>
+</body>
+</html>

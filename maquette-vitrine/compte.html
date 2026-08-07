@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mon espace client — Hiri Tours</title>
+  <meta name="description" content="Espace client Hiri Tours : historique des réservations, vouchers, factures, points de fidélité et liste de favoris.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <div id="header-slot"></div>
+
+  <section class="page-hero">
+    <div class="wrap">
+      <div class="breadcrumb"><a href="index.html">Accueil</a> / Mon espace</div>
+      <h1>Mon espace client</h1>
+      <p>Réservations, documents, fidélité et favoris — tout au même endroit.</p>
+    </div>
+  </section>
+
+  <!-- ===================== CONNEXION ===================== -->
+  <section class="section" id="authSection">
+    <div class="wrap">
+      <div class="form-card auth-card">
+        <div class="auth-tabs">
+          <button class="active" id="tabLogin">Connexion</button>
+          <button id="tabRegister">Inscription</button>
+        </div>
+
+        <form id="loginForm">
+          <div class="field"><label>Email</label><input type="email" id="loginEmail" required placeholder="vous@email.com"></div>
+          <div class="field"><label>Mot de passe</label><input type="password" required placeholder="••••••••"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:.85rem;margin-bottom:14px">
+            <label class="check" style="padding:0"><input type="checkbox"> Se souvenir de moi</label>
+            <a href="#" style="color:var(--ocean);font-weight:600" onclick="event.preventDefault();alert('Un lien de réinitialisation vous sera envoyé par email.')">Mot de passe oublié ?</a>
+          </div>
+          <button class="btn btn-primary btn-block btn-lg" type="submit">Se connecter</button>
+        </form>
+
+        <form id="registerForm" style="display:none">
+          <div class="form-row">
+            <div class="field"><label>Prénom</label><input type="text" id="regPrenom" required placeholder="Prénom"></div>
+            <div class="field"><label>Nom</label><input type="text" required placeholder="Nom"></div>
+          </div>
+          <div class="field"><label>Email</label><input type="email" id="regEmail" required placeholder="vous@email.com"></div>
+          <div class="field"><label>Téléphone / WhatsApp</label><input type="tel" placeholder="+212 …"></div>
+          <div class="field"><label>Mot de passe</label><input type="password" required placeholder="8 caractères minimum" minlength="8"></div>
+          <label class="check" style="font-size:.8rem;color:var(--muted)">
+            <input type="checkbox" required> J'accepte les CGV et la politique de confidentialité (loi 09-08). *
+          </label>
+          <button class="btn btn-primary btn-block btn-lg" type="submit" style="margin-top:12px">Créer mon compte</button>
+        </form>
+
+        <div class="divider">ou continuer avec</div>
+        <div class="social-login">
+          <button class="btn btn-outline" onclick="quickLogin('Google')">Google</button>
+          <button class="btn btn-outline" onclick="quickLogin('Facebook')">Facebook</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ESPACE CONNECTÉ ===================== -->
+  <section class="section" id="accountSection" style="display:none">
+    <div class="wrap account-grid">
+
+      <aside class="account-nav">
+        <div style="padding:14px;border-bottom:1px solid var(--line);margin-bottom:10px">
+          <b id="userName">—</b>
+          <div class="muted" style="font-size:.82rem" id="userEmail">—</div>
+        </div>
+        <a href="#" class="active" data-panel="pDash"><span data-icon="grid"></span> Tableau de bord</a>
+        <a href="#" data-panel="pResa"><span data-icon="ticket"></span> Mes réservations</a>
+        <a href="#" data-panel="pWish" id="wishlist"><span data-icon="heart"></span> Mes favoris</a>
+        <a href="#" data-panel="pFid"><span data-icon="star"></span> Fidélité</a>
+        <a href="#" data-panel="pProfil"><span data-icon="user"></span> Mon profil</a>
+        <a href="#" id="logoutBtn" style="color:#c0392b"><span data-icon="logout"></span> Déconnexion</a>
+      </aside>
+
+      <div>
+        <!-- Tableau de bord -->
+        <div id="pDash">
+          <div class="stat-cards">
+            <div class="stat-card"><div class="n">3</div><div class="l">Réservations au total</div></div>
+            <div class="stat-card"><div class="n">1</div><div class="l">Circuit à venir</div></div>
+            <div class="stat-card"><div class="n">420</div><div class="l">Points de fidélité</div></div>
+          </div>
+          <div class="form-card">
+            <h3 style="margin-bottom:14px">Prochain départ</h3>
+            <div class="voucher">
+              <div class="qr" title="QR Code du voucher"></div>
+              <div style="flex:1;min-width:220px">
+                <span class="status confirmed">Confirmé</span>
+                <h3 style="margin:8px 0 4px">Escapade au Sahara — Dunes &amp; Bivouac</h3>
+                <p class="muted" style="font-size:.9rem">
+                  Samedi 18 juillet 2026 · 2 adultes · Départ : Agadir centre-ville, 6h30<br>
+                  Dossier <b>HT-284615</b> · Rappels automatiques J-3 et J-1 par SMS
+                </p>
+                <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+                  <button class="btn btn-ocean" onclick="alert('Voucher PDF avec QR code téléchargé.\nÀ présenter au guide le jour du départ.')">Voucher (QR)</button>
+                  <button class="btn btn-outline" onclick="alert('Facture électronique PDF conforme (normes marocaines) téléchargée.')">Facture PDF</button>
+                  <button class="btn btn-outline" onclick="alert('Votre demande de modification a été transmise. Réponse sous 24h.\nAnnulation gratuite jusqu\'à 48h avant le départ.')">Modifier / Annuler</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Réservations -->
+        <div id="pResa" style="display:none">
+          <h2 style="font-size:1.4rem;margin-bottom:18px">Historique des réservations</h2>
+          <table class="data">
+            <thead><tr><th>Dossier</th><th>Circuit</th><th>Date</th><th>Montant</th><th>Statut</th><th>Documents</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>HT-284615</b></td><td>Escapade au Sahara — 2 jours</td><td>18/07/2026</td><td>2 580 DH</td>
+                <td><span class="status confirmed">Confirmé</span></td>
+                <td><a href="#" onclick="event.preventDefault();alert('Voucher PDF téléchargé.')">Voucher</a> · <a href="#" onclick="event.preventDefault();alert('Facture PDF téléchargée.')">Facture</a></td>
+              </tr>
+              <tr>
+                <td><b>HT-271043</b></td><td>Journée Vallée du Paradis</td><td>02/09/2026</td><td>780 DH</td>
+                <td><span class="status pending">Acompte versé (30%)</span></td>
+                <td><a href="#" onclick="event.preventDefault();alert('Solde de 546 DH à régler avant le 26/08/2026 (J-7).\nRedirection vers le paiement sécurisé CMI…')">Payer le solde</a></td>
+              </tr>
+              <tr>
+                <td><b>HT-255890</b></td><td>Initiation surf Taghazout</td><td>14/03/2026</td><td>640 DH</td>
+                <td><span class="status done">Terminé</span></td>
+                <td><a href="#" onclick="event.preventDefault();alert('Merci de partager votre expérience !\nVotre avis sera publié avec la mention « vérifié ».')">Laisser un avis</a></td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="muted" style="font-size:.85rem;margin-top:14px">Un circuit complet ? Inscrivez-vous à la liste d'attente depuis sa fiche : vous serez notifié automatiquement en cas de désistement.</p>
+        </div>
+
+        <!-- Favoris -->
+        <div id="pWish" style="display:none">
+          <h2 style="font-size:1.4rem;margin-bottom:18px">Mes circuits favoris</h2>
+          <div class="grid grid-3" id="wishGrid"></div>
+        </div>
+
+        <!-- Fidélité -->
+        <div id="pFid" style="display:none">
+          <h2 style="font-size:1.4rem;margin-bottom:18px">Programme de fidélité</h2>
+          <div class="loyalty">
+            <div>
+              <small>Votre solde</small>
+              <div class="pts">420 points</div>
+              <small>1 point = 1 DH de réservation · statut : <b>Explorateur</b></small>
+              <div class="progress"><i style="width:42%"></i></div>
+              <small>Encore 580 points pour le statut <b>Aventurier</b> (−10% permanent)</small>
+            </div>
+            <button class="btn btn-ghost btn-lg" onclick="alert('Récompenses disponibles :\n• 200 pts = −100 DH sur votre prochaine réservation\n• 400 pts = excursion Souk & Medina offerte\n• 800 pts = −25% sur un séjour tout inclus')">Échanger mes points</button>
+          </div>
+          <div class="form-card" style="margin-top:20px">
+            <h3 style="margin-bottom:10px">Mes codes promo actifs</h3>
+            <table class="data">
+              <thead><tr><th>Code</th><th>Avantage</th><th>Validité</th></tr></thead>
+              <tbody>
+                <tr><td><b>FIDELITE5</b></td><td>−5% (client fidèle)</td><td>Permanent</td></tr>
+                <tr><td><b>EARLYBIRD</b></td><td>−15% (réservation 60j à l'avance)</td><td>31/12/2026</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Profil -->
+        <div id="pProfil" style="display:none">
+          <h2 style="font-size:1.4rem;margin-bottom:18px">Mon profil</h2>
+          <div class="form-card">
+            <form onsubmit="event.preventDefault();alert('Profil mis à jour avec succès.')">
+              <div class="form-row">
+                <div class="field"><label>Prénom</label><input type="text" value="Voyageur"></div>
+                <div class="field"><label>Nom</label><input type="text" value="Hiri"></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>Email</label><input type="email" id="profilEmail"></div>
+                <div class="field"><label>Téléphone / WhatsApp</label><input type="tel" value="+212 6 00 00 00 00"></div>
+              </div>
+              <div class="field"><label>Langue préférée</label>
+                <select><option>Français</option><option>العربية</option><option>English</option></select>
+              </div>
+              <h4 style="margin:18px 0 8px;font-size:.95rem">Notifications</h4>
+              <label class="check"><input type="checkbox" checked> Emails : confirmations et rappels de circuits</label>
+              <label class="check"><input type="checkbox" checked> SMS : rappels J-3 / J-1</label>
+              <label class="check"><input type="checkbox"> Offres promotionnelles et last minute</label>
+              <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+                <button class="btn btn-primary" type="submit">Enregistrer</button>
+                <button class="btn btn-outline" type="button" onclick="alert('Conformément à la loi 09-08 (CNDP), votre demande de suppression de données (droit à l\'oubli) sera traitée sous 30 jours.')">Supprimer mes données</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="footer-slot"></div>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/catalog.js"></script>
+  <script>
+    initLayout("compte.html");
+
+    /* ---- onglets connexion / inscription ---- */
+    const tabL = document.getElementById("tabLogin"), tabR = document.getElementById("tabRegister");
+    tabL.onclick = () => { tabL.classList.add("active"); tabR.classList.remove("active"); loginForm.style.display = "block"; registerForm.style.display = "none"; };
+    tabR.onclick = () => { tabR.classList.add("active"); tabL.classList.remove("active"); loginForm.style.display = "none"; registerForm.style.display = "block"; };
+
+    /* ---- session (démo localStorage) ---- */
+    function getUser() { try { return JSON.parse(localStorage.getItem("hiri_user")); } catch { return null; } }
+    function setUser(u) { localStorage.setItem("hiri_user", JSON.stringify(u)); showAccount(); }
+    function quickLogin(provider) { setUser({ nom: "Voyageur Hiri", email: "voyageur@" + provider.toLowerCase() + ".com" }); }
+
+    document.getElementById("loginForm").addEventListener("submit", e => {
+      e.preventDefault();
+      setUser({ nom: "Voyageur Hiri", email: document.getElementById("loginEmail").value });
+    });
+    document.getElementById("registerForm").addEventListener("submit", e => {
+      e.preventDefault();
+      setUser({ nom: document.getElementById("regPrenom").value + " (nouveau membre)", email: document.getElementById("regEmail").value });
+    });
+    document.addEventListener("click", e => {
+      if (e.target.closest && e.target.closest("#logoutBtn")) { e.preventDefault(); localStorage.removeItem("hiri_user"); location.reload(); }
+    });
+
+    function showAccount() {
+      const u = getUser(); if (!u) return;
+      document.getElementById("authSection").style.display = "none";
+      document.getElementById("accountSection").style.display = "block";
+      document.getElementById("userName").textContent = u.nom;
+      document.getElementById("userEmail").textContent = u.email;
+      const pe = document.getElementById("profilEmail"); if (pe) pe.value = u.email;
+      renderWish();
+      if (location.hash === "#wishlist") switchPanel("pWish");
+    }
+
+    /* ---- navigation panneaux ---- */
+    function switchPanel(id) {
+      document.querySelectorAll(".account-nav a[data-panel]").forEach(a => a.classList.toggle("active", a.dataset.panel === id));
+      ["pDash","pResa","pWish","pFid","pProfil"].forEach(p => document.getElementById(p).style.display = p === id ? "block" : "none");
+    }
+    document.querySelectorAll(".account-nav a[data-panel]").forEach(a =>
+      a.addEventListener("click", e => { e.preventDefault(); switchPanel(a.dataset.panel); }));
+
+    /* ---- wishlist ---- */
+    function renderWish() {
+      const ids = getWishlist();
+      const list = CIRCUITS.filter(c => ids.includes(c.id));
+      document.getElementById("wishGrid").innerHTML = list.length
+        ? list.map(circuitCard).join("")
+        : `<div class="empty" style="grid-column:1/-1"><h3>Aucun favori pour l'instant</h3><p>Cliquez sur le cœur d'un circuit pour l'enregistrer ici.</p><a href="circuits.html" class="btn btn-ocean" style="margin-top:14px">Parcourir les circuits</a></div>`;
+      bindFavs(document.getElementById("wishGrid"));
+    }
+
+    showAccount();
+  </script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog & guides de voyage — Agadir et Souss-Massa | Hiri Tours</title>
+  <meta name="description" content="Guides de voyage, conseils et actualités touristiques sur Agadir, Taghazout et la région Souss-Massa : que faire, où surfer, meilleures périodes et bons plans.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <div id="header-slot"></div>
+
+  <section class="page-hero" style="--ph:url('https://images.unsplash.com/photo-1489493887464-892be6d1daae?auto=format&fit=crop&w=1600&q=80')">
+    <div class="wrap">
+      <div class="breadcrumb"><a href="index.html">Accueil</a> / Blog</div>
+      <h1>Blog &amp; guides de voyage</h1>
+      <p>Conseils d'experts locaux, itinéraires et actualités touristiques de la région d'Agadir.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:36px" id="blogCats"></div>
+      <div class="grid grid-3" id="blogGrid"></div>
+    </div>
+  </section>
+
+  <section class="section tight" style="background:#fff">
+    <div class="wrap">
+      <div class="strip" style="background:linear-gradient(135deg,var(--sun),var(--sun-dark))">
+        <div>
+          <h2>Ne manquez aucun bon plan</h2>
+          <p>Recevez chaque mois nos guides, offres saisonnières et idées d'escapades dans le Souss-Massa.</p>
+        </div>
+        <form style="display:flex;gap:10px;flex-wrap:wrap" onsubmit="event.preventDefault(); this.reset(); alert('Merci ! Vous êtes bien inscrit à notre newsletter.');">
+          <input type="email" placeholder="Votre email" required style="padding:14px 20px;border-radius:40px;border:none;font-family:var(--font);min-width:240px;outline:none">
+          <button class="btn btn-ghost btn-lg" type="submit">S'inscrire</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div id="footer-slot"></div>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/catalog.js"></script>
+  <script>
+    initLayout("blog.html");
+
+    const POSTS = [
+      ...BLOG,
+      { cat: "Guide", titre: "Excursion au Sahara depuis Agadir : le guide complet", img: IMG.desert, date: "20 avril 2026", ext: "Zagora ou Merzouga ? Combien de jours ? Que mettre dans son sac ? Toutes les réponses." },
+      { cat: "Culture", titre: "Souk El Had : 10 choses à savoir avant d'y aller", img: IMG.souk, date: "2 avril 2026", ext: "Horaires, négociation, meilleures allées : nos conseils pour profiter du plus grand souk du Maroc." },
+      { cat: "Bons plans", titre: "Agadir hors saison : pourquoi partir en hiver ?", img: IMG.agadir, date: "15 mars 2026", ext: "Températures douces, tarifs réduits et plages tranquilles : l'hiver est un secret bien gardé." },
+      { cat: "Nature", titre: "Legzira et Mirleft : escapade sur la côte sauvage", img: IMG.legzira, date: "28 février 2026", ext: "Itinéraire d'une journée entre arches rouges, villages de pêcheurs et poisson grillé." },
+      { cat: "Culture", titre: "Taroudant, la petite Marrakech sans les foules", img: IMG.medina, date: "10 février 2026", ext: "Remparts, souks et douceur de vivre : pourquoi Taroudant mérite le détour." },
+      { cat: "Bons plans", titre: "Huile d'argan : reconnaître la vraie de la fausse", img: IMG.argan, date: "25 janvier 2026", ext: "Nos conseils pour acheter une huile d'argan authentique en coopérative." },
+    ];
+
+    const cats = ["Tous", ...new Set(POSTS.map(p => p.cat))];
+    let activeCat = "Tous";
+
+    function renderCats() {
+      document.getElementById("blogCats").innerHTML = cats.map(c =>
+        `<button class="btn ${c === activeCat ? "btn-ocean" : "btn-outline"}" data-cat="${c}" style="padding:9px 20px;font-size:.88rem">${c}</button>`).join("");
+      document.querySelectorAll("[data-cat]").forEach(b => b.onclick = () => { activeCat = b.dataset.cat; renderCats(); renderPosts(); });
+    }
+    function renderPosts() {
+      const list = activeCat === "Tous" ? POSTS : POSTS.filter(p => p.cat === activeCat);
+      document.getElementById("blogGrid").innerHTML = list.map(b => `
+        <a class="post" href="#" onclick="event.preventDefault(); alert('Article complet disponible dans la version finale du site.');">
+          <img src="${b.img}" alt="${b.titre}" loading="lazy">
+          <div class="body">
+            <span class="cat">${b.cat}</span>
+            <h3>${b.titre}</h3>
+            <p>${b.ext}</p>
+            <div class="date">${icon("cal")} ${b.date} · ${icon("clock")} 5 min de lecture</div>
+          </div>
+        </a>`).join("");
+    }
+    renderCats(); renderPosts();
+  </script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { minAdultPriceMad } from "@/lib/pricing";
 import { VitrineIcon } from "@/components/vitrine/icon";
 import { HeroSearchBar } from "@/components/vitrine/search-bar";
 import { SectionHead, Strip } from "@/components/vitrine/ui";
@@ -32,7 +33,9 @@ async function getPopular(): Promise<VitrineCircuit[]> {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("circuits")
-    .select("id, title, category, short_description, hero_image_url, base_price_mad, duration_days, duration_hours")
+    .select(
+      "id, title, category, short_description, hero_image_url, base_price_mad, duration_days, duration_hours, circuit_seasons(starts_on, ends_on, price_multiplier)",
+    )
     .eq("is_active", true)
     .order("base_price_mad", { ascending: false })
     .limit(3);
@@ -42,7 +45,8 @@ async function getPopular(): Promise<VitrineCircuit[]> {
     title: c.title,
     categoryLabel: CAT_LABEL[c.category] ?? c.category,
     durationLabel: durationLabel(c.category, c.duration_days, c.duration_hours),
-    price: Number(c.base_price_mad),
+    // Prix « à partir de » via lib/pricing (min saisonnier) — même formule que le tunnel.
+    price: minAdultPriceMad({ base_price_mad: c.base_price_mad, circuit_seasons: c.circuit_seasons }),
     image: c.hero_image_url ?? null,
     excerpt: c.short_description
       ? c.short_description.length > 96

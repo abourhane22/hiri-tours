@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact & Devis — Hiri Tours Agadir</title>
+  <meta name="description" content="Contactez Hiri Tours à Agadir : demande d'information, devis personnalisé pour groupes et entreprises, partenariats. Réponse sous 24h, WhatsApp disponible.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <div id="header-slot"></div>
+
+  <section class="page-hero" style="--ph:url('https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=1600&q=80')">
+    <div class="wrap">
+      <div class="breadcrumb"><a href="index.html">Accueil</a> / Contact</div>
+      <h1>Contact &amp; devis</h1>
+      <p>Une question, un projet de voyage, un événement de groupe ? Nous vous répondons sous 24h.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap" style="display:grid;grid-template-columns:1fr 1.4fr;gap:40px;align-items:start" id="contactGrid">
+
+      <!-- ===== Coordonnées ===== -->
+      <div>
+        <h2 style="font-size:1.5rem;margin-bottom:24px">Nos coordonnées</h2>
+        <ul class="info-list">
+          <li>
+            <div class="ico" data-icon="pin"></div>
+            <div><b>Agence Hiri Tours</b><span>Avenue Hassan II, Talborjt<br>Agadir 80000, Maroc</span></div>
+          </li>
+          <li>
+            <div class="ico" data-icon="phone"></div>
+            <div><b>Téléphone</b><span>+212 5 28 00 00 00<br>Lun–Sam : 9h – 19h</span></div>
+          </li>
+          <li>
+            <div class="ico" data-icon="wa"></div>
+            <div><b>WhatsApp Business</b><span>+212 6 00 00 00 00<br>Réponse rapide 7j/7</span></div>
+          </li>
+          <li>
+            <div class="ico" data-icon="mail"></div>
+            <div><b>Email</b><span>contact@hiritours.ma<br>devis@hiritours.ma (groupes)</span></div>
+          </li>
+        </ul>
+        <iframe class="map-embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+          src="https://www.google.com/maps?q=Avenue+Hassan+II,+Agadir,+Maroc&output=embed"></iframe>
+      </div>
+
+      <!-- ===== Formulaire contact ===== -->
+      <div>
+        <div class="form-card">
+          <h2 style="font-size:1.5rem;margin-bottom:8px">Écrivez-nous</h2>
+          <p class="muted" style="margin-bottom:22px;font-size:.95rem">Formulaire multi-objet : information, réservation, partenariat ou réclamation.</p>
+          <form id="contactForm">
+            <div class="form-row">
+              <div class="field"><label>Nom complet *</label><input type="text" required placeholder="Votre nom"></div>
+              <div class="field"><label>Email *</label><input type="email" required placeholder="vous@email.com"></div>
+            </div>
+            <div class="form-row">
+              <div class="field"><label>Téléphone / WhatsApp</label><input type="tel" placeholder="+212 …"></div>
+              <div class="field">
+                <label>Objet *</label>
+                <select required>
+                  <option value="">Choisir un objet…</option>
+                  <option>Information sur un circuit</option>
+                  <option>Réservation / modification</option>
+                  <option>Devis groupe / entreprise</option>
+                  <option>Partenariat (hôtel, activité…)</option>
+                  <option>Réclamation</option>
+                  <option>Autre</option>
+                </select>
+              </div>
+            </div>
+            <div class="field"><label>Votre message *</label><textarea rows="5" required placeholder="Décrivez votre demande…"></textarea></div>
+            <label class="check" style="font-size:.82rem;color:var(--muted)">
+              <input type="checkbox" required>
+              J'accepte que mes données soient utilisées pour traiter ma demande, conformément à la loi 09-08 (CNDP). *
+            </label>
+            <button class="btn btn-primary btn-lg" type="submit" style="margin-top:16px">Envoyer le message</button>
+            <div class="alert" id="contactOk">✓ Message envoyé ! Notre équipe vous répond sous 24h (souvent bien plus vite).</div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Devis personnalisé ===== -->
+  <section class="section tight" style="background:#fff" id="devis">
+    <div class="wrap">
+      <div class="section-head center">
+        <span class="eyebrow">Groupes · MICE · Événements</span>
+        <h2>Demande de devis personnalisé</h2>
+        <p>Voyages incentive, séminaires, sorties scolaires, EVJF/EVG… Recevez une proposition détaillée et gratuite sous 24h.</p>
+      </div>
+      <div class="form-card" style="max-width:860px;margin:0 auto">
+        <form id="devisForm">
+          <div class="form-row">
+            <div class="field"><label>Organisation / société</label><input type="text" placeholder="Nom de votre structure"></div>
+            <div class="field">
+              <label>Type d'événement *</label>
+              <select required>
+                <option value="">Choisir…</option>
+                <option>Incentive / team-building</option>
+                <option>Séminaire / congrès (MICE)</option>
+                <option>Voyage scolaire</option>
+                <option>Famille / amis (groupe privé)</option>
+                <option>EVJF / EVG</option>
+                <option>Autre</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field"><label>Nombre de participants *</label><input type="number" min="2" required placeholder="Ex. : 25"></div>
+            <div class="field"><label>Dates souhaitées *</label><input type="text" required placeholder="Ex. : du 12 au 15 octobre 2026"></div>
+          </div>
+          <div class="form-row">
+            <div class="field"><label>Budget indicatif / personne</label>
+              <select>
+                <option>À définir</option>
+                <option>Moins de 500 DH</option>
+                <option>500 – 1 500 DH</option>
+                <option>1 500 – 3 000 DH</option>
+                <option>Plus de 3 000 DH</option>
+              </select>
+            </div>
+            <div class="field"><label>Contact (email ou téléphone) *</label><input type="text" required placeholder="vous@email.com / +212…"></div>
+          </div>
+          <div class="field"><label>Décrivez votre projet *</label><textarea rows="4" required placeholder="Activités souhaitées, hébergement, transport, contraintes…"></textarea></div>
+          <button class="btn btn-ocean btn-lg" type="submit">Recevoir mon devis gratuit</button>
+          <div class="alert" id="devisOk">✓ Demande reçue ! Un conseiller dédié vous enverra une proposition détaillée sous 24h ouvrées.</div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FAQ ===== -->
+  <section class="section">
+    <div class="wrap" style="max-width:860px">
+      <div class="section-head center">
+        <span class="eyebrow">FAQ</span>
+        <h2>Questions fréquentes</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>Comment se passe le paiement en ligne ?</summary>
+          <p>Nous acceptons les cartes bancaires marocaines et internationales via CMI (3D Secure), ainsi que PayPal. Vous pouvez payer 100% en ligne, verser un acompte de 30% (solde à J-7), ou régler à l'agence.</p>
+        </details>
+        <details>
+          <summary>Quelle est votre politique d'annulation ?</summary>
+          <p>Annulation gratuite jusqu'à 48h avant le départ : remboursement intégral ou avoir. Entre 48h et 24h : avoir de 50%. Moins de 24h : non remboursable. Les cas de force majeure sont étudiés individuellement.</p>
+        </details>
+        <details>
+          <summary>Que se passe-t-il après ma réservation ?</summary>
+          <p>Vous recevez immédiatement une confirmation par email et SMS avec votre numéro de dossier et votre voucher (QR code). Des rappels automatiques sont envoyés à J-3 et J-1 avec le point de rendez-vous et les consignes pratiques.</p>
+        </details>
+        <details>
+          <summary>Un circuit affiché complet, que faire ?</summary>
+          <p>Inscrivez-vous à la liste d'attente depuis la fiche du circuit : vous serez notifié automatiquement en cas de désistement. Vous pouvez aussi nous contacter sur WhatsApp pour connaître les prochaines dates.</p>
+        </details>
+        <details>
+          <summary>Mes données personnelles sont-elles protégées ?</summary>
+          <p>Oui. Le site est entièrement chiffré (HTTPS/SSL) et nous respectons la loi marocaine 09-08 relative à la protection des données personnelles (CNDP) : consentement, droit d'accès, de rectification et droit à l'oubli.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <div id="footer-slot"></div>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/catalog.js"></script>
+  <script>
+    initLayout("contact.html");
+    document.getElementById("contactForm").addEventListener("submit", e => {
+      e.preventDefault(); e.target.reset();
+      document.getElementById("contactOk").classList.add("ok");
+    });
+    document.getElementById("devisForm").addEventListener("submit", e => {
+      e.preventDefault(); e.target.reset();
+      document.getElementById("devisOk").classList.add("ok");
+    });
+    const css = document.createElement("style");
+    css.textContent = "@media(max-width:900px){#contactGrid{grid-template-columns:1fr !important}}";
+    document.head.appendChild(css);
+  </script>
+</body>
+</html>

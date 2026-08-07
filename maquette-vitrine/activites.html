@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activités & Services — Surf, quad, transferts, séjours | Hiri Tours Agadir</title>
+  <meta name="description" content="Toutes les activités Hiri Tours à Agadir : surf, quad, randonnée, culture, transferts aéroport Al Massira, séjours tout inclus et location de 4x4.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <div id="header-slot"></div>
+
+  <section class="page-hero" style="--ph:url('https://images.unsplash.com/photo-1502933691298-84fc14542831?auto=format&fit=crop&w=1600&q=80')">
+    <div class="wrap">
+      <div class="breadcrumb"><a href="index.html">Accueil</a> / Activités</div>
+      <h1>Activités &amp; services</h1>
+      <p>Sport, nature, culture, logistique : une seule agence pour toutes vos envies dans la région d'Agadir.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="feature-grid" id="actGrid"></div>
+    </div>
+  </section>
+
+  <section class="section tight" style="background:#fff">
+    <div class="wrap">
+      <div class="section-head center">
+        <span class="eyebrow">Services voyageurs</span>
+        <h2>Nous nous occupons de tout</h2>
+      </div>
+      <div class="grid grid-3">
+        <div class="feature">
+          <div class="ico" data-icon="van"></div>
+          <h3>Transferts aéroport Al Massira</h3>
+          <p>Navette privée ou VTC, accueil avec pancarte, suivi de vol en temps réel. Réservation en ligne 24h/24, dès 200 DH.</p>
+          <p style="margin-top:12px"><a href="circuit.html?id=transfert-aeroport" class="btn btn-outline">Réserver un transfert</a></p>
+        </div>
+        <div class="feature">
+          <div class="ico" data-icon="hotel"></div>
+          <h3>Séjours tout inclus</h3>
+          <p>Packages hébergement + activités avec nos hôtels partenaires à Agadir et Taghazout Bay. Transferts inclus.</p>
+          <p style="margin-top:12px"><a href="circuit.html?id=sejour-taghazout-3j" class="btn btn-outline">Voir les séjours</a></p>
+        </div>
+        <div class="feature">
+          <div class="ico" data-icon="car"></div>
+          <h3>Location 4x4 &amp; voitures</h3>
+          <p>Véhicules récents avec ou sans chauffeur, kilométrage illimité, assistance 24/7. Idéal pour explorer l'Anti-Atlas.</p>
+          <p style="margin-top:12px"><a href="circuit.html?id=location-4x4" class="btn btn-outline">Louer un véhicule</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section tight">
+    <div class="wrap">
+      <div class="strip">
+        <div>
+          <h2>Groupes &amp; entreprises</h2>
+          <p>Team-building, incentive, séminaires, voyages scolaires : programmes clés en main avec guides, transport et animation. Devis gratuit sous 24h.</p>
+        </div>
+        <a href="contact.html#devis" class="btn btn-primary btn-lg">Demander un devis</a>
+      </div>
+    </div>
+  </section>
+
+  <div id="footer-slot"></div>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/catalog.js"></script>
+  <script>
+    initLayout("activites.html");
+
+    const THEME_LINK = {
+      "Surf & bodyboard": "circuits.html?theme=plage",
+      "Désert & dromadaires": "circuits.html?theme=desert",
+      "Quad & buggy": "circuits.html?theme=aventure",
+      "Randonnée & nature": "circuits.html?theme=montagne",
+      "Culture & souks": "circuits.html?theme=culture",
+      "Transferts aéroport": "circuit.html?id=transfert-aeroport",
+      "Séjours tout inclus": "circuit.html?id=sejour-taghazout-3j",
+      "Location 4x4": "circuit.html?id=location-4x4",
+    };
+    document.getElementById("actGrid").innerHTML = ACTIVITES.map(a => `
+      <a class="feature" href="${THEME_LINK[a.nom] || 'circuits.html'}">
+        <div class="ico">${icon(a.ico)}</div>
+        <h3>${a.nom}</h3>
+        <p>${a.desc}</p>
+        <p style="margin-top:10px;color:var(--ocean);font-weight:600;font-size:.88rem">Découvrir →</p>
+      </a>`).join("");
+  </script>
+</body>
+</html>

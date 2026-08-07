@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Circuits & Excursions — Hiri Tours Agadir</title>
+  <meta name="description" content="Catalogue complet des circuits, excursions et activités Hiri Tours à Agadir : désert, surf, randonnée, culture. Filtres par thème, durée, prix et saison.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <div id="header-slot"></div>
+
+  <section class="page-hero" style="--ph:url('https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=1600&q=80')">
+    <div class="wrap">
+      <div class="breadcrumb"><a href="index.html">Accueil</a> / Circuits & Excursions</div>
+      <h1>Circuits & Excursions</h1>
+      <p>Trouvez l'expérience idéale grâce à nos filtres par thème, durée, prix et saison.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap catalog">
+
+      <!-- ============ FILTRES ============ -->
+      <aside class="filters">
+        <h3>Filtrer les offres</h3>
+        <p class="muted" style="font-size:.85rem">Affinez selon vos envies</p>
+
+        <div class="filter-group">
+          <h4>Recherche</h4>
+          <div class="field" style="margin:0">
+            <input type="search" id="catSearch" placeholder="Destination, activité…">
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <h4>Thème</h4>
+          <label class="check"><input type="checkbox" data-filter="theme:plage"> Plage & mer</label>
+          <label class="check"><input type="checkbox" data-filter="theme:desert"> Désert</label>
+          <label class="check"><input type="checkbox" data-filter="theme:culture"> Culture</label>
+          <label class="check"><input type="checkbox" data-filter="theme:aventure"> Aventure</label>
+          <label class="check"><input type="checkbox" data-filter="theme:montagne"> Montagne</label>
+          <label class="check"><input type="checkbox" data-filter="theme:gastronomie"> Gastronomie</label>
+        </div>
+
+        <div class="filter-group">
+          <h4>Durée</h4>
+          <label class="check"><input type="checkbox" data-filter="duree:1"> Journée / demi-journée</label>
+          <label class="check"><input type="checkbox" data-filter="duree:2"> Week-end (2 jours)</label>
+          <label class="check"><input type="checkbox" data-filter="duree:3"> Séjour (3 jours et +)</label>
+        </div>
+
+        <div class="filter-group">
+          <h4>Budget maximum</h4>
+          <input type="range" id="priceRange" min="200" max="2500" step="50" value="2500">
+          <div class="range-out" id="priceOut">Jusqu'à 2500 DH</div>
+        </div>
+
+        <div class="filter-group">
+          <h4>Saison</h4>
+          <label class="check"><input type="checkbox" data-filter="saison:printemps"> Printemps</label>
+          <label class="check"><input type="checkbox" data-filter="saison:ete"> Été</label>
+          <label class="check"><input type="checkbox" data-filter="saison:automne"> Automne</label>
+          <label class="check"><input type="checkbox" data-filter="saison:hiver"> Hiver</label>
+        </div>
+
+        <div class="filter-group">
+          <button class="btn btn-outline btn-block" id="resetFilters">Réinitialiser les filtres</button>
+        </div>
+      </aside>
+
+      <!-- ============ RÉSULTATS ============ -->
+      <div>
+        <div class="catalog-top">
+          <div class="count muted" id="catalogCount"></div>
+          <div class="sort">
+            <select id="catSort">
+              <option value="populaire">Trier : Popularité</option>
+              <option value="note">Meilleures notes</option>
+              <option value="prix-asc">Prix croissant</option>
+              <option value="prix-desc">Prix décroissant</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-2" id="catalogList"></div>
+      </div>
+
+    </div>
+  </section>
+
+  <div id="footer-slot"></div>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/catalog.js"></script>
+  <script>
+    initLayout("circuits.html");
+    initCatalog();
+  </script>
+</body>
+</html>
