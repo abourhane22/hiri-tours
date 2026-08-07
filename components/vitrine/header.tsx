@@ -43,11 +43,19 @@ export function VitrineHeader() {
               {l.label}
             </Link>
           ))}
+          {/* Accès agence — visible uniquement dans le menu burger (mobile) */}
+          <Link href="/login" className="nav-agency" onClick={() => setOpen(false)}>
+            Espace agence
+          </Link>
         </nav>
 
         <div className="nav-tools">
           <Link href="/reserver/suivi" className="nav-track">
             Suivre ma réservation
+          </Link>
+          <Link href="/login" className="btn btn-agency">
+            <VitrineIcon name="user" />
+            Espace agence
           </Link>
           <Link href="/reserver" className="btn btn-primary">
             Réserver

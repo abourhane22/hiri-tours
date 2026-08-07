@@ -80,6 +80,8 @@
   & .btn-outline:hover { border-color: var(--ocean); color: var(--ocean); }
   & .btn-ghost { background: rgba(255, 255, 255, 0.15); color: #fff; border-color: rgba(255, 255, 255, 0.5); backdrop-filter: blur(6px); }
   & .btn-ghost:hover { background: rgba(255, 255, 255, 0.28); }
+  & .btn-agency { background: transparent; border: 1.6px solid var(--ocean); color: var(--ocean); }
+  & .btn-agency:hover { background: var(--ocean); color: #fff; }
   & .btn-block { width: 100%; justify-content: center; }
   & .btn-lg { padding: 16px 34px; font-size: 1.05rem; }
 
@@ -116,6 +118,8 @@
   & .nav-tools { display: flex; align-items: center; gap: 10px; }
   & .nav-track { font-weight: 500; font-size: 0.9rem; color: var(--muted); padding: 9px 8px; }
   & .nav-track:hover { color: var(--ocean-dark); }
+  /* Accès agence dans la liste : masqué en desktop, révélé dans le menu burger */
+  & .nav-agency { display: none; }
   & .burger {
     display: none; width: 42px; height: 42px; border-radius: 50%;
     place-items: center; background: var(--sand-2); border: none; cursor: pointer; color: var(--ink);
@@ -305,6 +309,10 @@
       background: #fff; padding: 16px; border-bottom: 1px solid var(--line); box-shadow: var(--shadow); gap: 2px;
     }
     & .nav-links.open a { width: 100%; }
+    & .btn-agency { display: none; }
+    & .nav-links.open .nav-agency {
+      display: block; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 14px;
+    }
     & .grid-3, & .grid-4, & .grid-2, & .feature-grid, & .dest-grid, & .trust, & .form-row { grid-template-columns: 1fr; }
     & .search-bar { grid-template-columns: 1fr; margin-top: -20px; }
     & .strip { padding: 34px 26px; }

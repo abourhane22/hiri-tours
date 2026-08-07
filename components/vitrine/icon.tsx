@@ -12,6 +12,7 @@ const PATHS: Record<string, string> = {
   hotel: '<rect x="4" y="4.5" width="16" height="16" rx="1.5"/><path d="M8.5 9h1.6M13.9 9h1.6M8.5 13h1.6M13.9 13h1.6"/><path d="M10.5 20.5v-3.4h3v3.4"/>',
   car: '<path d="M3 15.5 4.5 10a2 2 0 0 1 1.9-1.5h9.8a2 2 0 0 1 1.9 1.3l1.9 5.7"/><path d="M2.5 15.5h19v2.6h-19Z"/><circle cx="7" cy="19.5" r="1.9"/><circle cx="17" cy="19.5" r="1.9"/><path d="M12 8.5v7"/>',
   // interface
+  user: '<circle cx="12" cy="8" r="3.4"/><path d="M5 20c1.2-3.6 3.8-5.2 7-5.2s5.8 1.6 7 5.2"/>',
   pin: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11Z"/><circle cx="12" cy="9.8" r="2.2"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   cal: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.5h17"/><path d="M8 3v4M16 3v4"/>',
