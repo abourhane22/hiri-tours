@@ -13,8 +13,9 @@ export const config = {
      * - _next/image (image optimization)
      * - favicon.ico, sitemap.xml, robots.txt
      * - payer, reserver (parcours PUBLICS — pas de session, lecture service-role)
+     * - destinations, activites, contact, blog (pages vitrine publiques)
      * - image files
      */
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|payer|reserver|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|payer|reserver|destinations|activites|contact|blog|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
