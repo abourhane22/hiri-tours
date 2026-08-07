@@ -72,6 +72,7 @@ export function BookingTunnel({ circuit, bank }: { circuit: Circuit; bank: Bank 
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PublicReservationResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const maxPax = circuit.maxParticipants;
   const overCapacity = maxPax > 0 && pax > maxPax;
@@ -450,6 +451,35 @@ export function BookingTunnel({ circuit, bank }: { circuit: Circuit; bank: Bank 
                   </>
                 )}
               </p>
+            )}
+
+            {/* Lien de suivi longue durée */}
+            {result.suiviUrl && (
+              <div className="mt-5 rounded-lg border border-[#E5E0D7] bg-[#FBF9F5] p-3 text-left">
+                <p className="text-[12px] text-[#6B6862] mb-1.5">
+                  Suivez votre dossier à tout moment :
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={result.suiviUrl}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="min-w-0 flex-1 rounded-md border border-[#E0DACF] bg-white px-2.5 py-1.5 text-[12px] font-mono text-[#1A1F2E]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(result.suiviUrl!);
+                      setCopiedLink(true);
+                      setTimeout(() => setCopiedLink(false), 1500);
+                    }}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[#1A1F2E] px-2.5 py-1.5 text-[12px] font-medium text-white hover:bg-[#2A3142]"
+                  >
+                    {copiedLink ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                    {copiedLink ? "Copié" : "Copier"}
+                  </button>
+                </div>
+              </div>
             )}
 
             {result.emailSent && (

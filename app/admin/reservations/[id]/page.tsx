@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureAccessToken, suiviUrl } from "@/lib/access-token";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
@@ -35,6 +37,7 @@ import { SendVoucherEmailButton } from "@/components/send-voucher-email-button";
 import { WhatsAppButton } from "@/components/whatsapp-button";
 import { ReservationStatusForm } from "@/components/reservation-status-form";
 import { PaymentCollector } from "@/components/payment-collector";
+import { SuiviLinkButton } from "@/components/suivi-link-button";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   attijari: "Attijari Payment",
@@ -235,6 +238,31 @@ export default async function ReservationDetailPage({
   const actionBtn =
     "inline-flex items-center gap-1.5 rounded-lg border border-[#E5E0D7] bg-white text-[12.5px] font-medium px-3.5 py-2 text-[#1A1F2E] hover:bg-[#FAF5F0] transition-colors";
 
+  // Lien de suivi client (génère à la volée si absent — écritures service-role).
+  let suiviLink: string | null = null;
+  try {
+    suiviLink = suiviUrl(await ensureAccessToken(createAdminClient(), id));
+  } catch (e) {
+    console.error("[reservation] token de suivi:", e);
+  }
+
+  // Email client via mailto (le client mail de l'agent envoie — aucun Resend).
+  const emailPhrase = isSettled
+    ? "est intégralement réglée"
+    : `il reste ${mad(balance)} à régler`;
+  const mailBody =
+    `Bonjour ${firstName},\r\n\r\n` +
+    `Votre réservation ${r.reference} (${circuit?.title ?? ""}, départ le ${formatDate(
+      r.departure_date,
+    )}, ${paxCount} passager${paxCount > 1 ? "s" : ""}) : ${emailPhrase}.\r\n` +
+    (suiviLink ? `Suivez votre dossier et payez en ligne : ${suiviLink}.\r\n` : "") +
+    `\r\nCordialement,\r\nHiri Tours`;
+  const mailtoHref = customer?.email
+    ? `mailto:${customer.email}?subject=${encodeURIComponent(
+        `Votre réservation ${r.reference} — Hiri Tours`,
+      )}&body=${encodeURIComponent(mailBody)}`
+    : null;
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <Link
@@ -274,11 +302,17 @@ export default async function ReservationDetailPage({
           {!isCancelled && (
             <>
               <SendVoucherEmailButton reservationId={id} customerEmail={customer?.email ?? null} />
+              {mailtoHref && (
+                <a href={mailtoHref} className={actionBtn}>
+                  <Mail className="size-4" /> Email client
+                </a>
+              )}
               <Link href={`/admin/reservations/${id}/voucher`} target="_blank" className={actionBtn}>
                 <Printer className="size-4" /> Imprimer
               </Link>
             </>
           )}
+          {suiviLink && <SuiviLinkButton url={suiviLink} />}
           <WhatsAppButton phone={customer?.phone ?? null} message={waMessage} label={waLabel} />
           {canInvoice &&
             (existingInvoice ? (

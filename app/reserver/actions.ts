@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizePhone, normalizeEmail } from "@/lib/customers";
 import { seasonMultiplier, computeReservationTotal } from "@/lib/pricing";
 import { sendBookingConfirmation } from "@/lib/email";
+import { ensureAccessToken, suiviUrl } from "@/lib/access-token";
 
 export type PaymentChannel = "carte" | "virement" | "agence";
 
@@ -21,7 +22,7 @@ export type PublicReservationInput = {
 };
 
 export type PublicReservationResult =
-  | { ok: true; id: string | null; reference: string; emailSent: boolean }
+  | { ok: true; id: string | null; reference: string; emailSent: boolean; suiviUrl: string | null }
   | { ok: false; error: string };
 
 const MAX_PER_HOUR = 5;
@@ -40,7 +41,7 @@ export async function createPublicReservation(
 ): Promise<PublicReservationResult> {
   // (a) Honeypot : un bot remplit le champ caché → succès factice, zéro écriture.
   if (input.website && input.website.trim() !== "") {
-    return { ok: true, id: null, reference: "AG-DEMO", emailSent: false };
+    return { ok: true, id: null, reference: "AG-DEMO", emailSent: false, suiviUrl: null };
   }
 
   // (c) Validation stricte des entrées.
@@ -209,6 +210,14 @@ export async function createPublicReservation(
   // Journalise pour le rate-limit (best-effort).
   await supabase.from("public_request_log").insert({ ip, kind: "reservation" });
 
+  // Jeton de suivi (lien de consultation longue durée).
+  let suivi: string | null = null;
+  try {
+    suivi = suiviUrl(await ensureAccessToken(supabase, id));
+  } catch (e) {
+    console.error("[createPublicReservation] token:", e);
+  }
+
   // Récapitulatif par email (service-role pour lire malgré l'absence de session).
   let emailSent = false;
   try {
@@ -218,5 +227,5 @@ export async function createPublicReservation(
     console.error("[createPublicReservation] email:", e);
   }
 
-  return { ok: true, id, reference, emailSent };
+  return { ok: true, id, reference, emailSent, suiviUrl: suivi };
 }
