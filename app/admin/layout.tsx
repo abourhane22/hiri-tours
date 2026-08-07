@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { AdminHeader } from "@/components/admin-header";
+import { IdleWarning } from "@/components/idle-warning";
 
 export default async function AdminLayout({
   children,
@@ -19,6 +20,7 @@ export default async function AdminLayout({
     <div className="bg-sand-50 min-h-screen">
       <AdminHeader userEmail={user?.email} userRole={profile?.role ?? undefined} />
       <main>{children}</main>
+      <IdleWarning />
     </div>
   );
 }

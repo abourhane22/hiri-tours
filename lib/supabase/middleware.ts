@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { userCan, ROUTE_PERMISSIONS } from "@/lib/permissions";
+import { SESSION_TIMEOUT_MINUTES, LAST_ACTIVITY_COOKIE } from "@/lib/auth-timeout";
 
 type CookieToSet = { name: string; value: string; options?: Record<string, unknown> };
 
@@ -45,6 +46,37 @@ export async function updateSession(request: NextRequest) {
       redirectUrl.searchParams.set("next", request.nextUrl.pathname);
       return NextResponse.redirect(redirectUrl);
     }
+
+    // Déconnexion automatique après inactivité (source de vérité serveur).
+    const timeoutMs = SESSION_TIMEOUT_MINUTES * 60 * 1000;
+    const now = Date.now();
+    const raw = request.cookies.get(LAST_ACTIVITY_COOKIE)?.value;
+    const last = raw ? Number(raw) : null;
+
+    if (last && Number.isFinite(last) && now - last > timeoutMs) {
+      // Expirée : on coupe la session et on renvoie au login en gardant next.
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.search = "";
+      redirectUrl.pathname = "/login";
+      redirectUrl.searchParams.set("reason", "timeout");
+      redirectUrl.searchParams.set("next", request.nextUrl.pathname);
+      const res = NextResponse.redirect(redirectUrl);
+      for (const c of request.cookies.getAll()) {
+        if (c.name.startsWith("sb-")) res.cookies.delete(c.name);
+      }
+      res.cookies.delete(LAST_ACTIVITY_COOKIE);
+      await supabase.auth.signOut().catch(() => {});
+      return res;
+    }
+
+    // Active : (re)pose l'horodatage de dernière activité.
+    response.cookies.set(LAST_ACTIVITY_COOKIE, String(now), {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: SESSION_TIMEOUT_MINUTES * 60,
+    });
 
     const { data: profile } = await supabase
       .from("profiles")

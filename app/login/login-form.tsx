@@ -6,10 +6,11 @@ import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 interface LoginFormProps {
   action: (formData: FormData) => Promise<void>;
   error?: string;
+  notice?: string;
   next: string;
 }
 
-export function LoginForm({ action, error, next }: LoginFormProps) {
+export function LoginForm({ action, error, notice, next }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
@@ -22,6 +23,12 @@ export function LoginForm({ action, error, next }: LoginFormProps) {
       <p className="text-sm text-[#6B6862] mb-6">
         Accédez à votre espace de gestion.
       </p>
+
+      {notice && (
+        <p className="mb-5 rounded-lg border border-[#CFE3F2] bg-[#EAF3FB] px-3.5 py-2.5 text-sm text-[#0C447C]">
+          {notice}
+        </p>
+      )}
 
       {error && (
         <p className="mb-5 text-sm text-red-600">{decodeURIComponent(error)}</p>

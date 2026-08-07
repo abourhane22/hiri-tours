@@ -1,14 +1,16 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
+import { SESSION_TIMEOUT_MINUTES, LAST_ACTIVITY_COOKIE } from "@/lib/auth-timeout";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; reason?: string }>;
 }) {
-  const { next, error } = await searchParams;
+  const { next, error, reason } = await searchParams;
 
   async function signIn(formData: FormData) {
     "use server";
@@ -27,6 +29,17 @@ export default async function LoginPage({
     if (authError) {
       redirect(`/login?error=${encodeURIComponent(authError.message)}`);
     }
+
+    // Réinitialise le compteur d'inactivité pour la nouvelle session.
+    const jar = await cookies();
+    jar.set(LAST_ACTIVITY_COOKIE, String(Date.now()), {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: SESSION_TIMEOUT_MINUTES * 60,
+    });
+
     redirect(nextPath);
   }
 
@@ -76,7 +89,12 @@ export default async function LoginPage({
 
       {/* Right panel — form */}
       <div className="flex-1 flex items-center justify-center bg-[#FAF5F0] px-9 py-11">
-        <LoginForm action={signIn} error={error} next={next || "/admin"} />
+        <LoginForm
+          action={signIn}
+          error={error}
+          notice={reason === "timeout" ? "Vous avez été déconnecté après 30 minutes d'inactivité." : undefined}
+          next={next || "/admin"}
+        />
       </div>
     </main>
   );
