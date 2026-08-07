@@ -23,7 +23,7 @@ export default function ActivitesPage() {
         <div className="wrap">
           <div className="feature-grid">
             {ACTIVITES.map((a) => (
-              <Link className="feature" href="/reserver" key={a.nom}>
+              <Link className="feature" href={a.href} key={a.nom}>
                 <div className="ico">
                   <VitrineIcon name={a.ico} />
                 </div>
@@ -47,15 +47,15 @@ export default function ActivitesPage() {
               <h3>Transferts aéroport Al Massira</h3>
               <p>Navette privée ou VTC, accueil avec pancarte, suivi de vol en temps réel. Réservation en ligne 24h/24.</p>
               <p style={{ marginTop: "12px" }}>
-                <Link href="/reserver" className="btn btn-outline">Réserver un transfert</Link>
+                <Link href="/reserver/transfert-aeroport-massira" className="btn btn-outline">Réserver un transfert</Link>
               </p>
             </div>
             <div className="feature">
               <div className="ico"><VitrineIcon name="hotel" /></div>
               <h3>Séjours tout inclus</h3>
-              <p>Packages hébergement + activités avec nos hôtels partenaires à Agadir et Taghazout Bay. Transferts inclus.</p>
+              <p>Packages hébergement + activités sur demande : nous composons votre séjour à Agadir ou Taghazout Bay selon vos dates et votre budget.</p>
               <p style={{ marginTop: "12px" }}>
-                <Link href="/reserver" className="btn btn-outline">Voir les séjours</Link>
+                <Link href="/contact#devis" className="btn btn-outline">Demander un séjour sur mesure</Link>
               </p>
             </div>
             <div className="feature">
@@ -63,7 +63,7 @@ export default function ActivitesPage() {
               <h3>Location 4x4 &amp; voitures</h3>
               <p>Véhicules récents avec ou sans chauffeur, kilométrage illimité, assistance 24/7. Idéal pour explorer l&apos;Anti-Atlas.</p>
               <p style={{ marginTop: "12px" }}>
-                <Link href="/reserver" className="btn btn-outline">Louer un véhicule</Link>
+                <Link href="/contact#devis" className="btn btn-outline">Demander un devis</Link>
               </p>
             </div>
           </div>

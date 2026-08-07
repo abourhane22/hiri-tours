@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Calendar,
   Users,
@@ -11,11 +12,13 @@ import {
   Repeat,
   Utensils,
   Tag,
+  X,
 } from "lucide-react";
 import { formatMAD } from "@/lib/utils";
 
 export type CatalogItem = {
   id: string;
+  slug: string | null;
   title: string;
   category: string;
   heroImageUrl: string | null;
@@ -47,6 +50,24 @@ const CHIP_LABEL: Record<string, string> = {
 };
 
 const CHIP_ORDER = ["circuit", "excursion", "transfert", "sejour"];
+
+/** Minuscule + sans accents, pour une recherche tolérante. */
+function normalize(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
+
+/** L'item correspond-il à la recherche libre ? (titre + slug, tokens ≥ 3). */
+function matchesQuery(item: CatalogItem, q: string): boolean {
+  const nq = normalize(q).trim();
+  if (!nq) return true;
+  const hay = normalize(`${item.title} ${item.slug ?? ""}`);
+  const tokens = nq.split(/\s+/).filter((t) => t.length >= 3);
+  if (tokens.length === 0) return hay.includes(nq);
+  return tokens.some((t) => hay.includes(t));
+}
 
 const PLACEHOLDER: Record<string, string> = {
   circuit: "linear-gradient(135deg, #B0653A, #7A4A28)",
@@ -109,10 +130,37 @@ function buildMeta(c: CatalogItem): Meta[] {
 }
 
 export function CatalogGrid({ items }: { items: CatalogItem[] }) {
-  const present = CHIP_ORDER.filter((cat) => items.some((c) => c.category === cat));
-  const [active, setActive] = useState<string>("all");
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const filtered = active === "all" ? items : items.filter((c) => c.category === active);
+  const present = CHIP_ORDER.filter((cat) => items.some((c) => c.category === cat));
+
+  // État initialisé depuis l'URL : ?cat=… (fallback "all") et ?q=….
+  const rawCat = searchParams.get("cat");
+  const initialCat = rawCat && present.includes(rawCat) ? rawCat : "all";
+  const initialQ = searchParams.get("q") ?? "";
+
+  const [active, setActive] = useState<string>(initialCat);
+  const [q, setQ] = useState<string>(initialQ);
+
+  const filtered = useMemo(
+    () =>
+      items
+        .filter((c) => active === "all" || c.category === active)
+        .filter((c) => matchesQuery(c, q)),
+    [items, active, q],
+  );
+
+  function resetAll() {
+    setActive("all");
+    setQ("");
+    router.replace("/reserver");
+  }
+
+  function clearQuery() {
+    setQ("");
+    router.replace(active === "all" ? "/reserver" : `/reserver?cat=${active}`);
+  }
 
   if (items.length === 0) {
     return (
@@ -124,7 +172,7 @@ export function CatalogGrid({ items }: { items: CatalogItem[] }) {
 
   return (
     <div>
-      {/* Filtres par catégorie */}
+      {/* Filtres par catégorie + recherche active */}
       <div className="mb-5 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         <Chip label="Tout" active={active === "all"} onClick={() => setActive("all")} />
         {present.map((cat) => (
@@ -135,8 +183,34 @@ export function CatalogGrid({ items }: { items: CatalogItem[] }) {
             onClick={() => setActive(cat)}
           />
         ))}
+        {q.trim() && (
+          <button
+            type="button"
+            onClick={clearQuery}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-[#1A1F2E] px-3.5 py-1.5 text-[13px] font-medium text-white"
+          >
+            Recherche : « {q.trim()} »
+            <X className="size-3.5" />
+          </button>
+        )}
       </div>
 
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border border-[#E5E0D7] bg-white py-12 px-4 text-center">
+          <p className="text-sm text-[#6B6862]">
+            {q.trim()
+              ? <>Aucune offre ne correspond à « <span className="font-medium text-[#1A1F2E]">{q.trim()}</span> ».</>
+              : "Aucune offre ne correspond à ce filtre."}
+          </p>
+          <button
+            type="button"
+            onClick={resetAll}
+            className="mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-[#0f6d78] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#0a4c54]"
+          >
+            Voir tout le catalogue
+          </button>
+        </div>
+      ) : (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((c) => {
           const meta = buildMeta(c);
@@ -209,6 +283,7 @@ export function CatalogGrid({ items }: { items: CatalogItem[] }) {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

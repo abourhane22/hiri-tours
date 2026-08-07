@@ -22,7 +22,12 @@ export default function DestinationsPage() {
         <div className="wrap">
           <div className="dest-grid" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
             {DESTINATIONS.map((d) => (
-              <Link key={d.nom} className="dest" href="/reserver" style={{ aspectRatio: "4/3" }}>
+              <Link
+                key={d.nom}
+                className="dest"
+                href={`/reserver?q=${encodeURIComponent(d.nom)}`}
+                style={{ aspectRatio: "4/3" }}
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={d.img} alt={d.nom} loading="lazy" />
                 <div className="dest-info">
@@ -72,7 +77,7 @@ export default function DestinationsPage() {
                     {DEST_GUIDES[d.nom] ?? ""}
                   </p>
                 </div>
-                <Link className="btn btn-ocean" href="/reserver">
+                <Link className="btn btn-ocean" href={`/reserver?q=${encodeURIComponent(d.nom)}`}>
                   Explorer →
                 </Link>
               </div>

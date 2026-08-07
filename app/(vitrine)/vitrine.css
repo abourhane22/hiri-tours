@@ -220,6 +220,9 @@
   /* BLOG */
   & .post { background: #fff; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); border: 1px solid #f0e9dd; transition: 0.2s; }
   & .post:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); }
+  /* Cartes article inertes (page blog) : aucun affordance de clic */
+  & .post-static { cursor: default; }
+  & .post-static:hover { transform: none; box-shadow: var(--shadow); }
   & .post img { aspect-ratio: 16/10; object-fit: cover; width: 100%; }
   & .post .body { padding: 20px; }
   & .post .cat { font-size: 0.74rem; color: var(--sun-dark); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }

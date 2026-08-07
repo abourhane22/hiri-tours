@@ -56,7 +56,7 @@ export function TrackingForm() {
         type="submit"
         disabled={isPending}
         aria-busy={isPending}
-        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#0F6E56] px-4 text-sm font-medium text-white transition-colors hover:bg-[#085041] disabled:opacity-60 disabled:pointer-events-none"
+        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#0f6d78] px-4 text-sm font-medium text-white transition-colors hover:bg-[#0a4c54] disabled:opacity-60 disabled:pointer-events-none"
       >
         {isPending ? (
           <>

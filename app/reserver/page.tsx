@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { ShieldCheck, Zap, MapPin, Ticket } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -11,7 +12,7 @@ export default async function ReserverCatalogPage() {
   const { data: circuits } = await supabase
     .from("circuits")
     .select(
-      "id, title, category, hero_image_url, base_price_mad, max_participants, duration_days, duration_hours, category_fields, circuit_seasons(starts_on, ends_on, price_multiplier)",
+      "id, slug, title, category, hero_image_url, base_price_mad, max_participants, duration_days, duration_hours, category_fields, circuit_seasons(starts_on, ends_on, price_multiplier)",
     )
     .eq("is_active", true)
     .order("base_price_mad", { ascending: true });
@@ -22,6 +23,7 @@ export default async function ReserverCatalogPage() {
     const f = (c.category_fields ?? {}) as Record<string, any>;
     return {
       id: c.id,
+      slug: c.slug ?? null,
       title: c.title,
       category: c.category,
       heroImageUrl: c.hero_image_url ?? null,
@@ -41,43 +43,26 @@ export default async function ReserverCatalogPage() {
 
   return (
     <div>
-      {/* HÉROS */}
-      <section
-        className="relative overflow-hidden"
-        style={{ background: "linear-gradient(160deg, #1A1F2E 55%, #2A3550)" }}
-      >
-        {/* Halo décoratif terracotta */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(200,75,49,0.35), transparent 70%)" }}
-        />
-        <div className="relative max-w-5xl mx-auto px-4 py-10 sm:py-14">
-          <div className="flex items-baseline gap-2">
-            <span className="font-display text-lg text-white tracking-tight">Hiri Tours</span>
-            <span className="text-[8px] tracking-[2px] uppercase text-[#FFB89A]">
-              Agadir · Maroc
-            </span>
-          </div>
-          <h1 className="mt-3 font-display text-2xl text-white max-w-lg leading-snug">
-            Le Sud marocain, réservé en 2 minutes.
-          </h1>
-          <p className="mt-2 text-[#B8C0D4] text-sm max-w-lg">
-            Circuits, excursions et transferts — confirmation immédiate, paiement 100 % sécurisé.
-          </p>
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10.5px] text-[#9FE1CB]">
-            <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="size-3.5" /> Paiement 3D Secure
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Zap className="size-3.5" /> Confirmation immédiate
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <MapPin className="size-3.5" /> Agence locale
-            </span>
-          </div>
+      {/* Intro compacte — la marque est portée par le header vitrine ci-dessus */}
+      <div className="max-w-5xl mx-auto px-4 pt-8">
+        <h1 className="font-display text-2xl text-[#1A1F2E] leading-snug">
+          Le Sud marocain, réservé en 2 minutes.
+        </h1>
+        <p className="mt-1.5 text-sm text-[#6B6862]">
+          Circuits, excursions et transferts — confirmation immédiate, paiement sécurisé.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-[#0f6d78]">
+          <span className="inline-flex items-center gap-1.5">
+            <ShieldCheck className="size-3.5" /> Paiement 3D Secure
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Zap className="size-3.5" /> Confirmation immédiate
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <MapPin className="size-3.5" /> Agence locale
+          </span>
         </div>
-      </section>
+      </div>
 
       <div className="max-w-5xl mx-auto px-4 py-6">
         {/* BANDEAU SUIVI */}
@@ -97,7 +82,9 @@ export default async function ReserverCatalogPage() {
           </Link>
         </div>
 
-        <CatalogGrid items={items} />
+        <Suspense fallback={null}>
+          <CatalogGrid items={items} />
+        </Suspense>
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 const STATUS_PILL: Record<string, { label: string; bg: string; color: string; Icon: typeof Clock }> = {
   pending: { label: "Demande", bg: "#FAEEDA", color: "#633806", Icon: Clock },
   confirmed: { label: "Confirmée", bg: "#E6F1FB", color: "#0C447C", Icon: CircleCheck },
-  paid: { label: "Payée", bg: "#E1F5EE", color: "#085041", Icon: CircleCheck },
+  paid: { label: "Payée", bg: "#E1F5EE", color: "#0a4c54", Icon: CircleCheck },
   completed: { label: "Terminée", bg: "#F1EFE8", color: "#444441", Icon: Flag },
   cancelled: { label: "Annulée", bg: "#FCEBEB", color: "#791F1F", Icon: CircleX },
 };
@@ -112,7 +112,7 @@ export default async function SuiviPage({ params }: { params: Promise<{ token: s
           {STEPS.map((s, i) => {
             const done = i < currentStepIndex;
             const active = i === currentStepIndex;
-            const color = done ? "#0F6E56" : active ? "#C84B31" : "#E0DACF";
+            const color = done ? "#0f6d78" : active ? "#C84B31" : "#E0DACF";
             return (
               <div key={s.key} className="pb-1.5" style={{ borderBottom: `2px solid ${color}` }}>
                 <div
@@ -160,7 +160,7 @@ export default async function SuiviPage({ params }: { params: Promise<{ token: s
             <div className="flex items-baseline justify-between text-sm tabular-nums mb-1.5">
               <span className="text-[#6B6862]">Encaissé</span>
               <span>
-                <span className="text-[#0F6E56] font-medium">{formatMAD(totalPaid)}</span>
+                <span className="text-[#0f6d78] font-medium">{formatMAD(totalPaid)}</span>
                 <span className="text-[#B4AC9E]"> / {formatMAD(totalAmount)}</span>
                 {totalAmount > 0 && <span className="text-[#B4AC9E]"> · {progress} %</span>}
               </span>
@@ -168,14 +168,14 @@ export default async function SuiviPage({ params }: { params: Promise<{ token: s
             <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "#EEE9E0" }}>
               <div
                 className="h-full rounded-full"
-                style={{ width: `${progress}%`, backgroundColor: "#0F6E56" }}
+                style={{ width: `${progress}%`, backgroundColor: "#0f6d78" }}
               />
             </div>
 
             {isSettled ? (
               <div
                 className="mt-3 flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium"
-                style={{ backgroundColor: "#E1F5EE", color: "#085041" }}
+                style={{ backgroundColor: "#E1F5EE", color: "#0a4c54" }}
               >
                 <CircleCheck className="size-4" /> Réservation réglée, à bientôt !
               </div>
@@ -187,7 +187,7 @@ export default async function SuiviPage({ params }: { params: Promise<{ token: s
                 </div>
                 <Link
                   href={`/payer/${r.id}`}
-                  className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#0F6E56] px-4 text-sm font-medium text-white transition-colors hover:bg-[#085041]"
+                  className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#0f6d78] px-4 text-sm font-medium text-white transition-colors hover:bg-[#0a4c54]"
                 >
                   <CreditCard className="size-4" /> Payer {formatMAD(balance)} maintenant
                 </Link>

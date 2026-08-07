@@ -235,7 +235,7 @@ export function BookingTunnel({ circuit, bank }: { circuit: Circuit; bank: Bank 
                   <div className="text-[11px] text-[#C84B31]">Tarif haute saison appliqué</div>
                 )}
               </div>
-              <div className="font-display text-2xl text-[#0F6E56] tabular-nums">
+              <div className="font-display text-2xl text-[#0f6d78] tabular-nums">
                 {formatMAD(total)}
               </div>
             </div>
@@ -300,7 +300,7 @@ export function BookingTunnel({ circuit, bank }: { circuit: Circuit; bank: Bank 
             </div>
 
             <p className="mt-3 flex items-start gap-1.5 text-[12px] text-[#6B6862]">
-              <ShieldCheck className="size-3.5 shrink-0 mt-px text-[#0F6E56]" />
+              <ShieldCheck className="size-3.5 shrink-0 mt-px text-[#0f6d78]" />
               Si vous avez déjà voyagé avec nous, votre dossier sera automatiquement rattaché à
               votre compte.
             </p>
@@ -387,7 +387,7 @@ export function BookingTunnel({ circuit, bank }: { circuit: Circuit; bank: Bank 
         <div className="mt-5">
           <div className="rounded-xl border border-[#E5E0D7] bg-white p-6 text-center">
             <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-[#E1F5EE]">
-              <CircleCheck className="size-8 text-[#0F6E56]" />
+              <CircleCheck className="size-8 text-[#0f6d78]" />
             </div>
             <h2 className="font-display text-xl text-[#1A1F2E]">Demande enregistrée !</h2>
             <p className="mt-1 text-[13px] text-[#6B6862]">
@@ -521,7 +521,7 @@ function StepBar({ current }: { current: number }) {
         const n = i + 1;
         const done = n < current;
         const active = n === current;
-        const color = done ? "#0F6E56" : active ? "#C84B31" : "#E0DACF";
+        const color = done ? "#0f6d78" : active ? "#C84B31" : "#E0DACF";
         return (
           <div key={label} className="pb-2" style={{ borderBottom: `2px solid ${color}` }}>
             <div className="text-[11px] tabular-nums" style={{ color: done || active ? color : "#968F84" }}>
@@ -558,7 +558,7 @@ function NavButtons({
         type="button"
         onClick={onNext}
         disabled={nextDisabled}
-        className="inline-flex h-11 flex-1 items-center justify-center rounded-lg bg-[#0F6E56] px-4 text-sm font-medium text-white transition-colors hover:bg-[#085041] disabled:opacity-50 disabled:pointer-events-none"
+        className="inline-flex h-11 flex-1 items-center justify-center rounded-lg bg-[#0f6d78] px-4 text-sm font-medium text-white transition-colors hover:bg-[#0a4c54] disabled:opacity-50 disabled:pointer-events-none"
       >
         {nextLabel}
       </button>
@@ -585,12 +585,12 @@ function PayCard({
       onClick={onClick}
       aria-pressed={active}
       className={`flex w-full items-start gap-3 rounded-xl border-2 p-3.5 text-left transition-colors ${
-        active ? "border-[#0F6E56] bg-[#F7FCFA]" : "border-[#E5E0D7] bg-white hover:border-[#C9C0AE]"
+        active ? "border-[#0f6d78] bg-[#F7FCFA]" : "border-[#E5E0D7] bg-white hover:border-[#C9C0AE]"
       }`}
     >
       <span
         className={`mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-lg ${
-          active ? "bg-[#0F6E56] text-white" : "bg-[#F1EFE8] text-[#6B6862]"
+          active ? "bg-[#0f6d78] text-white" : "bg-[#F1EFE8] text-[#6B6862]"
         }`}
       >
         <Icon className="size-[18px]" />
@@ -598,7 +598,7 @@ function PayCard({
       <span className="min-w-0 flex-1">
         <span className="flex items-center justify-between gap-2">
           <span className="font-medium text-[#1A1F2E]">{title}</span>
-          {active && <CircleCheck className="size-4 text-[#0F6E56] shrink-0" />}
+          {active && <CircleCheck className="size-4 text-[#0f6d78] shrink-0" />}
         </span>
         <span className="mt-0.5 block text-[12px] leading-relaxed text-[#6B6862]">{desc}</span>
       </span>

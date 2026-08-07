@@ -1,39 +1,35 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 /**
- * Barre de recherche du héros — version simple : le submit redirige vers le
- * tunnel /reserver (pas d'autocomplétion). Champs présentés à titre visuel.
+ * Barre de recherche du héros — champ texte unique. Le submit transmet
+ * l'intention au catalogue via ?q= (saisie vide → /reserver nu).
  */
 export function HeroSearchBar() {
   const router = useRouter();
+  const [q, setQ] = useState("");
 
   return (
     <form
       className="search-bar"
+      style={{ gridTemplateColumns: "1fr auto" }}
       onSubmit={(e) => {
         e.preventDefault();
-        router.push("/reserver");
+        const t = q.trim();
+        router.push(t ? `/reserver?q=${encodeURIComponent(t)}` : "/reserver");
       }}
     >
       <div className="search-field">
         <label>Destination ou activité</label>
-        <input type="text" placeholder="Ex. : désert, surf, Taghazout…" autoComplete="off" />
-      </div>
-      <div className="search-field">
-        <label>Date souhaitée</label>
-        <input type="date" />
-      </div>
-      <div className="search-field">
-        <label>Type de séjour</label>
-        <select defaultValue="">
-          <option value="">Tous les types</option>
-          <option>Excursion à la journée</option>
-          <option>Circuit 2-3 jours</option>
-          <option>Séjour tout inclus</option>
-          <option>Transfert aéroport</option>
-        </select>
+        <input
+          type="text"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Ex. : désert, surf, Taghazout…"
+          autoComplete="off"
+        />
       </div>
       <button className="btn btn-ocean btn-lg" type="submit">
         Rechercher

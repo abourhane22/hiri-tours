@@ -42,12 +42,15 @@ export default async function ReserverDetailPage({
   const { id } = await params;
   const supabase = createAdminClient();
 
+  // Le segment peut être un UUID (cartes catalogue) ou un slug (liens vitrine).
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
   const { data: circuit } = await supabase
     .from("circuits")
     .select(
       "id, title, category, description, short_description, hero_image_url, base_price_mad, child_price_mad, max_participants, meeting_point, category_fields, is_active, circuit_seasons(starts_on, ends_on, price_multiplier)",
     )
-    .eq("id", id)
+    .eq(isUuid ? "id" : "slug", id)
     .maybeSingle();
 
   if (!circuit || !(circuit as any).is_active) notFound();

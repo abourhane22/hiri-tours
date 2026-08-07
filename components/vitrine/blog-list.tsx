@@ -27,7 +27,7 @@ export function BlogList({ posts }: { posts: Post[] }) {
       </div>
       <div className="grid grid-3">
         {list.map((b) => (
-          <article className="post" key={b.titre}>
+          <article className="post post-static" key={b.titre}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={b.img} alt={b.titre} loading="lazy" />
             <div className="body">

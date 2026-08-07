@@ -46,15 +46,18 @@ export const DEST_GUIDES: Record<string, string> = {
     "Surnommée « la petite Marrakech », Taroudant charme avec ses remparts du XVIe siècle, ses souks d'artisanat et son ambiance de ville marocaine authentique, loin des foules.",
 };
 
+// `href` = cible transactionnelle. Mots-clés q pour transmettre l'intention
+// au catalogue ; fiche directe pour le transfert (seule prestation dédiée) ;
+// devis pour ce qui n'existe pas encore en base (séjours, location).
 export const ACTIVITES = [
-  { ico: "surf", nom: "Surf & bodyboard", desc: "Cours et sessions encadrées sur les meilleurs spots de Taghazout et Tamraght." },
-  { ico: "desert", nom: "Désert & dromadaires", desc: "Bivouacs, dunes et nuits étoilées dans le Sahara marocain." },
-  { ico: "quad", nom: "Quad & buggy", desc: "Randonnées motorisées à travers dunes, oueds et pistes de l'arrière-pays." },
-  { ico: "hike", nom: "Randonnée & nature", desc: "Vallée du Paradis, Anti-Atlas et cascades d'Imouzzer." },
-  { ico: "souk", nom: "Culture & souks", desc: "Souk El Had, medinas et coopératives d'huile d'argan." },
-  { ico: "van", nom: "Transferts aéroport", desc: "Navettes et VTC privés depuis/vers Agadir Al Massira." },
-  { ico: "hotel", nom: "Séjours tout inclus", desc: "Packages hébergement + activités avec hôtels partenaires." },
-  { ico: "car", nom: "Location 4x4", desc: "Véhicules avec ou sans chauffeur pour explorer librement." },
+  { ico: "surf", nom: "Surf & bodyboard", desc: "Cours et sessions encadrées sur les meilleurs spots de Taghazout et Tamraght.", href: "/reserver?q=surf" },
+  { ico: "desert", nom: "Désert & dromadaires", desc: "Bivouacs, dunes et nuits étoilées dans le Sahara marocain.", href: "/reserver?q=désert" },
+  { ico: "quad", nom: "Quad & buggy", desc: "Randonnées motorisées à travers dunes, oueds et pistes de l'arrière-pays.", href: "/reserver?q=quad" },
+  { ico: "hike", nom: "Randonnée & nature", desc: "Vallée du Paradis, Anti-Atlas et cascades d'Imouzzer.", href: "/reserver?q=randonnée" },
+  { ico: "souk", nom: "Culture & souks", desc: "Souk El Had, medinas et coopératives d'huile d'argan.", href: "/reserver?q=souk" },
+  { ico: "van", nom: "Transferts aéroport", desc: "Navettes et VTC privés depuis/vers Agadir Al Massira.", href: "/reserver/transfert-aeroport-massira" },
+  { ico: "hotel", nom: "Séjours tout inclus", desc: "Packages hébergement + activités sur demande.", href: "/contact#devis" },
+  { ico: "car", nom: "Location 4x4", desc: "Véhicules avec ou sans chauffeur pour explorer librement.", href: "/contact#devis" },
 ];
 
 export const AVIS = [

@@ -21,6 +21,9 @@ export default function BlogPage() {
 
       <section className="section">
         <div className="wrap">
+          <p className="muted center" style={{ marginTop: "-20px", marginBottom: "28px" }}>
+            Articles complets bientôt disponibles.
+          </p>
           <BlogList posts={BLOG_ALL} />
         </div>
       </section>

@@ -126,7 +126,11 @@ export default async function HomePage() {
           </SectionHead>
           <div className="dest-grid">
             {DESTINATIONS.slice(0, 6).map((d, i) => (
-              <Link key={d.nom} className={`dest ${i === 0 ? "big" : ""}`} href="/reserver">
+              <Link
+                key={d.nom}
+                className={`dest ${i === 0 ? "big" : ""}`}
+                href={`/reserver?q=${encodeURIComponent(d.nom)}`}
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={d.img} alt={d.nom} loading="lazy" />
                 <div className="dest-info">
@@ -145,13 +149,13 @@ export default async function HomePage() {
           <SectionHead eyebrow="Nos services" title="Une agence, toutes vos envies" />
           <div className="feature-grid">
             {ACTIVITES.map((a) => (
-              <div className="feature" key={a.nom}>
+              <Link className="feature" href={a.href} key={a.nom}>
                 <div className="ico">
                   <VitrineIcon name={a.ico} />
                 </div>
                 <h3>{a.nom}</h3>
                 <p>{a.desc}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
