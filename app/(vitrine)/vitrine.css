@@ -283,8 +283,8 @@
   & .news-form { display: flex; gap: 8px; margin-top: 12px; }
   & .news-form input { flex: 1; padding: 11px 14px; border-radius: 30px; border: none; font-family: var(--font); outline: none; }
   & .footer-bottom { border-top: 1px solid rgba(255, 255, 255, 0.1); margin-top: 40px; padding-top: 22px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 0.84rem; color: #8ba0a3; align-items: center; }
-  & .footer-bottom a { color: #8ba0a3; }
-  & .footer-bottom a:hover { color: var(--sun); }
+  & .footer-bottom a { color: #8ba0a3; text-decoration: none; }
+  & .footer-bottom a:hover { color: #8ba0a3; text-decoration: underline; }
   & .pay-badges { display: flex; gap: 8px; align-items: center; }
   & .pay-badges span { background: rgba(255, 255, 255, 0.1); padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 600; }
 
