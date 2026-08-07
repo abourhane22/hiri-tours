@@ -190,6 +190,22 @@ export default async function ReservationDetailPage({
   const paymentProgress = totalAmount > 0 ? Math.round(Math.min(100, (totalPaid / totalAmount) * 100)) : 0;
   const isCancelled = status === "cancelled";
   const isSettled = balance <= 0 && totalAmount > 0;
+  // Canal de paiement annoncé au tunnel public (facultatif).
+  const intendedChannel = (r as any).intended_payment_channel as string | null;
+  const agenceButoir =
+    intendedChannel === "agence" && r.departure_date
+      ? formatDateShort(
+          new Date(new Date(r.departure_date).getTime() - 7 * 86400000).toISOString(),
+        )
+      : null;
+  const channelChipLabel =
+    intendedChannel === "virement"
+      ? "Canal annoncé : virement"
+      : intendedChannel === "carte"
+        ? "Canal annoncé : carte bancaire"
+        : intendedChannel === "agence"
+          ? `Règlement à l'agence — butoir ${agenceButoir}`
+          : null;
   const attijariHasLogo = hasAttijariLogo();
   const currentStepIndex = STEPS.findIndex((s) => s.key === status);
   const canInvoice = status === "paid" || status === "completed";
@@ -541,6 +557,16 @@ export default async function ReservationDetailPage({
               ) : null
             }
           >
+            {channelChipLabel && (
+              <div className="mb-3">
+                <span
+                  className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium"
+                  style={{ backgroundColor: "#F1EFE8", color: "#6B6862" }}
+                >
+                  {channelChipLabel}
+                </span>
+              </div>
+            )}
             <div className="mb-4">
               <div className="flex items-baseline justify-between mb-1.5 text-sm tabular-nums">
                 <span className="text-[#6B6862]">Encaissé</span>

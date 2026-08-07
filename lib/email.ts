@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import BookingConfirmationEmail from "@/emails/booking-confirmation";
 import VoucherDeliveryEmail from "@/emails/voucher-delivery";
@@ -9,10 +10,14 @@ const FROM_EMAIL = process.env.EMAIL_FROM || "Hiri Tours <onboarding@resend.dev>
 
 type EmailResult = { success: boolean; id?: string; error?: string; skipped?: string };
 
-export async function sendBookingConfirmation(reservationId: string): Promise<EmailResult> {
+export async function sendBookingConfirmation(
+  reservationId: string,
+  client?: SupabaseClient,
+): Promise<EmailResult> {
   if (!resend) return { success: false, skipped: "RESEND_API_KEY non configurée" };
 
-  const supabase = await createClient();
+  // Client explicite (service-role pour un contexte public) ou session admin.
+  const supabase = client ?? (await createClient());
   const { data: reservation } = await supabase
     .from("reservations")
     .select("*, customers(full_name, email), circuits(title)")

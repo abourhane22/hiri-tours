@@ -58,6 +58,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const trendFetchStart = addMonths(now, -48);
   const todayStr = isoDate(now);
   const thirtyDaysOut = isoDate(new Date(now.getTime() + 30 * 86400000));
+  const sevenDaysOut = isoDate(new Date(now.getTime() + 7 * 86400000));
 
   const [
     allReservationsResult,
@@ -69,6 +70,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     companyResult,
     newCustomersResult,
     expiredPendingResult,
+    agenceRelanceResult,
   ] = await Promise.all([
     supabase
       .from("reservations")
@@ -119,6 +121,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       .select("id", { count: "exact", head: true })
       .eq("status", "pending")
       .lt("departure_date", todayStr),
+    // Règle J-7 : règlement à l'agence annoncé, départ dans ≤ 7 jours.
+    supabase
+      .from("reservations")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .eq("intended_payment_channel", "agence")
+      .gte("departure_date", todayStr)
+      .lte("departure_date", sevenDaysOut),
   ]);
 
   const allReservations = (allReservationsResult.data ?? []) as any[];
@@ -234,8 +244,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const vehicleAlertCount = vehicleAlerts.length;
   const oldInvoicesCount = issuedInvoices.filter((inv) => ageInDays(inv.issued_at) > 90).length;
   const expiredPendingCount = expiredPendingResult.count ?? 0;
+  const agenceRelanceCount = agenceRelanceResult.count ?? 0;
   const totalActions =
-    pendingPaymentsCount + vehicleAlertCount + oldInvoicesCount + expiredPendingCount;
+    pendingPaymentsCount +
+    vehicleAlertCount +
+    oldInvoicesCount +
+    expiredPendingCount +
+    agenceRelanceCount;
 
   // Nombre de catégories d'actions "rouges" (créances anciennes, véhicules) — pour l'accueil.
   const redActionCategories = [oldInvoicesCount > 0, vehicleAlertCount > 0].filter(Boolean).length;
@@ -269,6 +284,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         expiredPendingCount > 1
           ? "demandes dont le départ est passé"
           : "demande dont le départ est passé",
+      href: "/admin/reservations?status=pending",
+      red: false,
+    },
+    agenceRelanceCount > 0 && {
+      count: agenceRelanceCount,
+      label:
+        (agenceRelanceCount > 1 ? "réservations" : "réservation") +
+        " à relancer — règlement sur place attendu sous 7 jours",
       href: "/admin/reservations?status=pending",
       red: false,
     },
