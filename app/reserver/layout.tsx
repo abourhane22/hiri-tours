@@ -18,10 +18,15 @@ export default function ReserverLayout({ children }: { children: React.ReactNode
               Réservation
             </span>
           </Link>
-          <span className="inline-flex items-center gap-1.5 text-xs text-[#9FE1CB]">
-            <ShieldCheck className="size-3.5" />
-            Sécurisé
-          </span>
+          <div className="flex items-center gap-4">
+            <Link href="/reserver/suivi" className="text-xs text-white/80 hover:text-white">
+              Suivre ma réservation
+            </Link>
+            <span className="inline-flex items-center gap-1.5 text-xs text-[#9FE1CB]">
+              <ShieldCheck className="size-3.5" />
+              Sécurisé
+            </span>
+          </div>
         </div>
       </header>
 

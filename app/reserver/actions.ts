@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizePhone, normalizeEmail } from "@/lib/customers";
 import { seasonMultiplier, computeReservationTotal } from "@/lib/pricing";
@@ -34,6 +35,22 @@ async function requestIp(): Promise<string> {
   const fwd = h.get("x-forwarded-for");
   if (fwd) return fwd.split(",")[0]!.trim();
   return h.get("x-real-ip") || "unknown";
+}
+
+/** True si l'IP a dépassé MAX_PER_HOUR requêtes de ce type sur la dernière heure. */
+async function rateLimited(
+  supabase: ReturnType<typeof createAdminClient>,
+  ip: string,
+  kind: string,
+): Promise<boolean> {
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count } = await supabase
+    .from("public_request_log")
+    .select("id", { count: "exact", head: true })
+    .eq("ip", ip)
+    .eq("kind", kind)
+    .gte("created_at", since);
+  return (count ?? 0) >= MAX_PER_HOUR;
 }
 
 export async function createPublicReservation(
@@ -73,13 +90,7 @@ export async function createPublicReservation(
 
   // (b) Rate-limit : max 5 créations / heure / IP.
   const ip = await requestIp();
-  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const { count } = await supabase
-    .from("public_request_log")
-    .select("id", { count: "exact", head: true })
-    .eq("ip", ip)
-    .gte("created_at", since);
-  if ((count ?? 0) >= MAX_PER_HOUR) {
+  if (await rateLimited(supabase, ip, "reservation")) {
     return { ok: false, error: "Trop de demandes, réessayez plus tard." };
   }
 
@@ -228,4 +239,63 @@ export async function createPublicReservation(
   }
 
   return { ok: true, id, reference, emailSent, suiviUrl: suivi };
+}
+
+// ---------------------------------------------------------------------------
+// Suivi en libre-service : retrouver un dossier par référence + contact
+// ---------------------------------------------------------------------------
+
+export type TrackingState = { error: string } | null;
+
+const TRACKING_FAIL =
+  "Aucun dossier ne correspond à ces informations. Vérifiez votre référence et vos coordonnées.";
+
+/**
+ * Retrouve une réservation par (référence + email OU téléphone du client),
+ * puis redirige vers sa page de suivi tokenisée. Message d'échec identique
+ * que la référence soit inconnue ou le contact différent (ne rien révéler).
+ */
+export async function findReservationForTracking(
+  _prev: TrackingState,
+  formData: FormData,
+): Promise<TrackingState> {
+  // Honeypot : on ne révèle rien, on renvoie l'échec générique.
+  if (((formData.get("website") as string) || "").trim() !== "") {
+    return { error: TRACKING_FAIL };
+  }
+
+  const reference = ((formData.get("reference") as string) || "").trim().toUpperCase();
+  const contactRaw = ((formData.get("contact") as string) || "").trim();
+  if (!reference || !contactRaw) return { error: TRACKING_FAIL };
+
+  const isEmail = contactRaw.includes("@");
+  const normContact = isEmail ? normalizeEmail(contactRaw) : normalizePhone(contactRaw);
+  if (!normContact) return { error: TRACKING_FAIL };
+
+  const supabase = createAdminClient();
+
+  // Rate-limit dédié à cette action.
+  const ip = await requestIp();
+  if (await rateLimited(supabase, ip, "tracking")) {
+    return { error: "Trop de tentatives, réessayez plus tard." };
+  }
+  await supabase.from("public_request_log").insert({ ip, kind: "tracking" });
+
+  const { data: reservation } = await supabase
+    .from("reservations")
+    .select("id, customers(email, phone_normalized)")
+    .eq("reference", reference)
+    .maybeSingle();
+
+  if (!reservation) return { error: TRACKING_FAIL };
+  const cust = (reservation as any).customers;
+
+  const matches = isEmail
+    ? normalizeEmail(cust?.email) === normContact
+    : (cust?.phone_normalized ?? null) === normContact;
+
+  if (!matches) return { error: TRACKING_FAIL };
+
+  const token = await ensureAccessToken(supabase, (reservation as any).id);
+  redirect(`/reserver/suivi/${token}`);
 }

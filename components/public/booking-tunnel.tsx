@@ -396,6 +396,13 @@ export function BookingTunnel({ circuit, bank }: { circuit: Circuit; bank: Bank 
             {result.reference && (
               <p className="mt-1 font-mono text-lg text-[#1A1F2E]">{result.reference}</p>
             )}
+            {result.reference && result.id && (
+              <p className="mt-1 text-[12px] text-[#968F84]">
+                Conservez votre référence{" "}
+                <span className="font-mono">{result.reference}</span> : elle permet de retrouver
+                votre dossier à tout moment.
+              </p>
+            )}
 
             {/* Virement : bloc RIB */}
             {channel === "virement" && (
