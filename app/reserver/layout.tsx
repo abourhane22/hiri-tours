@@ -1,7 +1,7 @@
 import { Poppins } from "next/font/google";
-import { FlaskConical } from "lucide-react";
 import "@/app/(vitrine)/vitrine.css";
 import { getAgence } from "@/lib/agence";
+import { DemoBanner } from "@/components/public/demo-banner";
 import { VitrineHeader } from "@/components/vitrine/header";
 import { VitrineFooter } from "@/components/vitrine/footer";
 
@@ -27,15 +27,8 @@ export default async function ReserverLayout({ children }: { children: React.Rea
 
   return (
     <div className="min-h-screen flex flex-col bg-sand-50">
-      {/* Bandeau démonstration — au-dessus du header */}
-      <div className="bg-[#FFF4E0] border-b border-[#F1D9A8] print:hidden">
-        <div className="max-w-5xl mx-auto px-4 py-2 flex items-center gap-2">
-          <FlaskConical className="size-3.5 text-[#8A5A00] shrink-0" />
-          <p className="text-xs text-[#8A5A00]">
-            Environnement de démonstration — aucune transaction bancaire réelle.
-          </p>
-        </div>
-      </div>
+      {/* Bandeau démonstration — au-dessus du header, masqué sur le catalogue */}
+      <DemoBanner />
 
       {/* Header vitrine (scopé, chrome uniquement) */}
       <div className={`vitrine-scope ${poppins.variable}`} style={chromeStyle}>
