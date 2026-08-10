@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import {
   Lock,
   CircleCheck,
-  CreditCard,
   ShieldCheck,
   Smartphone,
   Clock,
@@ -84,15 +83,9 @@ export function AttijariPayPanel({
           className={cardCls(method === "stripe")}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-2">
-              <CreditCard className="size-5 text-[#3C3489]" />
-              <span
-                className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold"
-                style={{ backgroundColor: "#EEEDFE", color: "#3C3489" }}
-              >
-                Stripe
-              </span>
-            </span>
+            {/* Logo Stripe officiel — proportions natives, non recoloré */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/payments/stripe-logo.png" alt="Stripe" className="h-5 w-auto" />
             {method === "stripe" && <CircleCheck className="size-5 text-[#0F6E56] shrink-0" />}
           </div>
           <div className="mt-2.5 text-sm font-semibold text-[#1A1F2E]">Carte internationale</div>
