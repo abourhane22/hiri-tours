@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { userCan, type Permission } from "@/lib/permissions";
+import { NotificationBell } from "@/components/notification-bell";
+import type { AppNotification } from "@/lib/notifications";
 
 type NavItem = { href: string; label: string; icon: any; exact?: boolean; permission?: Permission };
 type NavGroup = { label: string; icon: any; match: string[]; items: NavItem[]; permission?: Permission };
@@ -53,7 +55,15 @@ const topLevelEnd: NavItem[] = [
   { href: "/admin/rapports", label: "Rapports", icon: BarChart3, permission: "viewRapports" },
 ];
 
-export function AdminHeader({ userEmail, userRole }: { userEmail?: string; userRole?: string }) {
+export function AdminHeader({
+  userEmail,
+  userRole,
+  notifications = [],
+}: {
+  userEmail?: string;
+  userRole?: string;
+  notifications?: AppNotification[];
+}) {
   const pathname = usePathname();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -190,6 +200,7 @@ export function AdminHeader({ userEmail, userRole }: { userEmail?: string; userR
 
         <div className="flex items-center gap-2 shrink-0">
           {userEmail && <span className="hidden lg:inline text-xs text-navy-200 truncate max-w-[180px]">{userEmail}</span>}
+          <NotificationBell initial={notifications} />
           {can("viewParametres") && (
             <Link href="/admin/parametres" className={cn(
               "size-8 rounded-md border flex items-center justify-center transition-colors",
