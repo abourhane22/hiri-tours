@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { Coins, Landmark, Link2, Info, Loader2, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Coins, Landmark, Link2, Info, Loader2, ShieldCheck, CircleCheck } from "lucide-react";
 import { Input, Label } from "@/components/ui/input";
 import { formatMAD } from "@/lib/utils";
 import { addPayment } from "@/app/admin/reservations/[id]/actions";
@@ -40,6 +41,7 @@ export function PaymentCollector({
   initialLink: ActiveLink | null;
   share: ShareData;
 }) {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("especes");
   const [amount, setAmount] = useState(balance.toFixed(2));
   const [externalRef, setExternalRef] = useState("");
@@ -49,8 +51,17 @@ export function PaymentCollector({
   const [isPending, startTransition] = useTransition();
   const refInput = useRef<HTMLInputElement>(null);
 
+  // Le champ Montant suit le reste à payer : après un encaissement, la fiche
+  // se revalide, `balance` change → on resynchronise sur le NOUVEAU reste.
+  useEffect(() => {
+    setAmount(balance.toFixed(2));
+  }, [balance]);
+
   const isVirement = mode === "virement";
+  const settled = balance <= 0;
   const half = Math.round(balance / 2);
+  const amountNum = Number(amount);
+  const amountInvalid = !(amountNum > 0) || amountNum - balance > 0.01;
 
   function selectMode(next: Mode) {
     setMode(next);
@@ -61,9 +72,15 @@ export function PaymentCollector({
   }
 
   function encaisser() {
-    if (isPending) return;
+    if (isPending || settled) return;
     setError(null);
     setWarning(null);
+
+    // Garde-fou client : montant > 0 et ≤ reste à payer (le serveur retranche).
+    if (amountInvalid) {
+      setError("Le montant doit être supérieur à 0 et ne pas dépasser le reste à payer.");
+      return;
+    }
 
     // Validation client : numéro de virement obligatoire (miroir du serveur).
     if (isVirement && !externalRef.trim()) {
@@ -81,9 +98,10 @@ export function PaymentCollector({
     startTransition(async () => {
       const result = await addPayment(reservationId, null, formData);
       if (result.ok) {
-        setAmount(balance.toFixed(2));
         setExternalRef("");
         if ("warning" in result && result.warning) setWarning(result.warning);
+        // Revalide la fiche → nouveau `balance` → l'effet resynchronise le champ.
+        router.refresh();
       } else {
         setError(result.error);
       }
@@ -122,6 +140,11 @@ export function PaymentCollector({
 
       {/* Espèces / Virement */}
       {mode !== "lien" ? (
+        settled ? (
+          <div className="mt-3 flex items-center justify-center gap-2 rounded-md bg-[#E1F5EE] px-3 py-2.5 text-sm font-medium text-[#085041]">
+            <CircleCheck className="size-4 shrink-0" /> Dossier soldé
+          </div>
+        ) : (
         <div className="mt-3 space-y-3">
           <div className="flex items-end gap-2">
             <div className="flex-1">
@@ -141,7 +164,7 @@ export function PaymentCollector({
             <button
               type="button"
               onClick={encaisser}
-              disabled={isPending}
+              disabled={isPending || amountInvalid}
               aria-busy={isPending}
               className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#0F6E56] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#085041] disabled:opacity-60 disabled:pointer-events-none"
             >
@@ -214,6 +237,7 @@ export function PaymentCollector({
             </p>
           )}
         </div>
+        )
       ) : (
         /* Lien de paiement en ligne */
         <div className="mt-3 space-y-3">
