@@ -49,4 +49,22 @@
 @media print {
   @page { margin: 1.5cm; }
   body { background: white !important; }
+
+  /* Conserve les aplats de couleur : barres du top 5, barre empilée des
+     sources, jauges d'occupation, bordures d'accent des KPI, chart SVG. */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Ne coupe pas une carte ou un tableau au milieu d'une page. */
+  table,
+  svg {
+    break-inside: avoid;
+  }
+  thead {
+    display: table-header-group;
+  }
 }

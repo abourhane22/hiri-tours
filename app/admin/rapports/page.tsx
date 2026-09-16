@@ -143,7 +143,7 @@ export default async function RapportsPage() {
     .filter((s) => s.guideCount + s.driverCount > 0)
     .sort((a, b) => (b.guideCount + b.driverCount) - (a.guideCount + a.driverCount));
 
-  const cardCls = "bg-white border border-[#E5E0D7] rounded-xl";
+  const cardCls = "bg-white border border-[#E5E0D7] rounded-xl print:break-inside-avoid";
   const cardLabel = "flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-[#968F84] font-medium";
 
   return (
@@ -159,7 +159,7 @@ export default async function RapportsPage() {
             Performance sur les 12 derniers mois de départs · au {now.toLocaleDateString("fr-FR")}
           </p>
         </div>
-        <VoucherPrintButton />
+        <VoucherPrintButton className="shrink-0 bg-white text-[#1A1F2E] border border-[#E0DACF] hover:bg-[#FBF9F5] rounded-full px-3 text-[11px]" />
       </div>
 
       <div className="hidden print:block mb-6">
@@ -381,7 +381,7 @@ function KpiCard({
         ? { borderLeft: "3px solid #D98324", borderRadius: "0 12px 12px 0" }
         : undefined;
   return (
-    <div className="bg-white border border-[#E5E0D7] rounded-xl p-3.5" style={borderStyle}>
+    <div className="bg-white border border-[#E5E0D7] rounded-xl p-3.5 print:break-inside-avoid" style={borderStyle}>
       <div className="flex items-start justify-between gap-2">
         <span className="text-[10px] uppercase tracking-wide text-[#968F84] font-medium">{label}</span>
         {delta}
