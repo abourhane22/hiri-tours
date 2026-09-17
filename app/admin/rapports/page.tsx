@@ -4,7 +4,8 @@ import { PerformanceTrendChart, type TrendPoint } from "@/components/performance
 import { KpiCard, DeltaPill } from "@/components/kpi-card";
 import { formatMAD } from "@/lib/utils";
 import { SOURCE_LABELS } from "@/lib/customers";
-import { BarChart3, Info, AlertTriangle } from "lucide-react";
+import { creditNotesByReservation } from "@/lib/credit-notes";
+import { BarChart3, Info, AlertTriangle, FileMinus } from "lucide-react";
 
 const MONTHS_FR_SHORT = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
 
@@ -36,15 +37,20 @@ export default async function RapportsPage() {
   const staff = (staffRes.data || []) as any[];
   const invoices = (invoicesRes.data || []) as any[];
 
+  // Avoirs émis sur ces dossiers : le CA est NET d'avoirs (un geste commercial
+  // ou une erreur de facturation réduit le revenu acquis sans changer le dossier).
+  const credits = await creditNotesByReservation(supabase, all.map((r) => r.id as string));
+  const creditOf = (r: any) => Math.min(Number(r.total_amount_mad), credits.get(r.id) ?? 0);
+  const netOf = (r: any) => Number(r.total_amount_mad) - creditOf(r);
+
   // Sous-ensembles temporels
   const recent12 = all.filter((r) => r.departure_date >= twelveAgoStr);
   const prev12 = all.filter((r) => r.departure_date < twelveAgoStr);
 
-  // Somme CA (paid/completed) sur une plage de dates
-  const sumRev = (startStr: string, endStr: string) =>
-    all
-      .filter((r) => isConverted(r) && r.departure_date >= startStr && r.departure_date <= endStr)
-      .reduce((s, r) => s + Number(r.total_amount_mad), 0);
+  // Somme CA net d'avoirs (paid/completed) sur une plage de dates
+  const inRange = (startStr: string, endStr: string) =>
+    all.filter((r) => isConverted(r) && r.departure_date >= startStr && r.departure_date <= endStr);
+  const sumRev = (startStr: string, endStr: string) => inRange(startStr, endStr).reduce((s, r) => s + netOf(r), 0);
 
   // Trend 12 mois (current + N-1 même mois)
   const trend: TrendPoint[] = [];
@@ -63,16 +69,19 @@ export default async function RapportsPage() {
   // KPI a. CA réalisé ce mois + delta N-1
   const monthRevenue = trend[11].current;
   const monthPrevRevenue = trend[11].previous;
+  const monthEndStr = iso(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  const monthCredited = inRange(currentMonthStart, monthEndStr).reduce((s, r) => s + creditOf(r), 0);
   const yoy = monthPrevRevenue > 0 ? Math.round(((monthRevenue - monthPrevRevenue) / monthPrevRevenue) * 100) : null;
   const currentMonthName = now.toLocaleDateString("fr-FR", { month: "long" });
   const prevMonthName = new Date(now.getFullYear() - 1, now.getMonth(), 1).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
   // KPI b. Panier moyen (12 mois) + delta vs 12 mois précédents
   const conv12 = recent12.filter(isConverted);
-  const ca12 = conv12.reduce((s, r) => s + Number(r.total_amount_mad), 0);
+  const ca12 = conv12.reduce((s, r) => s + netOf(r), 0);
+  const credited12 = conv12.reduce((s, r) => s + creditOf(r), 0);
   const basket = conv12.length > 0 ? ca12 / conv12.length : 0;
   const convPrev = prev12.filter(isConverted);
-  const basketPrev = convPrev.length > 0 ? convPrev.reduce((s, r) => s + Number(r.total_amount_mad), 0) / convPrev.length : 0;
+  const basketPrev = convPrev.length > 0 ? convPrev.reduce((s, r) => s + netOf(r), 0) / convPrev.length : 0;
   const basketDelta = basketPrev > 0 ? Math.round(((basket - basketPrev) / basketPrev) * 100) : null;
 
   // KPI c. Conversion (mois en cours)
@@ -92,7 +101,7 @@ export default async function RapportsPage() {
   conv12.forEach((r) => {
     const id = r.circuit_id;
     if (!circuitTotals[id]) circuitTotals[id] = { title: r.circuits?.title || "Sans titre", revenue: 0, count: 0 };
-    circuitTotals[id].revenue += Number(r.total_amount_mad);
+    circuitTotals[id].revenue += netOf(r);
     circuitTotals[id].count += 1;
   });
   const topCircuits = Object.values(circuitTotals).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
@@ -161,13 +170,17 @@ export default async function RapportsPage() {
           label={`CA réalisé · ${currentMonthName}`}
           value={formatMAD(monthRevenue)}
           accent="ocean"
-          sub={`vs ${prevMonthName} · ${formatMAD(monthPrevRevenue)}`}
+          sub={
+            monthCredited > 0
+              ? `net d'avoirs · dont − ${formatMAD(monthCredited)} · vs ${prevMonthName} ${formatMAD(monthPrevRevenue)}`
+              : `vs ${prevMonthName} · ${formatMAD(monthPrevRevenue)}`
+          }
           delta={yoy !== null ? <DeltaPill up={yoy >= 0}>{yoy >= 0 ? "+" : "−"}{Math.abs(yoy)} %</DeltaPill> : undefined}
         />
         <KpiCard
           label="Panier moyen"
           value={formatMAD(basket)}
-          sub="par réservation · 12 mois"
+          sub={credited12 > 0 ? "par réservation · 12 mois · net d'avoirs" : "par réservation · 12 mois"}
           delta={basketDelta !== null ? <DeltaPill up={basketDelta >= 0}>{basketDelta >= 0 ? "+" : "−"}{Math.abs(basketDelta)} %</DeltaPill> : undefined}
         />
         <KpiCard
@@ -196,9 +209,18 @@ export default async function RapportsPage() {
           <span className={cardLabel}>
             <BarChart3 className="size-3.5" /> Revenu mensuel — 12 derniers mois
           </span>
-          <span className="text-[11px] text-[#6B6862]">Total : {formatMAD(chartTotal)}</span>
+          <span className="text-[11px] text-[#6B6862]">
+            Total : {formatMAD(chartTotal)}
+            {credited12 > 0 && <span className="text-[#968F84]"> · net d&apos;avoirs</span>}
+          </span>
         </div>
         <PerformanceTrendChart trend={trend} previousLabel="N-1" />
+        {credited12 > 0 && (
+          <p className="flex items-center gap-1.5 text-[11px] mt-2" style={{ color: "#B25F0B" }}>
+            <FileMinus className="size-3.5 shrink-0" />
+            Dont avoirs émis sur la période : − {formatMAD(credited12)} — déduits du CA de chaque mois concerné.
+          </p>
+        )}
       </div>
 
       {/* Top 5 + Sources */}

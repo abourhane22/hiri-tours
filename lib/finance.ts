@@ -1,3 +1,5 @@
+import { creditNotesByReservation } from "@/lib/credit-notes";
+
 export type PnLData = {
   period: { start: string; end: string; label: string };
   revenue: number;
@@ -166,7 +168,7 @@ export async function computeAnnualResult(year: number, supabase: any): Promise<
   const endDate = `${year + 1}-01-01`;
 
   const [resReservations, resExpenses, resCategories, resSettings] = await Promise.all([
-    supabase.from("reservations").select("total_amount_mad, departure_date, status").gte("departure_date", startDate).lt("departure_date", endDate).in("status", ["paid", "completed"]),
+    supabase.from("reservations").select("id, total_amount_mad, departure_date, status").gte("departure_date", startDate).lt("departure_date", endDate).in("status", ["paid", "completed"]),
     supabase.from("expenses").select("amount_mad, expense_date, category_id").gte("expense_date", startDate).lt("expense_date", endDate),
     supabase.from("cost_categories").select("id, name, type, sort_order").order("sort_order", { ascending: true }),
     supabase.from("company_settings").select("tva_default_rate").limit(1).single(),
@@ -176,12 +178,16 @@ export async function computeAnnualResult(year: number, supabase: any): Promise<
   const expenses = (resExpenses.data || []) as any[];
   const categories = (resCategories.data || []) as AnnualCategory[];
   const tvaRate = Number(resSettings.data?.tva_default_rate ?? 0.20);
+
+  // CA net d'avoirs : un avoir réduit le revenu acquis sans changer le dossier.
+  const credits = await creditNotesByReservation(supabase, reservations.map((r) => r.id as string));
+  const netOf = (r: any) => Number(r.total_amount_mad) - Math.min(Number(r.total_amount_mad), credits.get(r.id) ?? 0);
   const directIds = new Set(categories.filter(c => c.type === "direct").map(c => c.id));
 
   const monthLabels = ["Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin", "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc."];
 
   function buildBucket(m: number, monthRes: any[], monthExp: any[], label: string): AnnualMonth {
-    const revenueTTC = monthRes.reduce((s, r) => s + Number(r.total_amount_mad), 0);
+    const revenueTTC = monthRes.reduce((s, r) => s + netOf(r), 0);
     const revenueHT = revenueTTC / (1 + tvaRate);
     const vatCollected = revenueTTC - revenueHT;
 

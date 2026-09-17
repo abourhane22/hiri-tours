@@ -6,6 +6,7 @@ import { formatMAD, formatDateShort, foldAccents } from "@/lib/utils";
 import { countryCode } from "@/lib/countries";
 import { INVOICE_STATUS_LABEL } from "@/lib/invoices";
 import { KpiCard } from "@/components/kpi-card";
+import { DocumentTabs } from "@/components/document-tabs";
 
 type Row = {
   id: string;
@@ -105,6 +106,8 @@ export default async function FacturesPage({
           </p>
         </div>
       </div>
+
+      <DocumentTabs active="factures" />
 
       {/* Synthèse */}
       <div className="grid gap-3 mb-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>

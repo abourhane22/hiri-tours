@@ -92,7 +92,8 @@ export type PaymentMethod =
   | "stripe"
   | "paypal"
   | "cash"
-  | "transfer";
+  | "transfer"
+  | "credit_note"; // règlement par utilisation d'un avoir (pas d'entrée de trésorerie)
 
 export type CustomerLanguage = "fr" | "en" | "ar" | "es" | "de" | "it";
 export type CustomerSource =
@@ -242,6 +243,56 @@ export type Invoice = {
   tva_rate: number;
   tva_amount_mad: number;
   total_ttc_mad: number;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type CreditNoteReason = "cancellation" | "commercial_gesture" | "billing_error" | "other";
+export type CreditNoteStatus = "issued" | "consumed" | "refunded";
+export type RefundMethod = "cash" | "transfer" | "card_manual";
+
+/** Avoir figé à l'émission (mêmes garanties documentaires que la facture). */
+export type CreditNoteSnapshot = {
+  invoice_number: string;
+  invoice_issued_at: string;
+  invoice_total_ttc_mad: number;
+  reservation_reference: string;
+  reservation_departure_date: string | null;
+  circuit_title: string | null;
+  customer: InvoiceCustomerSnapshot;
+  company: CompanySettings;
+  amount_mad: number;
+  reason: CreditNoteReason;
+  reason_details: string | null;
+};
+
+export type CreditNote = {
+  id: string;
+  credit_note_number: string;
+  invoice_id: string;
+  reservation_id: string;
+  customer_id: string | null;
+  amount_mad: number;
+  reason: CreditNoteReason;
+  reason_details: string | null;
+  snapshot: CreditNoteSnapshot;
+  remaining_mad: number;
+  status: CreditNoteStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreditNoteMovement = {
+  id: string;
+  credit_note_id: string;
+  kind: "use" | "refund";
+  amount_mad: number;
+  target_reservation_id: string | null;
+  payment_id: string | null;
+  method: string | null;
+  reference: string | null;
   notes: string | null;
   created_by: string | null;
   created_at: string;

@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { VoucherPrintButton } from "@/components/voucher-print-button";
+import { IssueCreditNoteForm } from "@/components/credit-note-forms";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
 import { legalFormLine, legalIdentifiers, PAYMENT_METHOD_LABEL } from "@/lib/invoices";
-import { ArrowLeft } from "lucide-react";
-import type { Invoice } from "@/lib/types";
+import { CREDIT_NOTE_REASON_LABEL, CREDIT_NOTE_STATUS_LABEL, CREDIT_NOTE_STATUS_STYLE } from "@/lib/credit-notes";
+import { ArrowLeft, FileMinus } from "lucide-react";
+import type { CreditNote, Invoice } from "@/lib/types";
 
 // La facture est rendue EXCLUSIVEMENT depuis ses snapshots : aucune jointure
 // vers le dossier, le client ou les paramètres courants. Un changement
@@ -17,6 +19,19 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   if (!invoice) notFound();
 
   const inv = invoice as Invoice;
+
+  // Avoirs émis sur cette facture (lien visible dans les deux sens).
+  const { data: creditNotesRows } = await supabase
+    .from("credit_notes")
+    .select("id, credit_note_number, created_at, amount_mad, remaining_mad, status, reason, reason_details")
+    .eq("invoice_id", id)
+    .order("created_at", { ascending: true });
+  const creditNotes = (creditNotesRows ?? []) as unknown as Pick<
+    CreditNote,
+    "id" | "credit_note_number" | "created_at" | "amount_mad" | "remaining_mad" | "status" | "reason" | "reason_details"
+  >[];
+  const creditedTotal = creditNotes.reduce((s, c) => s + Number(c.amount_mad), 0);
+  const creditableMax = Math.max(0, Number(inv.total_ttc_mad) - creditedTotal);
   const company = inv.company_snapshot ?? ({} as Invoice["company_snapshot"]);
   const customer = inv.customer_snapshot ?? { full_name: "—" };
   const resa = inv.reservation_snapshot; // null sur les factures antérieures au 2026-09-17
@@ -220,6 +235,50 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             </div>
           )}
 
+          {/* Avoirs émis — figurent aussi sur le document imprimé */}
+          {creditNotes.length > 0 && (
+            <div className="mb-6 print:break-inside-avoid">
+              <p className={sectionLabel}>Avoirs émis sur cette facture</p>
+              <table className="w-full text-[12.5px] border border-[#E5E0D7]">
+                <thead style={{ backgroundColor: "#FBF9F5" }} className="border-b border-[#E5E0D7]">
+                  <tr>
+                    <th className={`${th} text-left`}>Avoir</th>
+                    <th className={`${th} text-left`}>Date</th>
+                    <th className={`${th} text-left`}>Motif</th>
+                    <th className={`${th} text-right w-32`}>Montant</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F1EDE5]">
+                  {creditNotes.map((c) => (
+                    <tr key={c.id}>
+                      <td className="px-3 py-2 font-mono text-[11.5px]">
+                        <Link href={`/admin/avoirs/${c.id}`} className="text-[#1A1F2E] hover:text-[#C84B31] print:no-underline">
+                          {c.credit_note_number}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-2 tabular-nums">{formatDateShort(c.created_at)}</td>
+                      <td className="px-3 py-2">
+                        {CREDIT_NOTE_REASON_LABEL[c.reason] ?? c.reason}
+                        {c.reason_details && <span className="text-[#968F84]"> · {c.reason_details}</span>}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">− {formatMAD(c.amount_mad)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="border-t border-[#E5E0D7]" style={{ backgroundColor: "#FBF9F5" }}>
+                  <tr>
+                    <td colSpan={3} className="px-3 py-2 text-right font-medium text-[#1A1F2E]">
+                      Net de la facture après avoirs
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium text-[#1A1F2E]">
+                      {formatMAD(Math.max(0, Number(inv.total_ttc_mad) - creditedTotal))}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+
           {/* Pied : règlement, mentions, génération */}
           <div className="mt-8 pt-5 border-t border-[#E5E0D7] text-[11px] text-[#6B6862] space-y-2">
             {(company.bank_name || rib) && (
@@ -242,6 +301,58 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               Document généré par Hiri Tours Plateforme · by Bright Strategy · facture figée à l&apos;émission, non modifiable.
             </p>
           </div>
+        </div>
+
+        {/* Gestion des avoirs (hors impression) */}
+        <div className="mt-6 bg-white border border-[#E5E0D7] rounded-xl p-4 print:hidden">
+          <div className="flex items-center gap-1.5 mb-3">
+            <FileMinus className="size-[13px] text-[#968F84]" />
+            <span className="text-[10.5px] tracking-[1.4px] uppercase text-[#968F84] font-medium">Avoirs</span>
+          </div>
+
+          {creditNotes.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {creditNotes.map((c) => {
+                const st = CREDIT_NOTE_STATUS_STYLE[c.status] ?? CREDIT_NOTE_STATUS_STYLE.issued;
+                return (
+                  <Link
+                    key={c.id}
+                    href={`/admin/avoirs/${c.id}`}
+                    className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 hover:border-[#C9C4BA] transition-colors"
+                    style={{ backgroundColor: "#FBF9F5", border: "1px solid #EEE9E0" }}
+                  >
+                    <span className="min-w-0">
+                      <span className="font-mono text-[13px] text-[#1A1F2E]">{c.credit_note_number}</span>
+                      <span className="text-[11.5px] text-[#6B6862] block mt-0.5">
+                        {formatDateShort(c.created_at)} · {CREDIT_NOTE_REASON_LABEL[c.reason] ?? c.reason} · solde{" "}
+                        {formatMAD(c.remaining_mad)}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-2 shrink-0">
+                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ backgroundColor: st.bg, color: st.color }}>
+                        {CREDIT_NOTE_STATUS_LABEL[c.status] ?? c.status}
+                      </span>
+                      <span className="tabular-nums text-[13px] font-medium text-[#1A1F2E]">− {formatMAD(c.amount_mad)}</span>
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {isCancelled ? (
+            <p className="text-[12px] text-[#6B6862]">
+              Facture annulée — aucun nouvel avoir ne peut être émis. Une facture rectificative peut être émise depuis le
+              dossier.
+            </p>
+          ) : (
+            <IssueCreditNoteForm
+              invoiceId={id}
+              maxAmount={creditableMax}
+              totalTtc={Number(inv.total_ttc_mad)}
+              alreadyCredited={creditedTotal}
+            />
+          )}
         </div>
       </div>
     </div>

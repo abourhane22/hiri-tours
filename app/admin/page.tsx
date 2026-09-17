@@ -4,6 +4,7 @@ import {
   Trophy, UserPlus, X as XIcon, Clock, Target, BarChart3,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { creditNotesByReservation } from "@/lib/credit-notes";
 import { PerformanceTrendChart } from "@/components/performance-trend-chart";
 
 const MONTH_LABELS_FR = ["jan", "fév", "mar", "avr", "mai", "jun", "jul", "aoû", "sep", "oct", "nov", "déc"];
@@ -149,7 +150,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const currentMonthRes = allReservations.filter(
     (r) => r.status !== "cancelled" && inDateRange(r.departure_date, monthStart, monthEnd)
   );
-  const currentMonthRevenue = currentMonthRes.reduce((s, r) => s + Number(r.total_amount_mad), 0);
+  // CA net d'avoirs (cf. lib/credit-notes) : un avoir réduit le revenu acquis
+  // sans changer le dossier, il est donc retranché explicitement.
+  const creditsByResa = await creditNotesByReservation(
+    supabase,
+    allReservations.map((r) => r.id as string),
+  );
+  const creditOf = (r: any) => Math.min(Number(r.total_amount_mad), creditsByResa.get(r.id) ?? 0);
+  const netOf = (r: any) => Number(r.total_amount_mad) - creditOf(r);
+
+  const currentMonthRevenue = currentMonthRes.reduce((s, r) => s + netOf(r), 0);
+  const currentMonthCredited = currentMonthRes.reduce((s, r) => s + creditOf(r), 0);
   const currentMonthCount = currentMonthRes.length;
   const currentMonthPax = currentMonthRes.reduce((s, r) => s + r.adults + r.children, 0);
 
@@ -172,7 +183,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const ytdRes = allReservations.filter(
     (r) => r.status !== "cancelled" && inDateRange(r.departure_date, yearStart, yearEnd)
   );
-  const ytdRevenue = ytdRes.reduce((s, r) => s + Number(r.total_amount_mad), 0);
+  const ytdRevenue = ytdRes.reduce((s, r) => s + netOf(r), 0);
+  const ytdCredited = ytdRes.reduce((s, r) => s + creditOf(r), 0);
   const annualTarget = Number(company?.annual_revenue_target_mad ?? 0);
   const hasTarget = annualTarget > 0;
 
@@ -193,7 +205,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const sumRev = (start: Date, end: Date) =>
     allReservations
       .filter((r) => r.status !== "cancelled" && inDateRange(r.departure_date, start, end))
-      .reduce((s, r) => s + Number(r.total_amount_mad), 0);
+      .reduce((s, r) => s + netOf(r), 0);
 
   // Trend selon vue (12m glissants ou année), avec N-1 en comparaison
   const trend: {
@@ -380,6 +392,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           <p className="text-[11px] text-[#968F84] mt-1 capitalize">
             {currentMonthLabel} · N-1 {formatMad(lastYearMonthRevenue)} MAD
           </p>
+          {currentMonthCredited > 0 && (
+            <p className="text-[11px] mt-0.5" style={{ color: "#B25F0B" }}>
+              net d&apos;avoirs · dont − {formatMad(currentMonthCredited)} MAD
+            </p>
+          )}
         </div>
 
         {/* Réservations */}
@@ -434,6 +451,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
               <div className="font-display text-lg text-[#1A1F2E] tabular-nums leading-none">
                 {formatMad(ytdRevenue)} / {formatMad(annualTarget)} MAD
               </div>
+              {ytdCredited > 0 && (
+                <div className="text-[10px] text-[#968F84] mt-0.5">
+                  CA net d&apos;avoirs · dont − {formatMad(ytdCredited)} MAD
+                </div>
+              )}
               {ecartPts < 0 ? (
                 <div className="text-[11px] mt-1" style={{ color: "#B25F0B" }}>
                   {Math.round(pctRealise)} % ·{" "}

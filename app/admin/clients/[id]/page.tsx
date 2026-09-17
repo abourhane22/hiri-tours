@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, Badge } from "@/components/ui/card";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
-import { ArrowLeft, Trophy } from "lucide-react";
+import { ArrowLeft, Trophy, FileMinus } from "lucide-react";
 import { updateCustomer, deleteCustomer } from "../actions";
 import { CustomerForm } from "@/components/customer-form";
 import type { ReservationWithCircuit } from "@/lib/types";
@@ -47,6 +47,16 @@ export default async function ClientDetailPage({
     .select("*, circuits(title, slug, category)")
     .eq("customer_id", id)
     .order("departure_date", { ascending: false });
+
+  // Avoirs encore disponibles : dette de l'agence envers ce client.
+  const { data: openCreditNotes } = await supabase
+    .from("credit_notes")
+    .select("id, credit_note_number, remaining_mad")
+    .eq("customer_id", id)
+    .gt("remaining_mad", 0)
+    .order("created_at", { ascending: true });
+  const creditNotes = (openCreditNotes ?? []) as { id: string; credit_note_number: string; remaining_mad: number }[];
+  const creditAvailable = creditNotes.reduce((s, c) => s + Number(c.remaining_mad), 0);
 
   const loyaltyPoints = computeLoyaltyPoints((reservations || []) as any[]);
   const tier = getLoyaltyTier(loyaltyPoints);
@@ -195,6 +205,35 @@ export default async function ClientDetailPage({
               )}
             </CardBody>
           </Card>
+
+          {creditAvailable > 0 && (
+            <Card>
+              <div className="px-5 py-4 border-b border-sand-200 flex items-center gap-2">
+                <FileMinus className="size-4 text-[#B25F0B]" />
+                <h2 className="font-display text-lg text-ink">Avoir disponible</h2>
+              </div>
+              <CardBody>
+                <div className="font-display text-2xl tabular-nums" style={{ color: "#B25F0B" }}>
+                  {formatMAD(creditAvailable)}
+                </div>
+                <p className="text-xs text-sand-700 mt-1">
+                  Utilisable en règlement d&apos;un dossier de ce client, ou remboursable.
+                </p>
+                <div className="mt-3 space-y-1.5">
+                  {creditNotes.map((c) => (
+                    <Link
+                      key={c.id}
+                      href={`/admin/avoirs/${c.id}`}
+                      className="flex items-center justify-between gap-2 text-xs rounded-md px-2.5 py-1.5 bg-sand-50 border border-sand-200 hover:border-sand-300 transition-colors"
+                    >
+                      <span className="font-mono text-ink">{c.credit_note_number}</span>
+                      <span className="tabular-nums font-medium">{formatMAD(c.remaining_mad)}</span>
+                    </Link>
+                  ))}
+                </div>
+              </CardBody>
+            </Card>
+          )}
 
           <Card>
             <div className="px-5 py-4 border-b border-sand-200 flex items-center gap-2">

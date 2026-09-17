@@ -31,8 +31,11 @@ import {
 } from "lucide-react";
 import { updateNotes, cancelReservation } from "./actions";
 import { InvoiceGenerateForm } from "@/components/invoice-generate-form";
+import { RegularizeCancelledForm } from "@/components/credit-note-forms";
 import { missingLegalMentions } from "@/lib/invoices";
-import type { CompanySettings } from "@/lib/types";
+import { CREDIT_NOTE_REASON_LABEL, CREDIT_NOTE_STATUS_LABEL, CREDIT_NOTE_STATUS_STYLE } from "@/lib/credit-notes";
+import type { AvailableCreditNote } from "@/components/payment-collector";
+import type { CompanySettings, CreditNote } from "@/lib/types";
 import { AttijariLogo } from "@/components/payer/attijari-logo";
 import { hasAttijariLogo } from "@/lib/attijari-server";
 import { AffectationForm } from "@/components/affectation-form";
@@ -174,6 +177,17 @@ export default async function ReservationDetailPage({
     .eq("reservation_id", id)
     .order("paid_at", { ascending: false });
 
+  // Avoirs émis sur les factures de ce dossier (lien visible dans les deux sens).
+  const { data: linkedCreditNotes } = await supabase
+    .from("credit_notes")
+    .select("id, credit_note_number, created_at, amount_mad, remaining_mad, status, reason")
+    .eq("reservation_id", id)
+    .order("created_at", { ascending: true });
+  const dossierCreditNotes = (linkedCreditNotes ?? []) as unknown as Pick<
+    CreditNote,
+    "id" | "credit_note_number" | "created_at" | "amount_mad" | "remaining_mad" | "status" | "reason"
+  >[];
+
   // Voyageurs nominatifs (staff via RLS ; la table n'est jamais lue hors backoffice).
   const { data: travelersData } = await supabase
     .from("reservation_travelers")
@@ -232,6 +246,22 @@ export default async function ReservationDetailPage({
 
   const customer = r.customers;
   const circuit = r.circuits;
+
+  // Avoirs du MÊME client encore utilisables (règlement par avoir).
+  let availableCreditNotes: AvailableCreditNote[] = [];
+  if (customer?.id) {
+    const { data: usable } = await supabase
+      .from("credit_notes")
+      .select("id, credit_note_number, remaining_mad")
+      .eq("customer_id", customer.id)
+      .gt("remaining_mad", 0)
+      .order("created_at", { ascending: true });
+    availableCreditNotes = ((usable ?? []) as any[]).map((c) => ({
+      id: c.id,
+      number: c.credit_note_number,
+      remaining: Number(c.remaining_mad),
+    }));
+  }
   const paxLabel =
     `${r.adults} adulte${r.adults > 1 ? "s" : ""}` +
     (r.children > 0 ? ` · ${r.children} enfant${r.children > 1 ? "s" : ""}` : "");
@@ -676,12 +706,15 @@ export default async function ReservationDetailPage({
                 {payments.map((p) => {
                   const isAttijari =
                     p.source === "attijari_test" || p.method === "attijari" || p.method === "cmi";
+                  const isCreditNote = p.method === "credit_note";
                   const badge =
                     p.source === "attijari_test"
                       ? { label: "test", bg: "#FFF4E0", color: "#8A5A00" }
-                      : p.source === "stripe" || p.method === "stripe"
-                        ? { label: "Stripe", bg: "#EEEDFE", color: "#3C3489" }
-                        : { label: "manuel", bg: "#F1EFE8", color: "#5F5E5A" };
+                      : isCreditNote
+                        ? { label: "avoir", bg: "#FFF4E0", color: "#7A4B00" }
+                        : p.source === "stripe" || p.method === "stripe"
+                          ? { label: "Stripe", bg: "#EEEDFE", color: "#3C3489" }
+                          : { label: "manuel", bg: "#F1EFE8", color: "#5F5E5A" };
                   const ref = p.external_ref ?? p.transaction_ref;
                   return (
                     <div
@@ -695,7 +728,7 @@ export default async function ReservationDetailPage({
                             <AttijariLogo hasLogo={attijariHasLogo} className="h-4" />
                           ) : (
                             <span className="font-medium text-[#1A1F2E]">
-                              {PAYMENT_METHOD_LABEL[p.method] ?? p.method}
+                              {isCreditNote ? "Avoir" : PAYMENT_METHOD_LABEL[p.method] ?? p.method}
                             </span>
                           )}
                           <span
@@ -724,6 +757,7 @@ export default async function ReservationDetailPage({
                 reservationId={id}
                 balance={balance}
                 initialLink={activeLink}
+                creditNotes={availableCreditNotes}
                 share={{
                   firstName: (r.customers?.full_name || "").trim().split(/\s+/)[0] || "",
                   reference: r.reference,
@@ -775,9 +809,16 @@ export default async function ReservationDetailPage({
                 >
                   <Printer className="size-4" /> Voir / Imprimer
                 </Link>
+                <CreditNotesList notes={dossierCreditNotes} />
               </div>
             ) : isCancelled ? (
-              <p className="text-[12px] text-[#968F84]">Dossier annulé — aucune facture ne peut être émise.</p>
+              totalPaid > 0 ? (
+                <RegularizeCancelledForm reservationId={id} paid={totalPaid} />
+              ) : (
+                <p className="text-[12px] text-[#968F84]">
+                  Dossier annulé sans encaissement — aucune facture ni avoir à émettre.
+                </p>
+              )
             ) : status === "pending" ? (
               <p className="text-[12px] text-[#968F84]">
                 Confirmez le dossier pour pouvoir émettre la facture.
@@ -915,6 +956,47 @@ function InfoCard({
         {headerRight}
       </div>
       {children}
+    </div>
+  );
+}
+
+/** Avoirs rattachés au dossier, listés sous la facture. */
+function CreditNotesList({
+  notes,
+}: {
+  notes: Pick<CreditNote, "id" | "credit_note_number" | "created_at" | "amount_mad" | "remaining_mad" | "status" | "reason">[];
+}) {
+  if (notes.length === 0) return null;
+  return (
+    <div className="pt-3 border-t border-[#F1EDE5] space-y-1.5">
+      <span className="text-[10px] tracking-[1.2px] uppercase text-[#968F84] font-medium">
+        Avoir{notes.length > 1 ? "s" : ""} lié{notes.length > 1 ? "s" : ""}
+      </span>
+      {notes.map((c) => {
+        const st = CREDIT_NOTE_STATUS_STYLE[c.status] ?? CREDIT_NOTE_STATUS_STYLE.issued;
+        return (
+          <Link
+            key={c.id}
+            href={`/admin/avoirs/${c.id}`}
+            target="_blank"
+            className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 hover:border-[#C9C4BA] transition-colors"
+            style={{ backgroundColor: "#FBF9F5", border: "1px solid #EEE9E0" }}
+          >
+            <span className="min-w-0">
+              <span className="font-mono text-[12.5px] text-[#1A1F2E]">{c.credit_note_number}</span>
+              <span className="block text-[11px] text-[#6B6862]">
+                {CREDIT_NOTE_REASON_LABEL[c.reason] ?? c.reason} · solde {formatMAD(c.remaining_mad)}
+              </span>
+            </span>
+            <span className="flex items-center gap-2 shrink-0">
+              <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium" style={{ backgroundColor: st.bg, color: st.color }}>
+                {CREDIT_NOTE_STATUS_LABEL[c.status] ?? c.status}
+              </span>
+              <span className="tabular-nums text-[12.5px] font-medium text-[#1A1F2E]">− {formatMAD(c.amount_mad)}</span>
+            </span>
+          </Link>
+        );
+      })}
     </div>
   );
 }
