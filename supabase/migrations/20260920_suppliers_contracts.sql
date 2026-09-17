@@ -152,7 +152,9 @@ drop policy if exists "purchase_rates_staff_all" on public.purchase_rates;
 create policy "purchase_rates_staff_all" on public.purchase_rates
   for all using (public.is_staff()) with check (public.is_staff());
 
--- VÉRIFICATION BLOC 3 — attendu : colonnes=16, fk=2, policies=1, rls=t
+-- VÉRIFICATION BLOC 3 — attendu : colonnes=16, fk=3, policies=1, rls=t
+--   Les 3 clés étrangères sont : contract_id → supplier_contracts,
+--   product_id → circuits, created_by → auth.users.
 -- select
 --   (select count(*) from information_schema.columns where table_schema='public' and table_name='purchase_rates') as colonnes,
 --   (select count(*) from pg_constraint where conrelid='public.purchase_rates'::regclass and contype='f')          as fk,
