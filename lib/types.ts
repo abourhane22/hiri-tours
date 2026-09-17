@@ -324,6 +324,92 @@ export type CreditNoteMovement = {
   created_at: string;
 };
 
+// ---------------------------------------------------------------------------
+// Achat : fournisseurs, contrats, tarifs (lot C2a)
+// ---------------------------------------------------------------------------
+
+export type SupplierType = "hotel" | "transporteur" | "compagnie" | "receptif" | "prestataire" | "autre";
+export type PaymentTerms = "comptant" | "15j" | "30j" | "45j" | "60j" | "fin_de_mois";
+export type RemunerationMode = "commission" | "markup" | "net";
+export type ContractStatus = "draft" | "active" | "expired" | "terminated";
+
+export type SupplierContact = {
+  name: string;
+  role?: string | null;
+  phone?: string | null;
+  email?: string | null;
+};
+
+export type Supplier = {
+  id: string;
+  name: string;
+  legal_name: string | null;
+  supplier_type: SupplierType;
+  ice: string | null;
+  if_number: string | null;
+  rc: string | null;
+  address_line: string | null;
+  city: string | null;
+  country: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  contacts: SupplierContact[];
+  payment_terms: PaymentTerms;
+  default_currency: string;
+  is_active: boolean;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Barème d'annulation : pénalité applicable à J−{days_before} du départ. */
+export type CancellationStep = { days_before: number; penalty_pct: number };
+/** Échéancier de paiement fournisseur. */
+export type PaymentStep = { label: string; pct: number; due: string };
+
+export type SupplierContract = {
+  id: string;
+  supplier_id: string;
+  reference: string | null;
+  label: string;
+  valid_from: string;
+  valid_to: string;
+  currency: string;
+  remuneration_mode: RemunerationMode;
+  commission_rate: number | null;
+  markup_rate: number | null;
+  cancellation_policy: CancellationStep[];
+  payment_schedule: PaymentStep[];
+  release_days_default: number;
+  status: ContractStatus;
+  document_url: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PurchaseRate = {
+  id: string;
+  contract_id: string;
+  product_id: string | null; // NULL = tarif générique du contrat
+  valid_from: string;
+  valid_to: string;
+  unit_cost_mad: number;
+  child_cost_mad: number | null;
+  currency: string | null; // NULL = hérite du contrat
+  min_pax: number | null;
+  max_pax: number | null;
+  conditions: Record<string, unknown>;
+  priority: number;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type VehicleType = "sedan" | "van" | "4x4" | "minibus" | "bus";
 export type StaffRole = "guide" | "driver" | "both";
 
