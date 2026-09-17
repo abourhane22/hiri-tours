@@ -88,6 +88,8 @@ export type CustomerSource =
   | "referral"
   | "social_media"
   | "partner"
+  | "hotel"
+  | "event"
   | "other";
 
 export type Customer = {
