@@ -169,6 +169,15 @@ export type CompanySettings = {
   tva_default_rate: number;
   iban: string | null;
   bank_name: string | null;
+  bank_rib: string | null;
+  bank_account_holder: string | null;
+  whatsapp: string | null;
+  // Mentions légales (facturation)
+  legal_form: string | null; // SARL, SARL AU…
+  capital_mad: number | null;
+  tva_number: string | null;
+  rc_city: string | null; // tribunal d'immatriculation
+  travel_license: string | null; // licence agence de voyages
   updated_at: string;
 };
 
@@ -181,23 +190,60 @@ export type InvoiceLine = {
   total_ttc_mad: number;
 };
 
+/** Client tel que figé à l'émission (pas de notes internes). */
+export type InvoiceCustomerSnapshot = {
+  id?: string;
+  full_name: string;
+  email?: string | null;
+  phone?: string | null;
+  address_line?: string | null;
+  city?: string | null;
+  country?: string | null;
+};
+
+/** Prestation telle que figée à l'émission. Absent sur les factures antérieures au 2026-09-17. */
+export type InvoiceReservationSnapshot = {
+  id: string;
+  reference: string;
+  status: string;
+  departure_date: string;
+  adults: number;
+  children: number;
+  circuit_title: string | null;
+  circuit_category: string | null;
+  duration_days: number | null;
+  duration_hours: number | null;
+};
+
+export type InvoicePaymentSnapshot = {
+  paid_at: string;
+  method: string;
+  amount_mad: number;
+  ref: string | null;
+};
+
 export type Invoice = {
   id: string;
   invoice_number: string;
   reservation_id: string;
   customer_id: string;
   issued_at: string;
-  status: "issued" | "cancelled";
+  status: "issued" | "paid" | "cancelled";
   cancelled_at: string | null;
   cancellation_reason: string | null;
   company_snapshot: CompanySettings;
-  customer_snapshot: any;
+  customer_snapshot: InvoiceCustomerSnapshot;
+  reservation_snapshot: InvoiceReservationSnapshot | null;
+  payments_snapshot: InvoicePaymentSnapshot[];
+  paid_at_issue_mad: number;
+  balance_at_issue_mad: number;
   lines: InvoiceLine[];
   total_ht_mad: number;
   tva_rate: number;
   tva_amount_mad: number;
   total_ttc_mad: number;
   notes: string | null;
+  created_by: string | null;
   created_at: string;
 };
 

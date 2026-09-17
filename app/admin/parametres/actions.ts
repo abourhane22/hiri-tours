@@ -23,6 +23,18 @@ export async function updateCompanySettings(id: string, formData: FormData) {
     tva_default_rate: (parseFloat(formData.get("tva_default_rate") as string) || 20) / 100,
     iban: ((formData.get("iban") as string) || "").trim() || null,
     bank_name: ((formData.get("bank_name") as string) || "").trim() || null,
+    bank_rib: ((formData.get("bank_rib") as string) || "").replace(/\s+/g, "") || null,
+    bank_account_holder: ((formData.get("bank_account_holder") as string) || "").trim() || null,
+    whatsapp: ((formData.get("whatsapp") as string) || "").trim() || null,
+    // Identité légale (mentions de facturation)
+    legal_form: ((formData.get("legal_form") as string) || "").trim() || null,
+    capital_mad: (() => {
+      const n = parseFloat((formData.get("capital_mad") as string) || "");
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    })(),
+    rc_city: ((formData.get("rc_city") as string) || "").trim() || null,
+    tva_number: ((formData.get("tva_number") as string) || "").trim() || null,
+    travel_license: ((formData.get("travel_license") as string) || "").trim() || null,
   };
 
   const supabase = await createClient();

@@ -30,7 +30,9 @@ import {
   Calendar,
 } from "lucide-react";
 import { updateNotes, cancelReservation } from "./actions";
-import { IssueInvoiceButton } from "@/components/issue-invoice-button";
+import { InvoiceGenerateForm } from "@/components/invoice-generate-form";
+import { missingLegalMentions } from "@/lib/invoices";
+import type { CompanySettings } from "@/lib/types";
 import { AttijariLogo } from "@/components/payer/attijari-logo";
 import { hasAttijariLogo } from "@/lib/attijari-server";
 import { AffectationForm } from "@/components/affectation-form";
@@ -125,18 +127,20 @@ export default async function ReservationDetailPage({
 
   if (!reservation) notFound();
 
+  // Facture active du dossier (une seule possible — index unique partiel).
   const { data: existingInvoice } = await supabase
     .from("invoices")
-    .select("id, invoice_number")
+    .select("id, invoice_number, issued_at")
     .eq("reservation_id", id)
-    .eq("status", "issued")
+    .neq("status", "cancelled")
     .maybeSingle();
 
   const { data: companySettings } = await supabase
     .from("company_settings")
-    .select("tva_default_rate")
+    .select("*")
     .limit(1)
-    .single();
+    .maybeSingle();
+  const missingLegal = missingLegalMentions(companySettings as CompanySettings | null);
 
   const [vehiclesResult, staffResult, conflictsResult] = await Promise.all([
     supabase.from("vehicles").select("id, registration, make, model, capacity").eq("is_active", true).order("registration"),
@@ -223,7 +227,8 @@ export default async function ReservationDetailPage({
           : null;
   const attijariHasLogo = hasAttijariLogo();
   const currentStepIndex = STEPS.findIndex((s) => s.key === status);
-  const canInvoice = status === "paid" || status === "completed";
+  // Émission possible dès la confirmation ; jamais sur un dossier annulé.
+  const canInvoice = !isCancelled && status !== "pending";
 
   const customer = r.customers;
   const circuit = r.circuits;
@@ -351,17 +356,11 @@ export default async function ReservationDetailPage({
           )}
           {suiviLink && <SuiviLinkButton url={suiviLink} />}
           <WhatsAppButton phone={customer?.phone ?? null} message={waMessage} label={waLabel} />
-          {canInvoice &&
-            (existingInvoice ? (
-              <Link href={`/admin/factures/${(existingInvoice as any).id}`} target="_blank" className={actionBtn}>
-                <Receipt className="size-4" /> Facture {(existingInvoice as any).invoice_number}
-              </Link>
-            ) : (
-              <IssueInvoiceButton
-                reservationId={id}
-                defaultTvaRate={Number((companySettings as any)?.tva_default_rate ?? 0.2)}
-              />
-            ))}
+          {existingInvoice && (
+            <Link href={`/admin/factures/${(existingInvoice as any).id}`} target="_blank" className={actionBtn}>
+              <Receipt className="size-4" /> Facture {(existingInvoice as any).invoice_number}
+            </Link>
+          )}
         </div>
       </div>
 
@@ -733,6 +732,61 @@ export default async function ReservationDetailPage({
                   remaining: balance,
                   phone: r.customers?.phone ?? null,
                 }}
+              />
+            )}
+          </InfoCard>
+
+          {/* d'. FACTURATION — facture numérotée, figée à l'émission */}
+          <InfoCard
+            icon={Receipt}
+            label="Facturation"
+            headerRight={
+              existingInvoice ? (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-medium"
+                  style={{ backgroundColor: "#E1F5EE", color: "#085041" }}
+                >
+                  <CircleCheck className="size-3.5" /> Facture émise
+                </span>
+              ) : canInvoice ? (
+                <span
+                  className="inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] font-medium"
+                  style={{ backgroundColor: "#FAEEDA", color: "#633806" }}
+                >
+                  À émettre
+                </span>
+              ) : null
+            }
+          >
+            {existingInvoice ? (
+              <div className="space-y-3">
+                <div>
+                  <div className="font-mono text-[15px] text-[#1A1F2E] tabular-nums">
+                    Facture {(existingInvoice as any).invoice_number}
+                  </div>
+                  <div className="text-[12px] text-[#6B6862] mt-0.5">
+                    Émise le {formatDate((existingInvoice as any).issued_at)} · document figé, non modifiable
+                  </div>
+                </div>
+                <Link
+                  href={`/admin/factures/${(existingInvoice as any).id}`}
+                  target="_blank"
+                  className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-[#E5E0D7] bg-white text-[12.5px] font-medium text-[#1A1F2E] hover:bg-[#FAF5F0] transition-colors"
+                >
+                  <Printer className="size-4" /> Voir / Imprimer
+                </Link>
+              </div>
+            ) : isCancelled ? (
+              <p className="text-[12px] text-[#968F84]">Dossier annulé — aucune facture ne peut être émise.</p>
+            ) : status === "pending" ? (
+              <p className="text-[12px] text-[#968F84]">
+                Confirmez le dossier pour pouvoir émettre la facture.
+              </p>
+            ) : (
+              <InvoiceGenerateForm
+                reservationId={id}
+                defaultTvaRate={Number((companySettings as any)?.tva_default_rate ?? 0.2)}
+                missingLegal={missingLegal}
               />
             )}
           </InfoCard>

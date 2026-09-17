@@ -56,21 +56,31 @@ export default async function SocietePage({ searchParams }: { searchParams: Prom
 
             <div className="pt-3 border-t border-sand-200 space-y-4">
               <p className="text-xs text-sand-600 uppercase tracking-wide font-medium">Contact</p>
-              <div className="grid sm:grid-cols-3 gap-4">
+              <div className="grid sm:grid-cols-2 gap-4">
                 <div><Label htmlFor="phone">Téléphone</Label><Input id="phone" name="phone" type="tel" defaultValue={s.phone ?? ""} /></div>
+                <div><Label htmlFor="whatsapp">WhatsApp</Label><Input id="whatsapp" name="whatsapp" type="tel" defaultValue={s.whatsapp ?? ""} placeholder="+212 6…" /></div>
                 <div><Label htmlFor="email">Email</Label><Input id="email" name="email" type="email" defaultValue={s.email ?? ""} /></div>
                 <div><Label htmlFor="website">Site web</Label><Input id="website" name="website" type="text" defaultValue={s.website ?? ""} placeholder="hiritours.ma" /></div>
               </div>
             </div>
 
             <div className="pt-3 border-t border-sand-200 space-y-4">
-              <p className="text-xs text-sand-600 uppercase tracking-wide font-medium">Identifiants fiscaux marocains</p>
+              <p className="text-xs text-sand-600 uppercase tracking-wide font-medium">Identité légale</p>
+              <p className="text-xs text-sand-600 -mt-2">Mentions obligatoires des factures. Elles sont figées dans chaque facture au moment de son émission ; un champ vide déclenche un avertissement à la génération.</p>
               <div className="grid sm:grid-cols-2 gap-4">
-                <div><Label htmlFor="ice">ICE (15 chiffres)</Label><Input id="ice" name="ice" defaultValue={s.ice ?? ""} placeholder="000XXXXXX000XXX" /></div>
+                <div><Label htmlFor="legal_form">Forme juridique</Label><Input id="legal_form" name="legal_form" defaultValue={s.legal_form ?? ""} placeholder="SARL, SARL AU, SA…" /></div>
+                <div>
+                  <Label htmlFor="capital_mad">Capital social (MAD)</Label>
+                  <Input id="capital_mad" name="capital_mad" type="number" step="1" min="0" defaultValue={s.capital_mad !== null && s.capital_mad !== undefined ? String(Number(s.capital_mad)) : ""} placeholder="100000" />
+                </div>
                 <div><Label htmlFor="rc">RC (Registre du Commerce)</Label><Input id="rc" name="rc" defaultValue={s.rc ?? ""} /></div>
+                <div><Label htmlFor="rc_city">Ville du tribunal (RC)</Label><Input id="rc_city" name="rc_city" defaultValue={s.rc_city ?? ""} placeholder="Agadir" /></div>
+                <div><Label htmlFor="ice">ICE (15 chiffres)</Label><Input id="ice" name="ice" defaultValue={s.ice ?? ""} placeholder="000XXXXXX000XXX" /></div>
                 <div><Label htmlFor="if_number">IF (Identifiant Fiscal)</Label><Input id="if_number" name="if_number" defaultValue={s.if_number ?? ""} /></div>
                 <div><Label htmlFor="patente">Patente</Label><Input id="patente" name="patente" defaultValue={s.patente ?? ""} /></div>
+                <div><Label htmlFor="tva_number">N° TVA</Label><Input id="tva_number" name="tva_number" defaultValue={s.tva_number ?? ""} /></div>
                 <div><Label htmlFor="cnss">CNSS</Label><Input id="cnss" name="cnss" defaultValue={s.cnss ?? ""} /></div>
+                <div><Label htmlFor="travel_license">Licence agence de voyages</Label><Input id="travel_license" name="travel_license" defaultValue={s.travel_license ?? ""} placeholder="N° de licence · catégorie A" /></div>
                 <div>
                   <Label htmlFor="tva_default_rate">Taux TVA par défaut (%)</Label>
                   <div className="relative">
@@ -86,8 +96,11 @@ export default async function SocietePage({ searchParams }: { searchParams: Prom
               <p className="text-xs text-sand-600 uppercase tracking-wide font-medium">Coordonnées bancaires (optionnel, pour facture)</p>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div><Label htmlFor="bank_name">Banque</Label><Input id="bank_name" name="bank_name" defaultValue={s.bank_name ?? ""} /></div>
-                <div><Label htmlFor="iban">IBAN / RIB</Label><Input id="iban" name="iban" defaultValue={s.iban ?? ""} /></div>
+                <div><Label htmlFor="bank_account_holder">Titulaire du compte</Label><Input id="bank_account_holder" name="bank_account_holder" defaultValue={s.bank_account_holder ?? ""} /></div>
+                <div><Label htmlFor="bank_rib">RIB (24 chiffres)</Label><Input id="bank_rib" name="bank_rib" defaultValue={s.bank_rib ?? ""} className="font-mono" /></div>
+                <div><Label htmlFor="iban">IBAN</Label><Input id="iban" name="iban" defaultValue={s.iban ?? ""} className="font-mono" /></div>
               </div>
+              <p className="text-xs text-sand-600">Le RIB est affiché au client dans le tunnel de réservation (virement) et en pied de facture.</p>
             </div>
 
             <div className="flex justify-end pt-3 border-t border-sand-200">
