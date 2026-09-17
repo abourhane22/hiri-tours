@@ -18,6 +18,14 @@ export function getLoyaltyTier(points: number): LoyaltyTier {
   return { name: "Aucun", color: "neutral", threshold: 0 };
 }
 
+/** Tiers du plus haut au plus bas (hors « Aucun »), pour les listes groupées. */
+export const LOYALTY_TIERS: LoyaltyTier[] = [50, 20, 5].map(getLoyaltyTier);
+
+/** Seuil d'un tier exprimé en MAD de réservations abouties (1 point = 100 MAD). */
+export function tierThresholdMad(tier: LoyaltyTier): number {
+  return tier.threshold * 100;
+}
+
 export function getNextTier(points: number): { name: string; pointsNeeded: number } | null {
   if (points < 5) return { name: "Bronze", pointsNeeded: 5 - points };
   if (points < 20) return { name: "Argent", pointsNeeded: 20 - points };

@@ -3,48 +3,8 @@
 import "flag-icons/css/flag-icons.min.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Globe, ChevronDown, Check } from "lucide-react";
-
-// 30 pays (ordre imposé) + « Autre ». `name` = valeur stockée dans
-// customers.country (nom français, format déjà utilisé par l'app).
-// `code` = ISO 3166-1 alpha-2 pour flag-icons ; null pour « Autre » (globe).
-type Country = { name: string; code: string | null };
-
-const COUNTRIES: Country[] = [
-  { name: "Maroc", code: "ma" },
-  { name: "France", code: "fr" },
-  { name: "Espagne", code: "es" },
-  { name: "Allemagne", code: "de" },
-  { name: "Royaume-Uni", code: "gb" },
-  { name: "Italie", code: "it" },
-  { name: "Belgique", code: "be" },
-  { name: "Pays-Bas", code: "nl" },
-  { name: "Suisse", code: "ch" },
-  { name: "Portugal", code: "pt" },
-  { name: "États-Unis", code: "us" },
-  { name: "Canada", code: "ca" },
-  { name: "Japon", code: "jp" },
-  { name: "Chine", code: "cn" },
-  { name: "Corée du Sud", code: "kr" },
-  { name: "Australie", code: "au" },
-  { name: "Brésil", code: "br" },
-  { name: "Argentine", code: "ar" },
-  { name: "Pologne", code: "pl" },
-  { name: "Suède", code: "se" },
-  { name: "Norvège", code: "no" },
-  { name: "Danemark", code: "dk" },
-  { name: "Autriche", code: "at" },
-  { name: "Irlande", code: "ie" },
-  { name: "Émirats arabes unis", code: "ae" },
-  { name: "Arabie saoudite", code: "sa" },
-  { name: "Qatar", code: "qa" },
-  { name: "Turquie", code: "tr" },
-  { name: "Tunisie", code: "tn" },
-  { name: "Sénégal", code: "sn" },
-  { name: "Autre", code: null },
-];
-
-const norm = (s: string) =>
-  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+import { COUNTRIES, type Country } from "@/lib/countries";
+import { foldAccents } from "@/lib/utils";
 
 function Flag({ code }: { code: string | null }) {
   if (!code) return <Globe className="size-4 text-[#968F84] shrink-0" />;
@@ -75,9 +35,9 @@ export function CountrySelect({
   );
 
   const filtered = useMemo(() => {
-    const q = norm(query);
+    const q = foldAccents(query);
     if (!q) return COUNTRIES;
-    return COUNTRIES.filter((c) => norm(c.name).includes(q));
+    return COUNTRIES.filter((c) => foldAccents(c.name).includes(q));
   }, [query]);
 
   // Fermeture au clic extérieur.

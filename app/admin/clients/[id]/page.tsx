@@ -10,6 +10,7 @@ import { CustomerForm } from "@/components/customer-form";
 import type { ReservationWithCircuit } from "@/lib/types";
 import { WhatsAppButton } from "@/components/whatsapp-button";
 import { computeLoyaltyPoints, getLoyaltyTier, getNextTier } from "@/lib/loyalty";
+import { SOURCE_LABELS } from "@/lib/customers";
 
 const STATUS_CONFIG: Record<
   string,
@@ -20,20 +21,6 @@ const STATUS_CONFIG: Record<
   paid: { tone: "success", label: "Payée" },
   cancelled: { tone: "danger", label: "Annulée" },
   completed: { tone: "neutral", label: "Terminée" },
-};
-
-const SOURCE_LABEL: Record<string, string> = {
-  walk_in: "Walk-in",
-  phone: "Téléphone",
-  whatsapp: "WhatsApp",
-  email: "Email",
-  website: "Site web",
-  referral: "Bouche-à-oreille",
-  social_media: "Réseaux sociaux",
-  partner: "Agence partenaire",
-  hotel: "Hôtel",
-  event: "Salon / événement",
-  other: "Autre",
 };
 
 export default async function ClientDetailPage({
@@ -194,7 +181,7 @@ export default async function ClientDetailPage({
                   Source
                 </div>
                 <div className="text-ink">
-                  {SOURCE_LABEL[customer.acquisition_source] ??
+                  {SOURCE_LABELS[customer.acquisition_source] ??
                     customer.acquisition_source}
                 </div>
               </div>

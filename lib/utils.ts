@@ -5,6 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Texte replié pour la recherche : minuscules, sans accents ni diacritiques. */
+export function foldAccents(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
 export function formatMAD(amount: number | string): string {
   const value = typeof amount === "string" ? parseFloat(amount) : amount;
   return new Intl.NumberFormat("fr-MA", {

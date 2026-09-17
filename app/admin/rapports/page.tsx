@@ -1,24 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { VoucherPrintButton } from "@/components/voucher-print-button";
 import { PerformanceTrendChart, type TrendPoint } from "@/components/performance-trend-chart";
+import { KpiCard, DeltaPill } from "@/components/kpi-card";
 import { formatMAD } from "@/lib/utils";
-import { TrendingUp, TrendingDown, BarChart3, Info, AlertTriangle } from "lucide-react";
+import { SOURCE_LABELS } from "@/lib/customers";
+import { BarChart3, Info, AlertTriangle } from "lucide-react";
 
 const MONTHS_FR_SHORT = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
-
-const SOURCE_LABELS: Record<string, string> = {
-  walk_in: "Walk-in",
-  phone: "Téléphone",
-  whatsapp: "WhatsApp",
-  email: "Email",
-  website: "Site web",
-  referral: "Recommandation",
-  social_media: "Réseaux sociaux",
-  partner: "Agence partenaire",
-  hotel: "Hôtel",
-  event: "Salon / événement",
-  other: "Autre",
-};
 
 const ROLE_LABELS: Record<string, string> = { guide: "Guide", driver: "Chauffeur", both: "Guide + Chauffeur" };
 
@@ -361,45 +349,3 @@ export default async function RapportsPage() {
   );
 }
 
-function KpiCard({
-  label,
-  value,
-  sub,
-  accent,
-  delta,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  accent?: "ocean" | "amber";
-  delta?: React.ReactNode;
-}) {
-  const borderStyle =
-    accent === "ocean"
-      ? { borderLeft: "3px solid #0C6B8A", borderRadius: "0 12px 12px 0" }
-      : accent === "amber"
-        ? { borderLeft: "3px solid #D98324", borderRadius: "0 12px 12px 0" }
-        : undefined;
-  return (
-    <div className="bg-white border border-[#E5E0D7] rounded-xl p-3.5 print:break-inside-avoid" style={borderStyle}>
-      <div className="flex items-start justify-between gap-2">
-        <span className="text-[10px] uppercase tracking-wide text-[#968F84] font-medium">{label}</span>
-        {delta}
-      </div>
-      <div className="font-display text-[21px] text-[#1A1F2E] tabular-nums mt-1">{value}</div>
-      {sub && <div className="text-[10px] text-[#968F84] mt-0.5 capitalize">{sub}</div>}
-    </div>
-  );
-}
-
-function DeltaPill({ up, children }: { up: boolean; children: React.ReactNode }) {
-  return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium shrink-0"
-      style={up ? { backgroundColor: "#E3F0F5", color: "#0C447C" } : { backgroundColor: "#FCEBEB", color: "#791F1F" }}
-    >
-      {up ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-      {children}
-    </span>
-  );
-}

@@ -26,6 +26,21 @@ export function normalizePhone(phone: string | null | undefined): string | null 
   return d || null;
 }
 
+/** Libellés français des valeurs de l'enum Postgres `customer_source`. */
+export const SOURCE_LABELS: Record<string, string> = {
+  walk_in: "Walk-in",
+  phone: "Téléphone",
+  whatsapp: "WhatsApp",
+  email: "Email",
+  website: "Site web",
+  referral: "Bouche-à-oreille",
+  social_media: "Réseaux sociaux",
+  partner: "Agence partenaire",
+  hotel: "Hôtel",
+  event: "Salon / événement",
+  other: "Autre",
+};
+
 /** Clé de comparaison d'un email : trim + minuscules. Null si vide. */
 export function normalizeEmail(email: string | null | undefined): string | null {
   if (!email) return null;
