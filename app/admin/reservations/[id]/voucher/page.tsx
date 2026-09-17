@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatMAD, formatDate } from "@/lib/utils";
 import { VoucherPrintButton } from "@/components/voucher-print-button";
+import { TRAVELER_TYPE_LABEL } from "@/lib/travelers";
+import type { TravelerType } from "@/lib/types";
 
 export default async function VoucherPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,6 +16,14 @@ export default async function VoucherPage({ params }: { params: Promise<{ id: st
     .single();
 
   if (!reservation) notFound();
+
+  // Document remis au client : noms + type uniquement, jamais de passeport.
+  const { data: travelersData } = await supabase
+    .from("reservation_travelers")
+    .select("full_name, traveler_type")
+    .eq("reservation_id", id)
+    .order("created_at", { ascending: true });
+  const travelers = (travelersData ?? []) as { full_name: string; traveler_type: TravelerType }[];
 
   const r = reservation as any;
   const totalPaid = Number(r.paid_amount_mad);
@@ -66,6 +76,20 @@ export default async function VoucherPage({ params }: { params: Promise<{ id: st
                 <tr><td className="py-2 text-sand-700 w-1/3">Date de départ</td><td className="py-2 text-ink font-medium">{formatDate(r.departure_date)}</td></tr>
                 <tr><td className="py-2 text-sand-700">Durée</td><td className="py-2 text-ink">{r.circuits?.duration_days > 1 ? `${r.circuits.duration_days} jours` : r.circuits?.duration_hours ? `${r.circuits.duration_hours} h` : "1 jour"}</td></tr>
                 <tr><td className="py-2 text-sand-700">Participants</td><td className="py-2 text-ink">{r.adults} adulte{r.adults > 1 ? "s" : ""}{r.children > 0 && `, ${r.children} enfant${r.children > 1 ? "s" : ""}`}</td></tr>
+                {travelers.length > 0 && (
+                  <tr>
+                    <td className="py-2 text-sand-700 align-top">Voyageurs</td>
+                    <td className="py-2 text-ink">
+                      <ul className="space-y-0.5">
+                        {travelers.map((t, i) => (
+                          <li key={i}>
+                            {t.full_name} <span className="text-sand-600 text-xs">· {TRAVELER_TYPE_LABEL[t.traveler_type]}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </td>
+                  </tr>
+                )}
                 {r.circuits?.meeting_point && <tr><td className="py-2 text-sand-700">Point de rendez-vous</td><td className="py-2 text-ink">{r.circuits.meeting_point}</td></tr>}
               </tbody>
             </table>

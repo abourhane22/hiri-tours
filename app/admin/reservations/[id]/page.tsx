@@ -18,6 +18,7 @@ import {
   Flag,
   Check,
   User,
+  Users,
   MapPin,
   StickyNote,
   Banknote,
@@ -38,6 +39,9 @@ import { WhatsAppButton } from "@/components/whatsapp-button";
 import { ReservationStatusForm } from "@/components/reservation-status-form";
 import { PaymentCollector } from "@/components/payment-collector";
 import { SuiviLinkButton } from "@/components/suivi-link-button";
+import { TravelersPanel } from "@/components/travelers-panel";
+import { travelersStatus } from "@/lib/travelers";
+import type { ReservationTraveler } from "@/lib/types";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   attijari: "Attijari Payment",
@@ -166,6 +170,14 @@ export default async function ReservationDetailPage({
     .eq("reservation_id", id)
     .order("paid_at", { ascending: false });
 
+  // Voyageurs nominatifs (staff via RLS ; la table n'est jamais lue hors backoffice).
+  const { data: travelersData } = await supabase
+    .from("reservation_travelers")
+    .select("*")
+    .eq("reservation_id", id)
+    .order("created_at", { ascending: true });
+  const travelers = (travelersData ?? []) as ReservationTraveler[];
+
   // Lien de paiement actif (staff read via RLS).
   const { data: activeLinkRow } = await supabase
     .from("payment_links")
@@ -218,6 +230,31 @@ export default async function ReservationDetailPage({
   const paxLabel =
     `${r.adults} adulte${r.adults > 1 ? "s" : ""}` +
     (r.children > 0 ? ` · ${r.children} enfant${r.children > 1 ? "s" : ""}` : "");
+  const expectedPax = r.adults + r.children;
+  const tStatus = travelersStatus(travelers.length, expectedPax);
+  const travelersBadge =
+    tStatus === "complete" ? (
+      <span
+        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-medium tabular-nums"
+        style={{ backgroundColor: "#E1F5EE", color: "#085041" }}
+      >
+        <CircleCheck className="size-3.5" /> {travelers.length}/{expectedPax} renseignés
+      </span>
+    ) : tStatus === "incomplete" ? (
+      <span
+        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-medium tabular-nums"
+        style={{ backgroundColor: "#FAEEDA", color: "#633806" }}
+      >
+        <AlertTriangle className="size-3.5" /> {travelers.length}/{expectedPax} · À compléter
+      </span>
+    ) : (
+      <span
+        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-medium tabular-nums"
+        style={{ backgroundColor: "#FAECE7", color: "#712B13" }}
+      >
+        <AlertTriangle className="size-3.5" /> {travelers.length}/{expectedPax} · Incohérent avec le dossier ({expectedPax} pax)
+      </span>
+    );
 
   const updateNotesBound = updateNotes.bind(null, id);
   const cancelReservationBound = cancelReservation.bind(null, id);
@@ -536,6 +573,21 @@ export default async function ReservationDetailPage({
                 <KV label="Point de rendez-vous" value={circuit.meeting_point} />
               )}
             </div>
+          </InfoCard>
+
+          {/* b'. VOYAGEURS NOMINATIFS (client payeur ≠ voyageurs) */}
+          <InfoCard icon={Users} label="Voyageurs" headerRight={travelersBadge}>
+            {isCancelled && (
+              <p className="text-[12px] text-[#968F84] mb-2">Dossier annulé — liste en lecture seule.</p>
+            )}
+            <TravelersPanel
+              reservationId={id}
+              travelers={travelers}
+              expectedAdults={r.adults}
+              expectedChildren={r.children}
+              payer={customer ? { fullName: customer.full_name, country: customer.country ?? null } : null}
+              readOnly={isCancelled}
+            />
           </InfoCard>
 
           {/* c. NOTES INTERNES */}

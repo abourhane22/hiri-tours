@@ -3,6 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
 import { VoucherPrintButton } from "@/components/voucher-print-button";
 import { AutoPrint } from "@/components/auto-print";
+import { TRAVELER_TYPE_SHORT } from "@/lib/travelers";
+import type { TravelerType } from "@/lib/types";
+
+// Document de bord : nom + type uniquement — jamais de passeport ni de date de naissance.
+type ManifestTraveler = { reservation_id: string; full_name: string; traveler_type: TravelerType };
 
 export default async function ManifestePage({
   params,
@@ -25,6 +30,22 @@ export default async function ManifestePage({
     .eq("departure_date", date)
     .in("status", ["confirmed", "paid"])
     .order("created_at", { ascending: true });
+
+  // Voyageurs nominatifs de tous les dossiers du départ (une requête).
+  const reservationIds = (reservations || []).map((r: any) => r.id as string);
+  const travelersByReservation = new Map<string, ManifestTraveler[]>();
+  if (reservationIds.length > 0) {
+    const { data: travelers } = await supabase
+      .from("reservation_travelers")
+      .select("reservation_id, full_name, traveler_type")
+      .in("reservation_id", reservationIds)
+      .order("created_at", { ascending: true });
+    for (const t of (travelers ?? []) as ManifestTraveler[]) {
+      const list = travelersByReservation.get(t.reservation_id) ?? [];
+      list.push(t);
+      travelersByReservation.set(t.reservation_id, list);
+    }
+  }
 
   const totalPax = (reservations || []).reduce((sum: number, r: any) => sum + r.adults + r.children, 0);
   const totalAdults = (reservations || []).reduce((sum: number, r: any) => sum + r.adults, 0);
@@ -112,6 +133,20 @@ export default async function ManifestePage({
                   <td className="px-3 py-2 border-r border-sand-200">
                     <div className="text-ink">{r.customers?.full_name ?? "—"}</div>
                     {r.customers?.nationality && <div className="text-xs text-sand-600">{r.customers.nationality}</div>}
+                    {(() => {
+                      const list = travelersByReservation.get(r.id) ?? [];
+                      const expected = r.adults + r.children;
+                      if (list.length === 0) return null;
+                      return (
+                        <div className="mt-1 text-xs text-sand-800">
+                          <span className="text-sand-600">Voyageurs : </span>
+                          {list.map((t) => `${t.full_name} (${TRAVELER_TYPE_SHORT[t.traveler_type]})`).join(" · ")}
+                          {list.length !== expected && (
+                            <span className="text-amber-800"> · {list.length}/{expected} renseignés</span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2 border-r border-sand-200 text-xs">
                     {r.customers?.phone && <div>{r.customers.phone}</div>}

@@ -66,6 +66,22 @@ export type Reservation = {
   updated_at: string;
 };
 
+export type TravelerType = "adult" | "child";
+
+/** Voyageur nominatif d'un dossier (distinct du client payeur). Backoffice uniquement. */
+export type ReservationTraveler = {
+  id: string;
+  reservation_id: string;
+  full_name: string;
+  traveler_type: TravelerType;
+  date_of_birth: string | null;
+  nationality: string | null;
+  passport_number: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ReservationWithCircuit = Reservation & {
   circuits: Pick<Circuit, "title" | "slug" | "category"> | null;
 };
