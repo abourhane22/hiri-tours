@@ -1,5 +1,25 @@
 export type UserRole = "admin" | "commercial" | "comptable" | "guide" | "client";
-export type CircuitCategory = "circuit" | "excursion" | "transfert" | "sejour";
+
+/**
+ * Type de produit du catalogue. La colonne s'appelle toujours `category` et la
+ * table `circuits` : le renommage physique mettrait en jeu le tunnel de
+ * paiement pour un gain cosmétique. Le vocabulaire « Produit » est porté par
+ * l'interface (alias `ProductType` / `Product` ci-dessous).
+ */
+export type CircuitCategory =
+  | "circuit"
+  | "excursion"
+  | "transfert"
+  | "sejour" // forfait packagé multi-nuits, vendu PAR PERSONNE
+  | "hebergement" // nuitée sèche, vendue PAR CHAMBRE ET PAR NUIT
+  | "billetterie"
+  | "prestation";
+
+/** Base de facturation d'un produit. Autorité de calcul : lib/pricing.ts. */
+export type SaleUnit = "per_person" | "per_night_room" | "per_trip" | "per_unit";
+
+/** fixed = réservable en ligne · on_request = devis, hors tunnel. */
+export type PricingMode = "fixed" | "on_request";
 export type ReservationStatus =
   | "pending"
   | "confirmed"
@@ -43,9 +63,15 @@ export type Circuit = {
   gallery_urls: string[] | null;
   is_active: boolean;
   category_fields: Record<string, unknown> | null;
+  sale_unit: SaleUnit;
+  pricing_mode: PricingMode;
   created_at: string;
   updated_at: string;
 };
+
+/** Vocabulaire d'interface : un « circuit » est un produit du catalogue. */
+export type Product = Circuit;
+export type ProductType = CircuitCategory;
 
 export type Reservation = {
   id: string;

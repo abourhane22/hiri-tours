@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ShieldCheck, Zap, MapPin, Ticket } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { seasonMultiplier } from "@/lib/pricing";
+import { seasonMultiplier, minDisplayPrice } from "@/lib/pricing";
 import { CatalogGrid, type CatalogItem } from "@/components/public/catalog-grid";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export default async function ReserverCatalogPage() {
   const { data: circuits } = await supabase
     .from("circuits")
     .select(
-      "id, slug, title, category, hero_image_url, base_price_mad, max_participants, duration_days, duration_hours, category_fields, circuit_seasons(starts_on, ends_on, price_multiplier)",
+      "id, slug, title, category, hero_image_url, base_price_mad, max_participants, duration_days, duration_hours, category_fields, sale_unit, circuit_seasons(starts_on, ends_on, price_multiplier)",
     )
     .eq("is_active", true)
     .order("base_price_mad", { ascending: true });
@@ -21,13 +21,20 @@ export default async function ReserverCatalogPage() {
 
   const items: CatalogItem[] = ((circuits ?? []) as any[]).map((c) => {
     const f = (c.category_fields ?? {}) as Record<string, any>;
+    // Prix « à partir de » et unité issus de la même autorité que le tunnel.
+    const display = minDisplayPrice({
+      base_price_mad: c.base_price_mad,
+      sale_unit: c.sale_unit,
+      circuit_seasons: c.circuit_seasons,
+    });
     return {
       id: c.id,
       slug: c.slug ?? null,
       title: c.title,
       category: c.category,
       heroImageUrl: c.hero_image_url ?? null,
-      price: Number(c.base_price_mad),
+      price: display.amount,
+      priceSuffix: display.suffix,
       durationDays: c.duration_days ?? null,
       durationHours: c.duration_hours ?? f.duration_hours ?? null,
       maxParticipants: Number(c.max_participants) || null,
@@ -36,7 +43,14 @@ export default async function ReserverCatalogPage() {
       vehicleType: f.vehicle_type ?? null,
       tripType: f.trip_type ?? null,
       nights: f.nights ?? null,
-      boardType: f.board_type ?? null,
+      boardType: f.board_type ?? f.hebergement_board_type ?? null,
+      roomType: f.room_type ?? null,
+      occupancyMax: f.occupancy_max ?? null,
+      ticketKind: f.ticket_kind ?? null,
+      origin: f.origin ?? null,
+      destination: f.destination ?? null,
+      isRoundTrip: !!f.is_round_trip,
+      unitLabel: f.unit_label ?? null,
       highSeason: seasonMultiplier(today, c.circuit_seasons) > 1,
     };
   });

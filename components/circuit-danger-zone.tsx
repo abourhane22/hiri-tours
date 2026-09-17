@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Trash2, AlertTriangle, EyeOff } from "lucide-react";
-import { deleteCircuit, deactivateCircuit } from "@/app/admin/circuits/actions";
+import { deleteCircuit, deactivateCircuit } from "@/app/admin/produits/actions";
 
 export function CircuitDangerZone({
   circuitId,

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,10 +25,10 @@ const topLevelStart: NavItem[] = [
 const ressourcesGroup: NavGroup = {
   label: "Ressources",
   icon: Package,
-  match: ["/admin/circuits", "/admin/logistique"],
+  match: ["/admin/produits", "/admin/logistique"],
   permission: "viewCircuits",
   items: [
-    { href: "/admin/circuits", label: "Catalogue", icon: Map, permission: "viewCircuits" },
+    { href: "/admin/produits", label: "Catalogue", icon: Map, permission: "viewCircuits" },
     { href: "/admin/logistique", label: "Logistique", icon: Truck, permission: "viewLogistique" },
   ],
 };

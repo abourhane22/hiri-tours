@@ -1,4 +1,4 @@
-import type { CircuitCategory } from "@/lib/types";
+import type { CircuitCategory, SaleUnit } from "@/lib/types";
 
 // -------- Per-category field shapes --------
 
@@ -43,8 +43,61 @@ export type SejourFields = {
   included_activities?: string;
 };
 
-export type CategoryFields = CircuitFields | ExcursionFields | TransfertFields | SejourFields;
-export type AnyCategoryFields = CircuitFields & ExcursionFields & TransfertFields & SejourFields;
+/**
+ * Nuitée SÈCHE, vendue par chambre et par nuit — à ne pas confondre avec
+ * `sejour`, qui est un forfait packagé vendu par personne.
+ */
+export type HebergementFields = {
+  property_name?: string;
+  property_address?: string;
+  property_lat?: number | null;
+  property_lng?: number | null;
+  star_rating?: "1" | "2" | "3" | "4" | "5";
+  room_type?: "simple" | "double" | "twin" | "triple" | "suite" | "familiale";
+  occupancy_max?: number;
+  hebergement_board_type?: "sans" | "petit_dejeuner" | "demi_pension" | "pension_complete";
+  check_in_time?: string;
+  check_out_time?: string;
+  min_nights?: number;
+};
+
+export type BilletterieFields = {
+  ticket_kind?: "vol" | "bus" | "train" | "ferry" | "evenement" | "entree_site";
+  carrier_or_organizer?: string;
+  origin?: string;
+  destination?: string;
+  venue?: string;
+  travel_class?: "economique" | "premium" | "affaires" | "premiere" | "standard";
+  is_round_trip?: boolean;
+  baggage_included?: boolean;
+  fixed_date?: string;
+  refundable?: boolean;
+};
+
+export type PrestationFields = {
+  unit_label?: "heure" | "jour" | "unite" | "forfait";
+  prestation_duration_min?: number;
+  with_driver?: boolean;
+  language?: string;
+  min_quantity?: number;
+};
+
+export type CategoryFields =
+  | CircuitFields
+  | ExcursionFields
+  | TransfertFields
+  | SejourFields
+  | HebergementFields
+  | BilletterieFields
+  | PrestationFields;
+
+export type AnyCategoryFields = CircuitFields &
+  ExcursionFields &
+  TransfertFields &
+  SejourFields &
+  HebergementFields &
+  BilletterieFields &
+  PrestationFields;
 
 // -------- Display metadata --------
 
@@ -54,6 +107,8 @@ export const CATEGORY_META: Record<
     label: string;
     sectionSuffix: string;
     badgeStyle: { backgroundColor: string; color: string };
+    /** Phrase affichée sous le sélecteur de type, pour lever les ambiguïtés. */
+    hint?: string;
   }
 > = {
   circuit: {
@@ -73,9 +128,39 @@ export const CATEGORY_META: Record<
   },
   sejour: {
     label: "Séjour",
-    sectionSuffix: "Nuitées",
+    sectionSuffix: "Forfait packagé",
     badgeStyle: { backgroundColor: "#FAEEDA", color: "#633806" },
+    hint: "Forfait packagé (hébergement + activités) vendu PAR PERSONNE. Pour vendre une nuitée seule, par chambre, choisissez « Hébergement ».",
   },
+  hebergement: {
+    label: "Hébergement",
+    sectionSuffix: "Nuitée sèche",
+    badgeStyle: { backgroundColor: "#F3E8F6", color: "#6B2D7A" },
+    hint: "Nuitée sèche vendue PAR CHAMBRE ET PAR NUIT. Pour un forfait tout compris vendu par personne, choisissez « Séjour ».",
+  },
+  billetterie: {
+    label: "Billetterie",
+    sectionSuffix: "Titre de transport ou d'entrée",
+    badgeStyle: { backgroundColor: "#E3F0F5", color: "#0C447C" },
+    hint: "Vol, bus, train, ferry, spectacle ou entrée de site. Vendu par personne (un billet par voyageur).",
+  },
+  prestation: {
+    label: "Prestation",
+    sectionSuffix: "Service à l'unité",
+    badgeStyle: { backgroundColor: "#EDEFE9", color: "#44503A" },
+    hint: "Service annexe : location, guide seul, assurance, restauration… Vendu à l'unité, à l'heure ou au forfait.",
+  },
+};
+
+/** Unité de vente proposée par défaut à la création d'un produit de ce type. */
+export const DEFAULT_SALE_UNIT: Record<CircuitCategory, SaleUnit> = {
+  circuit: "per_person",
+  excursion: "per_person",
+  transfert: "per_trip",
+  sejour: "per_person",
+  hebergement: "per_night_room",
+  billetterie: "per_person",
+  prestation: "per_unit",
 };
 
 // -------- Field configuration --------
@@ -209,6 +294,113 @@ export const CATEGORY_FIELDS_CONFIG: Record<CircuitCategory, FieldConfig[]> = {
     },
     { key: "included_activities", label: "Activités incluses", type: "text" },
   ],
+  hebergement: [
+    { key: "property_name", label: "Établissement", type: "text", required: true, placeholder: "Riad Dar Amal" },
+    {
+      key: "property",
+      label: "Adresse de l'établissement",
+      type: "location",
+      required: true,
+      addressField: "property_address",
+      latField: "property_lat",
+      lngField: "property_lng",
+    },
+    {
+      key: "room_type",
+      label: "Type de chambre",
+      type: "select",
+      required: true,
+      options: [
+        { value: "simple", label: "Simple" },
+        { value: "double", label: "Double" },
+        { value: "twin", label: "Twin — deux lits simples" },
+        { value: "triple", label: "Triple" },
+        { value: "familiale", label: "Familiale" },
+        { value: "suite", label: "Suite" },
+      ],
+    },
+    { key: "occupancy_max", label: "Occupation maximale de la chambre", type: "number", required: true, min: 1 },
+    {
+      key: "star_rating",
+      label: "Catégorie",
+      type: "select",
+      options: [
+        { value: "1", label: "1 étoile" },
+        { value: "2", label: "2 étoiles" },
+        { value: "3", label: "3 étoiles" },
+        { value: "4", label: "4 étoiles" },
+        { value: "5", label: "5 étoiles" },
+      ],
+    },
+    {
+      key: "hebergement_board_type",
+      label: "Pension",
+      type: "select",
+      options: [
+        { value: "sans", label: "Sans repas" },
+        { value: "petit_dejeuner", label: "Petit-déjeuner" },
+        { value: "demi_pension", label: "Demi-pension" },
+        { value: "pension_complete", label: "Pension complète" },
+      ],
+    },
+    { key: "min_nights", label: "Nuitées minimum", type: "number", min: 1 },
+    { key: "check_in_time", label: "Heure d'arrivée", type: "time" },
+    { key: "check_out_time", label: "Heure de départ", type: "time" },
+  ],
+  billetterie: [
+    {
+      key: "ticket_kind",
+      label: "Nature du billet",
+      type: "select",
+      required: true,
+      options: [
+        { value: "vol", label: "Vol" },
+        { value: "bus", label: "Bus" },
+        { value: "train", label: "Train" },
+        { value: "ferry", label: "Ferry" },
+        { value: "evenement", label: "Spectacle / événement" },
+        { value: "entree_site", label: "Entrée de site" },
+      ],
+    },
+    { key: "carrier_or_organizer", label: "Compagnie / organisateur", type: "text", required: true },
+    { key: "origin", label: "Départ", type: "text", placeholder: "Agadir (AGA)" },
+    { key: "destination", label: "Arrivée", type: "text", placeholder: "Casablanca (CMN)" },
+    { key: "venue", label: "Lieu (événement ou site)", type: "text" },
+    {
+      key: "travel_class",
+      label: "Classe",
+      type: "select",
+      options: [
+        { value: "standard", label: "Standard" },
+        { value: "economique", label: "Économique" },
+        { value: "premium", label: "Premium" },
+        { value: "affaires", label: "Affaires" },
+        { value: "premiere", label: "Première" },
+      ],
+    },
+    { key: "fixed_date", label: "Date fixe du billet", type: "text", placeholder: "Laisser vide si la date est choisie par le client" },
+    { key: "is_round_trip", label: "Aller-retour", type: "checkbox" },
+    { key: "baggage_included", label: "Bagage inclus", type: "checkbox" },
+    { key: "refundable", label: "Remboursable", type: "checkbox" },
+  ],
+  prestation: [
+    {
+      key: "unit_label",
+      label: "Unité de vente",
+      type: "select",
+      required: true,
+      options: [
+        { value: "unite", label: "À l'unité" },
+        { value: "heure", label: "À l'heure" },
+        { value: "jour", label: "À la journée" },
+        { value: "forfait", label: "Au forfait" },
+      ],
+    },
+    { key: "prestation_duration_min", label: "Durée (minutes)", type: "number", min: 1 },
+    { key: "min_quantity", label: "Quantité minimum", type: "number", min: 1 },
+    { key: "language", label: "Langue", type: "text", placeholder: "Français, anglais…" },
+    { key: "with_driver", label: "Avec chauffeur", type: "checkbox" },
+  ],
 };
 
 // -------- FormData helpers --------
@@ -327,6 +519,20 @@ export function deriveLegacyColumns(category: CircuitCategory, fields: AnyCatego
       break;
     case "sejour":
       duration_days = Math.max(1, Number(fields.nights) || 1);
+      break;
+    case "hebergement":
+      // Une nuitée sèche : la durée du dossier est portée par la quantité
+      // vendue (nuits), pas par le produit.
+      duration_days = Math.max(1, Number(fields.min_nights) || 1);
+      meeting_point = fields.property_address?.trim() || null;
+      break;
+    case "billetterie":
+      meeting_point = fields.origin?.trim() || fields.venue?.trim() || null;
+      break;
+    case "prestation":
+      duration_hours = fields.prestation_duration_min
+        ? Math.max(1, Math.round(Number(fields.prestation_duration_min) / 60))
+        : null;
       break;
   }
 

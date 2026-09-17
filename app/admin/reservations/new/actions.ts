@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { seasonMultiplier, computeReservationTotal } from "@/lib/pricing";
+import { seasonMultiplier, computeLineTotal, isSaleUnit } from "@/lib/pricing";
 
 export type CreateReservationInput = {
   circuit_id: string;
@@ -43,7 +43,7 @@ export async function createReservation(
   // Recharge le circuit (prix + saisons + capacité) — jamais confiance au client.
   const { data: circuit, error: circuitError } = await supabase
     .from("circuits")
-    .select("base_price_mad, child_price_mad, max_participants, circuit_seasons(starts_on, ends_on, price_multiplier)")
+    .select("base_price_mad, child_price_mad, max_participants, sale_unit, circuit_seasons(starts_on, ends_on, price_multiplier)")
     .eq("id", input.circuit_id)
     .single();
 
@@ -59,14 +59,15 @@ export async function createReservation(
     return { ok: false, error: `Ce circuit accepte au maximum ${maxPax} passagers.` };
   }
 
-  // A1 — recalcul serveur du total (le montant client sert de contrôle)
+  // A1 — recalcul serveur du total (le montant client sert de contrôle),
+  // aiguillé sur l'unité de vente du produit.
   const multiplier = seasonMultiplier(input.departure_date, c.circuit_seasons);
-  const serverTotal = computeReservationTotal({
+  const serverTotal = computeLineTotal({
+    saleUnit: isSaleUnit(c.sale_unit) ? c.sale_unit : "per_person",
     basePriceMad: c.base_price_mad,
     childPriceMad: c.child_price_mad,
-    adults: input.adults,
-    children: input.children,
     multiplier,
+    quantity: { adults: input.adults, children: input.children, trips: 1, nights: 1, rooms: 1, units: 1 },
   });
   if (Math.abs(serverTotal - Number(input.total_amount_mad)) > 1) {
     console.warn(

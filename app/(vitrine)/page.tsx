@@ -15,16 +15,23 @@ export const metadata = {
     "Hiri Tours, votre agence de voyage à Agadir : excursions désert, surf à Taghazout, Vallée du Paradis, transferts aéroport et séjours tout inclus dans la région Souss-Massa.",
 };
 
+// Les 7 types sont mappés dès le déploiement : pas de libellé brut en vitrine.
 const CAT_LABEL: Record<string, string> = {
   circuit: "Circuit",
   excursion: "Excursion",
   transfert: "Transfert",
   sejour: "Séjour",
+  hebergement: "Hébergement",
+  billetterie: "Billetterie",
+  prestation: "Prestation",
 };
 
 function durationLabel(cat: string, days: number | null, hours: number | null): string | null {
   if (cat === "excursion") return hours ? `${hours} h` : "Journée";
   if (cat === "transfert") return "Trajet privé";
+  if (cat === "hebergement") return "À la nuitée";
+  if (cat === "billetterie") return "Billet";
+  if (cat === "prestation") return hours ? `${hours} h` : "À l'unité";
   if (days) return `${days} jours`;
   return null;
 }
@@ -34,7 +41,7 @@ async function getPopular(): Promise<VitrineCircuit[]> {
   const { data } = await supabase
     .from("circuits")
     .select(
-      "id, title, category, short_description, hero_image_url, base_price_mad, duration_days, duration_hours, circuit_seasons(starts_on, ends_on, price_multiplier)",
+      "id, title, category, short_description, hero_image_url, base_price_mad, duration_days, duration_hours, sale_unit, circuit_seasons(starts_on, ends_on, price_multiplier)",
     )
     .eq("is_active", true)
     .order("base_price_mad", { ascending: false })
@@ -46,7 +53,11 @@ async function getPopular(): Promise<VitrineCircuit[]> {
     categoryLabel: CAT_LABEL[c.category] ?? c.category,
     durationLabel: durationLabel(c.category, c.duration_days, c.duration_hours),
     // Prix « à partir de » via lib/pricing (min saisonnier) — même formule que le tunnel.
-    price: minAdultPriceMad({ base_price_mad: c.base_price_mad, circuit_seasons: c.circuit_seasons }),
+    price: minAdultPriceMad({
+      base_price_mad: c.base_price_mad,
+      sale_unit: c.sale_unit,
+      circuit_seasons: c.circuit_seasons,
+    }),
     image: c.hero_image_url ?? null,
     excerpt: c.short_description
       ? c.short_description.length > 96

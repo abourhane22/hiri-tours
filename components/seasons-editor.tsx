@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
-import { createSeason, deleteSeason } from "@/app/admin/circuits/actions";
+import { createSeason, deleteSeason } from "@/app/admin/produits/actions";
 import { formatDateShort } from "@/lib/utils";
 import type { CircuitSeason } from "@/lib/types";
 

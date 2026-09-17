@@ -16,7 +16,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { formatMAD } from "@/lib/utils";
-import { seasonMultiplier, computeReservationTotal } from "@/lib/pricing";
+import { seasonMultiplier, computeLineTotal, SALE_UNIT_SUFFIX } from "@/lib/pricing";
+import type { SaleUnit } from "@/lib/types";
 import {
   createPublicReservation,
   type PaymentChannel,
@@ -34,6 +35,8 @@ type Circuit = {
   basePrice: number;
   childPrice: number | null;
   maxParticipants: number;
+  /** Base de facturation du produit — le total en dépend. */
+  saleUnit: SaleUnit;
   infoItems: { label: string; value: string }[];
   seasons: Season[];
 };
@@ -78,13 +81,19 @@ export function BookingTunnel({ circuit, bank }: { circuit: Circuit; bank: Bank 
   const overCapacity = maxPax > 0 && pax > maxPax;
 
   const multiplier = date ? seasonMultiplier(date, circuit.seasons) : 1;
-  const total = computeReservationTotal({
+  // Le tunnel public vend une seule ligne : `pax` alimente l'unité du produit
+  // (personnes, trajet, nuitée ou unité). Le serveur recalcule à l'identique.
+  const total = computeLineTotal({
+    saleUnit: circuit.saleUnit,
     basePriceMad: circuit.basePrice,
     childPriceMad: circuit.childPrice,
-    adults: pax,
-    children: 0,
     multiplier,
+    quantity: { adults: pax, children: 0, trips: 1, nights: 1, rooms: 1, units: 1 },
   });
+  // Un produit au trajet / à la nuitée a un prix forfaitaire : le compteur de
+  // passagers ne fait plus varier le total, il ne sert qu'au dimensionnement.
+  const perPersonPricing = circuit.saleUnit === "per_person";
+  const priceSuffix = SALE_UNIT_SUFFIX[circuit.saleUnit];
   const isHighSeason = multiplier > 1;
 
   // Règle J-7 (canal agence).
@@ -233,6 +242,11 @@ export function BookingTunnel({ circuit, bank }: { circuit: Circuit; bank: Bank 
                 <div className="text-[11px] uppercase tracking-wide text-[#968F84]">Total</div>
                 {isHighSeason && (
                   <div className="text-[11px] text-[#C84B31]">Tarif haute saison appliqué</div>
+                )}
+                {!perPersonPricing && (
+                  <div className="text-[11px] text-[#6B6862]">
+                    Prix forfaitaire {priceSuffix} — identique quel que soit le nombre de passagers
+                  </div>
                 )}
               </div>
               <div className="font-display text-2xl text-[#0f6d78] tabular-nums">

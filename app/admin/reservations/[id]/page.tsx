@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -586,7 +586,7 @@ export default async function ReservationDetailPage({
                 value={
                   circuit ? (
                     <Link
-                      href={`/admin/circuits/${r.circuit_id}`}
+                      href={`/admin/produits/${r.circuit_id}`}
                       className="text-[#1A1F2E] hover:text-[#C84B31]"
                     >
                       {circuit.title}

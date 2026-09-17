@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
@@ -8,20 +8,24 @@ import { AlertBanner } from "@/components/ui/alert-banner";
 import { ImageUpload } from "@/components/image-upload";
 import { GalleryEditor } from "@/components/gallery-editor";
 import { CategorySpecificFields } from "@/components/category-fields-section";
-import type { CircuitActionState } from "@/app/admin/circuits/actions";
-import type { AnyCategoryFields } from "@/lib/category-fields";
-import type { CircuitCategory } from "@/lib/types";
+import type { CircuitActionState } from "@/app/admin/produits/actions";
+import { CATEGORY_META, DEFAULT_SALE_UNIT, type AnyCategoryFields } from "@/lib/category-fields";
+import { SALE_UNITS } from "@/lib/pricing";
+import type { CircuitCategory, SaleUnit } from "@/lib/types";
 
 const labelCls = "block text-[12px] font-medium text-[#58524A] mb-1.5";
 const fieldCls =
   "h-10 w-full rounded-lg border border-[#E0DACF] bg-white px-3 text-sm text-[#1A1F2E] placeholder:text-sand-400 focus:border-[#1A1F2E] focus:outline-none focus:ring-2 focus:ring-[#1A1F2E]/10 transition-colors";
 
-const TYPE_LABEL: Record<string, string> = {
-  circuit: "Multi-jours",
-  excursion: "Journée",
-  transfert: "Point à point",
-  sejour: "Nuitées",
-};
+const TYPE_ORDER: CircuitCategory[] = [
+  "circuit",
+  "excursion",
+  "transfert",
+  "sejour",
+  "hebergement",
+  "billetterie",
+  "prestation",
+];
 
 export type CircuitFormDefaults = {
   title: string;
@@ -37,6 +41,8 @@ export type CircuitFormDefaults = {
   galleryUrls: string[] | null;
   isActive: boolean;
   dayCount: number;
+  saleUnit: SaleUnit;
+  pricingMode: "fixed" | "on_request";
 };
 
 type Action = (prev: CircuitActionState, formData: FormData) => Promise<CircuitActionState>;
@@ -62,16 +68,27 @@ export function CircuitForm({
   const [isActive, setIsActive] = useState(defaults.isActive);
   const [dayCount, setDayCount] = useState(defaults.dayCount || 1);
   const [imageUrl, setImageUrl] = useState(defaults.heroImageUrl);
+  const [saleUnit, setSaleUnit] = useState<SaleUnit>(defaults.saleUnit);
+  const [saleUnitTouched, setSaleUnitTouched] = useState(false);
 
   const categoryChanged = category !== defaults.category;
   const seedFields: AnyCategoryFields = categoryChanged ? {} : defaults.categoryFields;
 
+  // Changer de type propose l'unité usuelle — tant que l'utilisateur ne l'a pas
+  // choisie lui-même. Un produit existant garde toujours la sienne.
+  function onCategoryChange(next: CircuitCategory) {
+    setCategory(next);
+    if (!saleUnitTouched) setSaleUnit(DEFAULT_SALE_UNIT[next]);
+  }
+
   const priceNum = Number(basePrice) || 0;
   const maxNum = Number(maxParticipants) || 0;
+  const meta = CATEGORY_META[category];
+  const saleUnitMeta = SALE_UNITS.find((u) => u.value === saleUnit);
   const durationLabel =
     category === "circuit"
       ? `${dayCount || 1} jour${(dayCount || 1) > 1 ? "s" : ""}`
-      : TYPE_LABEL[category] ?? "—";
+      : meta?.sectionSuffix ?? "—";
 
   return (
     <form action={formAction} className="grid gap-4 lg:grid-cols-[1fr_250px] items-start">
@@ -82,27 +99,79 @@ export function CircuitForm({
           <div className="grid sm:grid-cols-2 gap-4 mt-4">
             <div className="sm:col-span-2">
               <label htmlFor="category" className={labelCls}>
-                Catégorie <span className="text-red-600">*</span>
+                Type de produit <span className="text-red-600">*</span>
               </label>
               <select
                 id="category"
                 name="category"
                 value={category}
-                onChange={(e) => setCategory(e.target.value as CircuitCategory)}
+                onChange={(e) => onCategoryChange(e.target.value as CircuitCategory)}
                 required
                 className={fieldCls}
               >
-                <option value="circuit">Circuit</option>
-                <option value="excursion">Excursion</option>
-                <option value="transfert">Transfert</option>
-                <option value="sejour">Séjour</option>
+                {TYPE_ORDER.map((t) => (
+                  <option key={t} value={t}>
+                    {CATEGORY_META[t].label}
+                  </option>
+                ))}
               </select>
-              <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-[#968F84]">
+              {meta?.hint && (
+                <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-[#58524A]">
+                  <Info className="size-3.5 shrink-0 mt-px text-[#968F84]" />
+                  {meta.hint}
+                </p>
+              )}
+              <p className="mt-1 flex items-start gap-1.5 text-[11px] text-[#968F84]">
                 <Info className="size-3.5 shrink-0 mt-px" />
-                Changer de catégorie réinitialise les champs spécifiques.
+                Changer de type réinitialise les champs spécifiques.
                 {categoryChanged && (
                   <span className="text-[#B25F0B] font-medium"> Champs réinitialisés.</span>
                 )}
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="sale_unit" className={labelCls}>
+                Unité de vente <span className="text-red-600">*</span>
+              </label>
+              <select
+                id="sale_unit"
+                name="sale_unit"
+                value={saleUnit}
+                onChange={(e) => {
+                  setSaleUnit(e.target.value as SaleUnit);
+                  setSaleUnitTouched(true);
+                }}
+                required
+                className={fieldCls}
+              >
+                {SALE_UNITS.map((u) => (
+                  <option key={u.value} value={u.value}>
+                    {u.label}
+                  </option>
+                ))}
+              </select>
+              {saleUnitMeta && (
+                <p className="mt-1.5 text-[11px] text-[#968F84]">{saleUnitMeta.hint}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="pricing_mode" className={labelCls}>
+                Mode de tarification <span className="text-red-600">*</span>
+              </label>
+              <select
+                id="pricing_mode"
+                name="pricing_mode"
+                defaultValue={defaults.pricingMode}
+                required
+                className={fieldCls}
+              >
+                <option value="fixed">Prix catalogue — réservable en ligne</option>
+                <option value="on_request">Sur demande — devis, hors tunnel</option>
+              </select>
+              <p className="mt-1.5 text-[11px] text-[#968F84]">
+                « Sur demande » retire le produit du paiement en ligne.
               </p>
             </div>
             <div className="sm:col-span-2">
@@ -323,7 +392,7 @@ export function CircuitForm({
               : "Enregistrer"}
         </button>
         <Link
-          href="/admin/circuits"
+          href="/admin/produits"
           className="w-full inline-flex items-center justify-center rounded-lg border border-[#E0DACF] bg-white py-2.5 text-sm font-medium text-[#1A1F2E] hover:bg-[#FAF5F0] transition-colors"
         >
           Annuler

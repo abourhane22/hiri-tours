@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizePhone, normalizeEmail } from "@/lib/customers";
-import { seasonMultiplier, computeReservationTotal } from "@/lib/pricing";
+import { seasonMultiplier, computeLineTotal, isSaleUnit } from "@/lib/pricing";
 import { sendBookingConfirmation } from "@/lib/email";
 import { ensureAccessToken, suiviUrl } from "@/lib/access-token";
 
@@ -98,7 +98,7 @@ export async function createPublicReservation(
   const { data: circuit, error: circuitError } = await supabase
     .from("circuits")
     .select(
-      "id, is_active, base_price_mad, child_price_mad, max_participants, circuit_seasons(starts_on, ends_on, price_multiplier)",
+      "id, is_active, base_price_mad, child_price_mad, max_participants, sale_unit, circuit_seasons(starts_on, ends_on, price_multiplier)",
     )
     .eq("id", input.circuitId)
     .maybeSingle();
@@ -115,14 +115,15 @@ export async function createPublicReservation(
     return { ok: false, error: `Cette prestation accepte au maximum ${maxPax} passagers.` };
   }
 
-  // Total recalculé serveur (multiplicateur de saison inclus).
+  // Total recalculé serveur (unité de vente + multiplicateur de saison).
+  // Même appel que l'affichage du tunnel — aucune divergence possible.
   const multiplier = seasonMultiplier(date, c.circuit_seasons);
-  const serverTotal = computeReservationTotal({
+  const serverTotal = computeLineTotal({
+    saleUnit: isSaleUnit(c.sale_unit) ? c.sale_unit : "per_person",
     basePriceMad: c.base_price_mad,
     childPriceMad: c.child_price_mad,
-    adults: pax,
-    children: 0,
     multiplier,
+    quantity: { adults: pax, children: 0, trips: 1, nights: 1, rooms: 1, units: 1 },
   });
 
   // --- Rattachement client silencieux (service-role) ---

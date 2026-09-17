@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -8,7 +8,8 @@ import {
   deriveLegacyColumns,
   type AnyCategoryFields,
 } from "@/lib/category-fields";
-import type { CircuitCategory } from "@/lib/types";
+import { isSaleUnit } from "@/lib/pricing";
+import type { CircuitCategory, PricingMode } from "@/lib/types";
 
 export type CircuitActionState = { ok: true } | { ok: false; error: string };
 
@@ -17,6 +18,9 @@ const VALID_CATEGORIES: readonly CircuitCategory[] = [
   "excursion",
   "transfert",
   "sejour",
+  "hebergement",
+  "billetterie",
+  "prestation",
 ];
 
 /**
@@ -45,6 +49,16 @@ function buildCircuitPayload(
   const maxParticipants = parseInt(formData.get("max_participants") as string, 10);
   if (!Number.isInteger(maxParticipants) || maxParticipants <= 0) {
     return { ok: false, error: "Le nombre maximum de participants doit être un entier supérieur à 0." };
+  }
+
+  // Unité de vente : détermine la formule de prix (lib/pricing.ts).
+  const saleUnitRaw = formData.get("sale_unit");
+  if (!isSaleUnit(saleUnitRaw)) {
+    return { ok: false, error: "Unité de vente invalide." };
+  }
+  const pricingModeRaw = (formData.get("pricing_mode") as string) || "fixed";
+  if (pricingModeRaw !== "fixed" && pricingModeRaw !== "on_request") {
+    return { ok: false, error: "Mode de tarification invalide." };
   }
 
   const parsed = parseCategoryFieldsFromForm(category, formData);
@@ -76,6 +90,8 @@ function buildCircuitPayload(
       // Itinéraire : source de vérité = category_fields.itinerary (répéteur).
       // Colonne legacy `itinerary` volontairement non écrite.
       is_active: formData.get("is_active") === "on",
+      sale_unit: saleUnitRaw,
+      pricing_mode: pricingModeRaw as PricingMode,
       category_fields: parsed.fields,
       duration_days: legacy.duration_days,
       duration_hours: legacy.duration_hours,
@@ -102,8 +118,8 @@ export async function createCircuit(
     return { ok: false, error: error?.message || "Erreur lors de la création." };
   }
 
-  revalidatePath("/admin/circuits");
-  redirect(`/admin/circuits/${data.id}`);
+  revalidatePath("/admin/produits");
+  redirect(`/admin/produits/${data.id}`);
 }
 
 export async function updateCircuit(
@@ -121,9 +137,9 @@ export async function updateCircuit(
     return { ok: false, error: error.message };
   }
 
-  revalidatePath("/admin/circuits");
-  revalidatePath(`/admin/circuits/${id}`);
-  redirect("/admin/circuits");
+  revalidatePath("/admin/produits");
+  revalidatePath(`/admin/produits/${id}`);
+  redirect("/admin/produits");
 }
 
 /**
@@ -158,8 +174,8 @@ export async function deleteCircuit(
     };
   }
 
-  revalidatePath("/admin/circuits");
-  redirect("/admin/circuits");
+  revalidatePath("/admin/produits");
+  redirect("/admin/produits");
 }
 
 /** Désactive un circuit (le retire de la vente sans le supprimer). */
@@ -171,8 +187,8 @@ export async function deactivateCircuit(id: string): Promise<void> {
     .eq("id", id);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/admin/circuits/${id}`);
-  revalidatePath("/admin/circuits");
+  revalidatePath(`/admin/produits/${id}`);
+  revalidatePath("/admin/produits");
 }
 
 export async function createSeason(circuitId: string, formData: FormData) {
@@ -197,12 +213,12 @@ export async function createSeason(circuitId: string, formData: FormData) {
   });
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/admin/circuits/${circuitId}`);
+  revalidatePath(`/admin/produits/${circuitId}`);
 }
 
 export async function deleteSeason(circuitId: string, seasonId: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("circuit_seasons").delete().eq("id", seasonId);
   if (error) throw new Error(error.message);
-  revalidatePath(`/admin/circuits/${circuitId}`);
+  revalidatePath(`/admin/produits/${circuitId}`);
 }

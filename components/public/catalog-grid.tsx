@@ -12,6 +12,7 @@ import {
   Repeat,
   Utensils,
   Tag,
+  Ticket,
   X,
 } from "lucide-react";
 import { formatMAD } from "@/lib/utils";
@@ -33,13 +34,28 @@ export type CatalogItem = {
   nights: number | null;
   boardType: string | null;
   highSeason: boolean;
+  // Unité de vente : « 250 MAD / trajet » plutôt que « 250 MAD » seul.
+  priceSuffix: string;
+  // Hébergement · billetterie · prestation
+  roomType?: string | null;
+  occupancyMax?: number | null;
+  ticketKind?: string | null;
+  origin?: string | null;
+  destination?: string | null;
+  isRoundTrip?: boolean;
+  unitLabel?: string | null;
 };
 
+// Les 7 types sont mappés dès le déploiement, même si aucun produit n'utilise
+// encore les trois derniers : pas de libellé brut côté client.
 const CATEGORY_LABEL: Record<string, string> = {
   circuit: "Circuit",
   excursion: "Excursion",
   transfert: "Transfert",
   sejour: "Séjour",
+  hebergement: "Hébergement",
+  billetterie: "Billetterie",
+  prestation: "Prestation",
 };
 
 const CHIP_LABEL: Record<string, string> = {
@@ -47,9 +63,21 @@ const CHIP_LABEL: Record<string, string> = {
   excursion: "Excursions",
   transfert: "Transferts",
   sejour: "Séjours",
+  hebergement: "Hébergements",
+  billetterie: "Billetterie",
+  prestation: "Prestations",
 };
 
-const CHIP_ORDER = ["circuit", "excursion", "transfert", "sejour"];
+// Un onglet n'apparaît que si le catalogue contient au moins un produit du type.
+const CHIP_ORDER = [
+  "circuit",
+  "excursion",
+  "transfert",
+  "sejour",
+  "hebergement",
+  "billetterie",
+  "prestation",
+];
 
 /** Minuscule + sans accents, pour une recherche tolérante. */
 function normalize(s: string): string {
@@ -74,6 +102,9 @@ const PLACEHOLDER: Record<string, string> = {
   excursion: "linear-gradient(135deg, #2A6A6C, #1A4548)",
   transfert: "linear-gradient(135deg, #33506B, #1F3247)",
   sejour: "linear-gradient(135deg, #C89B3A, #8A6A1E)",
+  hebergement: "linear-gradient(135deg, #7A4A82, #4E2D55)",
+  billetterie: "linear-gradient(135deg, #2F6E86, #1C4454)",
+  prestation: "linear-gradient(135deg, #5E6B4F, #3A4431)",
 };
 
 const BADGE_COLOR: Record<string, string> = {
@@ -81,6 +112,9 @@ const BADGE_COLOR: Record<string, string> = {
   excursion: "#085041",
   transfert: "#0C447C",
   sejour: "#633806",
+  hebergement: "#6B2D7A",
+  billetterie: "#0C447C",
+  prestation: "#44503A",
 };
 
 const VEHICLE_LABEL: Record<string, string> = {
@@ -90,9 +124,35 @@ const VEHICLE_LABEL: Record<string, string> = {
 };
 
 const BOARD_LABEL: Record<string, string> = {
+  sans: "Sans repas",
   petit_dejeuner: "Petit-déjeuner",
   demi_pension: "Demi-pension",
   pension_complete: "Pension complète",
+};
+
+const ROOM_TYPE_LABEL: Record<string, string> = {
+  simple: "Chambre simple",
+  double: "Chambre double",
+  twin: "Chambre twin",
+  triple: "Chambre triple",
+  familiale: "Chambre familiale",
+  suite: "Suite",
+};
+
+const TICKET_KIND_LABEL: Record<string, string> = {
+  vol: "Vol",
+  bus: "Bus",
+  train: "Train",
+  ferry: "Ferry",
+  evenement: "Spectacle",
+  entree_site: "Entrée de site",
+};
+
+const UNIT_LABEL: Record<string, string> = {
+  heure: "à l'heure",
+  jour: "à la journée",
+  unite: "à l'unité",
+  forfait: "au forfait",
 };
 
 type Meta = { Icon: typeof Calendar; text: string };
@@ -124,6 +184,27 @@ function buildMeta(c: CatalogItem): Meta[] {
     if (c.boardType && BOARD_LABEL[c.boardType]) {
       meta.push({ Icon: Utensils, text: BOARD_LABEL[c.boardType] });
     }
+  } else if (c.category === "hebergement") {
+    if (c.roomType && ROOM_TYPE_LABEL[c.roomType]) {
+      meta.push({ Icon: BedDouble, text: ROOM_TYPE_LABEL[c.roomType] });
+    }
+    if (c.occupancyMax) meta.push({ Icon: Users, text: `jusqu'à ${c.occupancyMax} pers.` });
+    if (c.boardType && BOARD_LABEL[c.boardType]) {
+      meta.push({ Icon: Utensils, text: BOARD_LABEL[c.boardType] });
+    }
+  } else if (c.category === "billetterie") {
+    if (c.ticketKind && TICKET_KIND_LABEL[c.ticketKind]) {
+      meta.push({ Icon: Ticket, text: TICKET_KIND_LABEL[c.ticketKind] });
+    }
+    if (c.origin && c.destination) {
+      meta.push({ Icon: Repeat, text: `${c.origin} → ${c.destination}` });
+    }
+    if (c.isRoundTrip) meta.push({ Icon: Repeat, text: "aller-retour" });
+  } else if (c.category === "prestation") {
+    if (c.unitLabel && UNIT_LABEL[c.unitLabel]) {
+      meta.push({ Icon: Tag, text: UNIT_LABEL[c.unitLabel] });
+    }
+    if (c.durationHours) meta.push({ Icon: Clock, text: `${c.durationHours} h` });
   }
 
   return meta.slice(0, 3);
@@ -271,7 +352,7 @@ export function CatalogGrid({ items }: { items: CatalogItem[] }) {
                     <div className="text-[11px] text-[#968F84]">à partir de</div>
                     <div className="font-display text-lg text-[#0F6E56] tabular-nums">
                       {formatMAD(c.price)}
-                      <span className="text-[11px] font-normal text-[#968F84]"> / pers.</span>
+                      <span className="text-[11px] font-normal text-[#968F84]"> {c.priceSuffix}</span>
                     </div>
                   </div>
                   <span className="inline-flex items-center rounded-lg bg-[#C84B31] px-3.5 py-2 text-[13px] font-medium text-white transition-colors group-hover:bg-[#B03D26]">

@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "commercial" | "comptable" | "guide";
+﻿export type UserRole = "admin" | "commercial" | "comptable" | "guide";
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Administrateur",
@@ -9,7 +9,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 
 export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   admin: "Accès complet à toutes les fonctionnalités et à la gestion des utilisateurs",
-  commercial: "Réservations, clients, circuits, manifestes, rapports",
+  commercial: "Réservations, clients, catalogue produits, manifestes, rapports",
   comptable: "Finance, dépenses, P&L, rapports — lecture seule sur les réservations",
   guide: "Manifestes uniquement",
 };
@@ -53,7 +53,8 @@ export const ROUTE_PERMISSIONS: { prefix: string; permission: Permission }[] = [
   { prefix: "/admin/factures",   permission: "viewFinance" },
   { prefix: "/admin/rapports",   permission: "viewRapports" },
   { prefix: "/admin/logistique", permission: "viewLogistique" },
-  { prefix: "/admin/circuits",   permission: "viewCircuits" },
+  { prefix: "/admin/produits",   permission: "viewCircuits" },
+  { prefix: "/admin/circuits",   permission: "viewCircuits" }, // redirections legacy
   { prefix: "/admin/clients",    permission: "viewClients" },
   { prefix: "/admin/reservations", permission: "viewReservations" },
   { prefix: "/admin/calendrier", permission: "viewCalendrier" },
@@ -66,7 +67,7 @@ export const PERMISSIONS_MATRIX: { permission: Permission; label: string }[] = [
   { permission: "viewCalendrier",   label: "Calendrier" },
   { permission: "viewManifestes",   label: "Manifestes" },
   { permission: "viewClients",      label: "Clients" },
-  { permission: "viewCircuits",     label: "Catalogue circuits" },
+  { permission: "viewCircuits",     label: "Catalogue produits" },
   { permission: "viewLogistique",   label: "Logistique" },
   { permission: "viewFinance",      label: "Finance" },
   { permission: "viewRapports",     label: "Rapports" },
