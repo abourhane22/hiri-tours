@@ -72,7 +72,7 @@ function ModeBanner({ mode }: { mode: DuffelMode }) {
       <div className="mb-4 flex items-start gap-2.5 rounded-xl px-4 py-3 text-[13px]" style={{ backgroundColor: "#FFF4E0", border: "1px solid #EF9F27", color: "#7A4B00" }}>
         <FlaskConical className="size-4 shrink-0 mt-px" />
         <div>
-          <span className="font-medium">Environnement de test Duffel</span> · offres de bac à sable, horaires et prix non réels ·
+          <span className="font-medium">Environnement de test Duffel</span> · offres sandbox, horaires et prix non réels ·
           aucune réservation réelle, aucun paiement.
           <span className="block text-[11.5px] mt-0.5 opacity-80">
             Plusieurs compagnies apparaissent, mais seule la compagnie fictive{" "}
