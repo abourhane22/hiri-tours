@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { seasonMultiplier, computeLineTotal, isSaleUnit } from "@/lib/pricing";
+import { consumeAllotment, blockedMessage, RELEASED_MESSAGE } from "@/lib/allotments";
 
 export type CreateReservationInput = {
   circuit_id: string;
@@ -16,7 +18,7 @@ export type CreateReservationInput = {
 };
 
 export type CreateReservationResult =
-  | { ok: true; id: string; reference: string }
+  | { ok: true; id: string; reference: string; onRequest: boolean }
   | { ok: false; error: string };
 
 export async function createReservation(
@@ -95,8 +97,40 @@ export async function createReservation(
     return { ok: false, error: error?.message || "Erreur lors de la création" };
   }
 
+  // --- Allotement : décompte du stock (session staff → RLS ok) ---
+  // Même logique que le tunnel : 'blocked'/'released' refusent et retirent le
+  // dossier ; 'no_allotment' et 'unavailable' laissent passer.
+  const stock = await consumeAllotment(supabase, {
+    productId: input.circuit_id,
+    day: input.departure_date,
+    qty: pax,
+    reservationId: data.id as string,
+    reason: "booking",
+  });
+  if (stock.kind === "outcome" && (stock.outcome === "blocked" || stock.outcome === "released")) {
+    // Compensation : le schéma versionné n'a pas de policy DELETE sur
+    // reservations pour le staff — la session verrait un DELETE ignoré en
+    // silence. On passe par le service-role pour cette seule opération.
+    await createAdminClient().from("reservations").delete().eq("id", data.id as string);
+    return {
+      ok: false,
+      error: stock.outcome === "blocked" ? blockedMessage(stock.remaining) : RELEASED_MESSAGE,
+    };
+  }
+  if (stock.kind === "unavailable") {
+    console.error(
+      `[createReservation] contrôle d'allotement indisponible — dossier ${data.reference} créé sans décompte :`,
+      stock.error,
+    );
+  }
+
   revalidatePath("/admin/reservations");
   revalidatePath("/admin");
 
-  return { ok: true, id: data.id as string, reference: data.reference as string };
+  return {
+    ok: true,
+    id: data.id as string,
+    reference: data.reference as string,
+    onRequest: stock.kind === "outcome" && stock.outcome === "on_request",
+  };
 }

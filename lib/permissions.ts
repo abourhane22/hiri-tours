@@ -57,6 +57,7 @@ export const ROUTE_PERMISSIONS: { prefix: string; permission: Permission }[] = [
   { prefix: "/admin/rapports",   permission: "viewRapports" },
   { prefix: "/admin/logistique", permission: "viewLogistique" },
   { prefix: "/admin/produits",   permission: "viewCircuits" },
+  { prefix: "/admin/allotements", permission: "viewCircuits" },
   { prefix: "/admin/circuits",   permission: "viewCircuits" }, // redirections legacy
   { prefix: "/admin/clients",    permission: "viewClients" },
   { prefix: "/admin/reservations", permission: "viewReservations" },

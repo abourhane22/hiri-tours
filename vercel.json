@@ -7,6 +7,10 @@
     {
       "path": "/api/complete-departed",
       "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/release-allotments",
+      "schedule": "0 7 * * *"
     }
   ]
 }

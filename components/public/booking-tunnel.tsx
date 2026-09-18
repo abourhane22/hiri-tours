@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { formatMAD } from "@/lib/utils";
 import { seasonMultiplier, computeLineTotal, SALE_UNIT_SUFFIX } from "@/lib/pricing";
+import { ON_REQUEST_NOTICE } from "@/lib/allotments";
 import type { SaleUnit } from "@/lib/types";
 import {
   createPublicReservation,
@@ -415,6 +416,14 @@ export function BookingTunnel({ circuit, bank }: { circuit: Circuit; bank: Bank 
                 Conservez votre référence{" "}
                 <span className="font-mono">{result.reference}</span> : elle permet de retrouver
                 votre dossier à tout moment.
+              </p>
+            )}
+            {result.onRequest && (
+              <p
+                className="mt-3 rounded-lg px-3 py-2.5 text-left text-[12.5px]"
+                style={{ backgroundColor: "#FFF4E0", border: "1px solid #EF9F27", color: "#7A4B00" }}
+              >
+                {ON_REQUEST_NOTICE}
               </p>
             )}
 

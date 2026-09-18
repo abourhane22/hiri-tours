@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Truck, Banknote, Calendar, X, ChevronRight } from "lucide-react";
+import { Bell, Truck, Banknote, Calendar, Boxes, X, ChevronRight } from "lucide-react";
 import type { AppNotification, NotifFamily, NotifPriority } from "@/lib/notifications";
 import { fetchNotifications, markNotificationsRead } from "@/app/admin/notification-actions";
 
@@ -17,6 +17,7 @@ const FAMILY_ICON: Record<NotifFamily, typeof Truck> = {
   logistique: Truck,
   paiements: Banknote,
   reservations: Calendar,
+  stock: Boxes,
 };
 
 const TABS: { key: "all" | NotifFamily; label: string }[] = [
@@ -24,6 +25,7 @@ const TABS: { key: "all" | NotifFamily; label: string }[] = [
   { key: "logistique", label: "Logistique" },
   { key: "paiements", label: "Paiements" },
   { key: "reservations", label: "Réservations" },
+  { key: "stock", label: "Stock" },
 ];
 
 function isActionable(n: AppNotification) {

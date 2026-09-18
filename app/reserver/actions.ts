@@ -7,6 +7,7 @@ import { normalizePhone, normalizeEmail } from "@/lib/customers";
 import { seasonMultiplier, computeLineTotal, isSaleUnit } from "@/lib/pricing";
 import { sendBookingConfirmation } from "@/lib/email";
 import { ensureAccessToken, suiviUrl } from "@/lib/access-token";
+import { consumeAllotment, blockedMessage, RELEASED_MESSAGE } from "@/lib/allotments";
 
 export type PaymentChannel = "carte" | "virement" | "agence";
 
@@ -23,7 +24,15 @@ export type PublicReservationInput = {
 };
 
 export type PublicReservationResult =
-  | { ok: true; id: string | null; reference: string; emailSent: boolean; suiviUrl: string | null }
+  | {
+      ok: true;
+      id: string | null;
+      reference: string;
+      emailSent: boolean;
+      suiviUrl: string | null;
+      /** Quota d'allotement atteint en mode « sur demande » : dossier créé sous réserve. */
+      onRequest: boolean;
+    }
   | { ok: false; error: string };
 
 const MAX_PER_HOUR = 5;
@@ -58,7 +67,7 @@ export async function createPublicReservation(
 ): Promise<PublicReservationResult> {
   // (a) Honeypot : un bot remplit le champ caché → succès factice, zéro écriture.
   if (input.website && input.website.trim() !== "") {
-    return { ok: true, id: null, reference: "AG-DEMO", emailSent: false, suiviUrl: null };
+    return { ok: true, id: null, reference: "AG-DEMO", emailSent: false, suiviUrl: null, onRequest: false };
   }
 
   // (c) Validation stricte des entrées.
@@ -219,6 +228,34 @@ export async function createPublicReservation(
   const id = (resa as any).id as string;
   const reference = (resa as any).reference as string;
 
+  // --- Allotement : décompte du stock ---
+  // Produit sans allotement ⇒ 'no_allotment', aucune écriture, parcours inchangé.
+  // Une EXCEPTION (clé, fonction, base) ⇒ 'unavailable' : le dossier reste
+  // créé, on journalise, la notification de réconciliation le fera remonter.
+  // Seuls 'blocked' et 'released' refusent — et on retire alors le dossier
+  // qui vient d'être créé (compensation, avant token et email).
+  const stock = await consumeAllotment(supabase, {
+    productId: input.circuitId,
+    day: date,
+    qty: pax,
+    reservationId: id,
+    reason: "booking",
+  });
+  if (stock.kind === "outcome" && (stock.outcome === "blocked" || stock.outcome === "released")) {
+    await supabase.from("reservations").delete().eq("id", id);
+    return {
+      ok: false,
+      error: stock.outcome === "blocked" ? blockedMessage(stock.remaining) : RELEASED_MESSAGE,
+    };
+  }
+  const onRequest = stock.kind === "outcome" && stock.outcome === "on_request";
+  if (stock.kind === "unavailable") {
+    console.error(
+      `[createPublicReservation] contrôle d'allotement indisponible — dossier ${reference} créé sans décompte :`,
+      stock.error,
+    );
+  }
+
   // Journalise pour le rate-limit (best-effort).
   await supabase.from("public_request_log").insert({ ip, kind: "reservation" });
 
@@ -239,7 +276,7 @@ export async function createPublicReservation(
     console.error("[createPublicReservation] email:", e);
   }
 
-  return { ok: true, id, reference, emailSent, suiviUrl: suivi };
+  return { ok: true, id, reference, emailSent, suiviUrl: suivi, onRequest };
 }
 
 // ---------------------------------------------------------------------------

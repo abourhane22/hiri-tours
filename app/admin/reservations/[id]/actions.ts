@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { autoConfirmOnPayment } from "@/lib/payments";
+import { releaseAllotment } from "@/lib/allotments";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "En attente",
@@ -101,6 +102,11 @@ export async function updateStatus(
   if (error) {
     console.error("[updateStatus] Supabase error:", error);
     return { ok: false, error: error.message };
+  }
+
+  // Annulation : rend les places d'allotement (idempotent, ne lève jamais).
+  if (status === "cancelled") {
+    await releaseAllotment(supabase, id, "cancellation");
   }
 
   revalidatePath("/admin/reservations/[id]", "page");
@@ -216,6 +222,9 @@ export async function cancelReservation(id: string) {
     .eq("id", id);
 
   if (error) throw new Error(error.message);
+
+  // Rend les places d'allotement consommées par ce dossier (idempotent).
+  await releaseAllotment(supabase, id, "cancellation");
 
   revalidatePath(`/admin/reservations/${id}`);
   revalidatePath("/admin/reservations");

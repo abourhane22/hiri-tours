@@ -410,6 +410,62 @@ export type PurchaseRate = {
   updated_at: string;
 };
 
+// ---------------------------------------------------------------------------
+// Allotements (lot C2b)
+// ---------------------------------------------------------------------------
+
+export type AllotmentCommitment = "guaranteed" | "on_request" | "free_sale";
+export type AllotmentOnExhausted = "block" | "request";
+
+export type Allotment = {
+  id: string;
+  product_id: string;
+  /** NULL = capacité propre : l'agence est son propre fournisseur. */
+  contract_id: string | null;
+  label: string;
+  starts_on: string;
+  ends_on: string;
+  quota_per_day: number;
+  /** NULL = tous les jours ; sinon 0 = dimanche … 6 = samedi. */
+  weekdays: number[] | null;
+  /** 0 = pas de release. */
+  release_days: number;
+  commitment: AllotmentCommitment;
+  on_exhausted: AllotmentOnExhausted;
+  is_active: boolean;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AllotmentDay = {
+  id: string;
+  allotment_id: string;
+  product_id: string;
+  day: string;
+  quota: number;
+  sold: number;
+  released: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AllotmentMovement = {
+  id: string;
+  allotment_day_id: string;
+  reservation_id: string | null;
+  kind: "consume" | "release";
+  qty: number;
+  reason: "booking" | "cancellation" | "pax_change" | "manual";
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+/** Issue typée renvoyée par consume_allotment — jamais une exception pour un cas métier. */
+export type AllotmentOutcome = "no_allotment" | "consumed" | "on_request" | "blocked" | "released";
+
 export type VehicleType = "sedan" | "van" | "4x4" | "minibus" | "bus";
 export type StaffRole = "guide" | "driver" | "both";
 

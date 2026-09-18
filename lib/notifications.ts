@@ -7,7 +7,7 @@ import { formatMAD, formatDateShort } from "@/lib/utils";
 // dont la condition disparaît n'est tout simplement plus calculée.
 
 export type NotifPriority = "terracotta" | "amber" | "info" | "success";
-export type NotifFamily = "logistique" | "paiements" | "reservations";
+export type NotifFamily = "logistique" | "paiements" | "reservations" | "stock";
 
 export type AppNotification = {
   key: string;
@@ -52,7 +52,7 @@ export async function computeNotifications(
     supabase
       .from("reservations")
       .select(
-        "id, reference, status, departure_date, adults, children, total_amount_mad, paid_amount_mad, vehicle_id, guide_id, driver_id, intended_payment_channel, created_at, circuits(title, category, category_fields)",
+        "id, reference, status, circuit_id, departure_date, adults, children, total_amount_mad, paid_amount_mad, vehicle_id, guide_id, driver_id, intended_payment_channel, created_at, circuits(title, category, category_fields)",
       )
       .in("status", ["pending", "confirmed", "paid"]),
     supabase
@@ -198,6 +198,47 @@ export async function computeNotifications(
           href: fiche(l.reservation_id),
           at: l.expires_at,
           read: readSet.has(`lien-expire:${l.id}`),
+        });
+      }
+    }
+  }
+
+  // 9. hors-allotement — RÉCONCILIATION (lot C2b). Dossier actif, départ à
+  //    venir, sur un produit PILOTÉ par un allotement ce jour-là, mais sans
+  //    aucune place décomptée. Deux causes, même action (vérifier auprès du
+  //    fournisseur ou ajuster le quota) : réservation acceptée « sur demande »
+  //    quota atteint, ou décompte non abouti (contrôle indisponible, crash
+  //    entre l'insert et le consume). Dérivée : disparaît à l'annulation.
+  const todayStr = new Date(now).toISOString().slice(0, 10);
+  const { data: pilotedDays } = await supabase
+    .from("allotment_days")
+    .select("product_id, day")
+    .gte("day", todayStr);
+  const piloted = new Set(((pilotedDays ?? []) as any[]).map((d) => `${d.product_id}|${d.day}`));
+  if (piloted.size > 0) {
+    const candidates = resas.filter(
+      (r) => r.departure_date >= todayStr && piloted.has(`${r.circuit_id}|${r.departure_date}`),
+    );
+    if (candidates.length > 0) {
+      const { data: consumed } = await supabase
+        .from("allotment_movements")
+        .select("reservation_id")
+        .eq("kind", "consume")
+        .in("reservation_id", candidates.map((r) => r.id));
+      const consumedSet = new Set(((consumed ?? []) as any[]).map((m) => m.reservation_id));
+      for (const r of candidates) {
+        if (consumedSet.has(r.id)) continue;
+        const pax = Number(r.adults) + Number(r.children);
+        out.push({
+          key: `hors-allotement:${r.id}`,
+          priority: "amber",
+          family: "stock",
+          title: `Dossier hors allotement — ${r.reference}`,
+          description: `${r.circuits?.title ?? "Produit"} · départ le ${formatDateShort(r.departure_date)} · ${pax} pax · produit piloté par allotement mais aucune place décomptée (accepté sur demande, ou décompte non abouti). À confirmer auprès du prestataire.`,
+          reference: r.reference,
+          href: fiche(r.id),
+          at: r.departure_date + "T00:00:00",
+          read: readSet.has(`hors-allotement:${r.id}`),
         });
       }
     }
