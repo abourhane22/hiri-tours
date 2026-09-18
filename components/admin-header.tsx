@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import {
-  LayoutDashboard, Calendar, CalendarRange, Map, Users, Receipt, FileText, FileMinus, BarChart3, LogOut, Settings, Truck, Wallet, ChevronDown, Package, Compass, Tag, Target, Building2,
+  LayoutDashboard, Calendar, CalendarRange, Map, Users, Receipt, FileText, FileMinus, BarChart3, LogOut, Settings, Truck, Wallet, ChevronDown, Package, Compass, Tag, Target, Building2, Plane,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { userCan, type Permission } from "@/lib/permissions";
@@ -20,6 +20,7 @@ const topLevelStart: NavItem[] = [
   { href: "/admin/calendrier", label: "Calendrier", icon: Calendar, permission: "viewCalendrier" },
   { href: "/admin/manifestes", label: "Manifestes", icon: FileText, permission: "viewManifestes" },
   { href: "/admin/clients", label: "Clients", icon: Users, permission: "viewClients" },
+  { href: "/admin/billetterie", label: "Billetterie", icon: Plane, permission: "viewBilletterie" },
 ];
 
 const ressourcesGroup: NavGroup = {

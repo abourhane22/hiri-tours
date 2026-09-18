@@ -4,6 +4,9 @@ out/
 build/
 .env*.local
 .vercel
+
+# Fichiers de notes à la racine (identifiants, clés) — jamais versionnés
+/*.txt
 *.log
 .DS_Store
 next-env.d.ts

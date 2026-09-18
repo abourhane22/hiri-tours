@@ -25,6 +25,7 @@ export type Permission =
   | "viewCircuits"
   | "viewLogistique"
   | "viewAchats"
+  | "viewBilletterie"
   | "viewFinance"
   | "viewRapports"
   | "viewParametres"
@@ -39,6 +40,7 @@ const PERMISSIONS: Record<Permission, UserRole[]> = {
   viewCircuits:    ["admin", "commercial"],
   viewLogistique:  ["admin"],
   viewAchats:      ["admin", "comptable"],
+  viewBilletterie: ["admin", "commercial"],
   viewFinance:     ["admin", "comptable"],
   viewRapports:    ["admin", "commercial", "comptable"],
   viewParametres:  ["admin"],
@@ -52,6 +54,7 @@ export function userCan(role: string, permission: Permission): boolean {
 export const ROUTE_PERMISSIONS: { prefix: string; permission: Permission }[] = [
   { prefix: "/admin/parametres", permission: "viewParametres" },
   { prefix: "/admin/fournisseurs", permission: "viewAchats" },
+  { prefix: "/admin/billetterie",  permission: "viewBilletterie" },
   { prefix: "/admin/finance",    permission: "viewFinance" },
   { prefix: "/admin/factures",   permission: "viewFinance" },
   { prefix: "/admin/rapports",   permission: "viewRapports" },
@@ -74,6 +77,7 @@ export const PERMISSIONS_MATRIX: { permission: Permission; label: string }[] = [
   { permission: "viewCircuits",     label: "Catalogue produits" },
   { permission: "viewLogistique",   label: "Logistique" },
   { permission: "viewAchats",       label: "Achats — fournisseurs & contrats" },
+  { permission: "viewBilletterie",  label: "Billetterie — distribution aérienne" },
   { permission: "viewFinance",      label: "Finance" },
   { permission: "viewRapports",     label: "Rapports" },
   { permission: "viewParametres",   label: "Paramètres" },
