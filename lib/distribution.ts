@@ -2,7 +2,7 @@
 // modèle métier — produit `billetterie`, dossier, voyageurs, passagers d'ordre.
 // Fonctions pures, testables ; les écritures restent dans les server actions.
 
-import type { DuffelOffer, DuffelOrderPassengerInput, DuffelIdentityDocument } from "@/lib/duffel";
+import type { DuffelOffer, DuffelOrderPassengerInput, DuffelIdentityDocument } from "@/lib/duffel-types";
 import type { DistributionStatus, FxSource, ReservationTraveler } from "@/lib/types";
 import { countryCode } from "@/lib/countries";
 import { normalizePhone } from "@/lib/customers";

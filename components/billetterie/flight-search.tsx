@@ -4,7 +4,7 @@ import { useActionState, useEffect, useMemo, useState, useTransition } from "rea
 import { Search, Loader2, ArrowLeftRight, Users, X, AlertTriangle, Info, FileText, Lock, RefreshCw } from "lucide-react";
 import { formatDateShort } from "@/lib/utils";
 import { searchOffersAction, getOfferAction, type SearchState, type OfferDetailResult } from "@/app/admin/billetterie/actions";
-import { CABIN_CLASSES, formatMoney, offerTotalMinutes, amountNumber, formatMinutes, type DuffelOffer, type DuffelMode } from "@/lib/duffel";
+import { CABIN_CLASSES, formatMoney, offerTotalMinutes, amountNumber, formatMinutes, type DuffelOffer, type DuffelMode } from "@/lib/duffel-types";
 import { PlaceInput } from "@/components/billetterie/place-input";
 import { OfferCard, SliceRow, ConditionChips, AirlineBadge, countdownLabel } from "@/components/billetterie/offer-card";
 import { CreateDossierPanel } from "@/components/billetterie/create-dossier-panel";

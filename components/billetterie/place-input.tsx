@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Plane, X, Loader2 } from "lucide-react";
 import { suggestPlacesAction } from "@/app/admin/billetterie/actions";
-import type { DuffelPlace } from "@/lib/duffel";
+import type { DuffelPlace } from "@/lib/duffel-types";
 
 const fieldCls =
   "h-10 w-full rounded-lg border border-[#E0DACF] bg-white px-3 text-sm text-[#1A1F2E] placeholder:text-sand-400 focus:border-[#1A1F2E] focus:outline-none focus:ring-2 focus:ring-[#1A1F2E]/10 transition-colors";

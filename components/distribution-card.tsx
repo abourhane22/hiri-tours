@@ -1,6 +1,6 @@
 import { FlaskConical, Lock, Ticket, FileText } from "lucide-react";
 import { formatMAD, formatDate } from "@/lib/utils";
-import { formatMoney, offerIsExpired, type DuffelDocument, type DuffelOrder } from "@/lib/duffel";
+import { formatMoney, offerIsExpired, type DuffelDocument, type DuffelOrder } from "@/lib/duffel-types";
 import { DISTRIBUTION_STATUS_LABEL, DISTRIBUTION_STATUS_STYLE, FX_SOURCE_LABEL, offerFromSnapshot } from "@/lib/distribution";
 import { SliceRow, AirlineBadge, ConditionChips } from "@/components/billetterie/offer-card";
 import { DistributionActions } from "@/components/distribution-actions";

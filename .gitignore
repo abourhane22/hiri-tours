@@ -10,3 +10,6 @@ build/
 *.log
 .DS_Store
 next-env.d.ts
+
+# Réglages locaux Claude Code (permissions par poste)
+.claude/settings.local.json

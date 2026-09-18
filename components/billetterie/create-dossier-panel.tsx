@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Loader2, Info, Lock } from "lucide-react";
 import { CustomerPicker } from "@/components/customer-picker";
 import { formatMAD } from "@/lib/utils";
-import { amountNumber, formatMoney, type DuffelOffer } from "@/lib/duffel";
+import { amountNumber, formatMoney, type DuffelOffer } from "@/lib/duffel-types";
 import { fxConvert } from "@/lib/distribution";
 import { createDossierFromOfferAction, type CreateDossierState } from "@/app/admin/billetterie/actions";
 import type { Customer } from "@/lib/types";

@@ -11,7 +11,7 @@ import {
   sliceMinutes,
   type DuffelOffer,
   type DuffelSlice,
-} from "@/lib/duffel";
+} from "@/lib/duffel-types";
 
 /** "2026-10-12T10:35:00" → "10:35" (heure locale de l'aéroport, telle que fournie). */
 export const hhmm = (iso: string) => iso.slice(11, 16);
