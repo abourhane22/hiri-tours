@@ -320,6 +320,109 @@ export async function getOffer(offerId: string): Promise<DuffelOffer> {
 }
 
 // ---------------------------------------------------------------------------
+// Ordres (lot D1b) — émission et annulation
+// ---------------------------------------------------------------------------
+
+export type DuffelIdentityDocument = {
+  type: "passport";
+  unique_identifier: string;
+  expires_on: string; // YYYY-MM-DD
+  issuing_country_code: string; // ISO 3166-1 alpha-2
+};
+
+/** Passager tel qu'attendu par POST /air/orders. `id` = celui du passager de l'offre. */
+export type DuffelOrderPassengerInput = {
+  id: string;
+  given_name: string;
+  family_name: string;
+  born_on: string; // YYYY-MM-DD
+  gender: "m" | "f";
+  title: "mr" | "ms" | "mrs" | "miss";
+  email: string;
+  phone_number: string; // E.164
+  identity_documents?: DuffelIdentityDocument[];
+};
+
+export type DuffelDocument = {
+  type: string; // electronic_ticket…
+  unique_identifier: string;
+  passenger_ids?: string[];
+};
+
+export type DuffelOrder = {
+  id: string;
+  live_mode: boolean;
+  created_at: string;
+  booking_reference: string | null;
+  total_amount: string;
+  total_currency: string;
+  owner: DuffelAirline;
+  slices: DuffelSlice[];
+  passengers: { id: string; given_name?: string; family_name?: string; type?: string | null }[];
+  documents?: DuffelDocument[];
+  payment_status?: {
+    awaiting_payment?: boolean;
+    payment_required_by?: string | null;
+    price_guarantee_expires_at?: string | null;
+  } | null;
+  cancelled_at?: string | null;
+  metadata?: Record<string, string> | null;
+};
+
+/**
+ * Crée l'ordre : paiement `balance` (solde de test illimité en mode test),
+ * type `instant`. L'appelant a DÉJÀ relu l'offre et vérifié live_mode.
+ */
+export async function createOrder(input: {
+  offerId: string;
+  passengers: DuffelOrderPassengerInput[];
+  currency: string;
+  amount: string;
+  metadata?: Record<string, string>;
+}): Promise<DuffelOrder> {
+  return duffelFetch<DuffelOrder>("/air/orders", {
+    method: "POST",
+    body: {
+      type: "instant",
+      selected_offers: [input.offerId],
+      passengers: input.passengers,
+      payments: [{ type: "balance", currency: input.currency, amount: input.amount }],
+      metadata: input.metadata,
+    },
+  });
+}
+
+export async function getOrder(orderId: string): Promise<DuffelOrder> {
+  return duffelFetch<DuffelOrder>(`/air/orders/${encodeURIComponent(orderId)}`);
+}
+
+export type DuffelOrderCancellation = {
+  id: string;
+  order_id: string;
+  live_mode: boolean;
+  refund_amount: string | null;
+  refund_currency: string | null;
+  refund_to: string | null;
+  expires_at: string | null;
+  confirmed_at: string | null;
+};
+
+/** Devis d'annulation : rien n'est annulé tant que `confirmOrderCancellation` n'est pas appelée. */
+export async function createOrderCancellation(orderId: string): Promise<DuffelOrderCancellation> {
+  return duffelFetch<DuffelOrderCancellation>("/air/order_cancellations", {
+    method: "POST",
+    body: { order_id: orderId },
+  });
+}
+
+export async function confirmOrderCancellation(cancellationId: string): Promise<DuffelOrderCancellation> {
+  return duffelFetch<DuffelOrderCancellation>(
+    `/air/order_cancellations/${encodeURIComponent(cancellationId)}/actions/confirm`,
+    { method: "POST" },
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Helpers d'affichage (purs)
 // ---------------------------------------------------------------------------
 

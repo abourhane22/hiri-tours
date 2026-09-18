@@ -103,6 +103,10 @@ export type ReservationTraveler = {
   date_of_birth: string | null;
   nationality: string | null;
   passport_number: string | null;
+  /** m | f — exigé par les distributeurs aériens à l'émission. */
+  gender: "m" | "f" | null;
+  /** Expiration du passeport — exigée quand l'offre requiert un document. */
+  passport_expires_on: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -205,6 +209,8 @@ export type CompanySettings = {
   tva_number: string | null;
   rc_city: string | null; // tribunal d'immatriculation
   travel_license: string | null; // licence agence de voyages
+  /** Taux de change par défaut, MAD pour 1 unité de devise : {"EUR": 10.9}. */
+  fx_rates: Record<string, number> | null;
   updated_at: string;
 };
 
@@ -465,6 +471,49 @@ export type AllotmentMovement = {
 
 /** Issue typée renvoyée par consume_allotment — jamais une exception pour un cas métier. */
 export type AllotmentOutcome = "no_allotment" | "consumed" | "on_request" | "blocked" | "released";
+
+// ---------------------------------------------------------------------------
+// Distribution (lot D) — réservations issues d'un distributeur externe
+// ---------------------------------------------------------------------------
+
+export type DistributionStatus = "draft" | "ordered" | "cancelled" | "failed";
+export type FxSource = "parametres" | "saisi";
+
+/**
+ * Le pendant de `invoices` pour la distribution : l'offre et l'ordre sont figés
+ * en snapshot, le statut de l'ordre vit ici. Les snapshots sont typés `unknown`
+ * ici pour garder lib/types sans dépendance ; lib/distribution.ts les relit.
+ */
+export type DistributionBooking = {
+  id: string;
+  reservation_id: string;
+  product_id: string;
+  provider: "duffel";
+  kind: "flight" | "stay";
+  live_mode: boolean;
+  offer_request_id: string | null;
+  offer_id: string;
+  offer_snapshot: unknown;
+  offer_expires_at: string | null;
+  currency: string;
+  amount: number;
+  fx_rate: number;
+  fx_source: FxSource;
+  amount_mad: number;
+  order_id: string | null;
+  booking_reference: string | null;
+  order_snapshot: unknown;
+  documents: unknown[];
+  payment_status: unknown;
+  cancellation_snapshot: unknown;
+  status: DistributionStatus;
+  failure_message: string | null;
+  ordered_at: string | null;
+  cancelled_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
 export type VehicleType = "sedan" | "van" | "4x4" | "minibus" | "bus";
 export type StaffRole = "guide" | "driver" | "both";

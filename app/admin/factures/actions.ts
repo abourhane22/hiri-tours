@@ -94,10 +94,27 @@ export async function generateInvoice(
   const paxLabel =
     `${r.adults} adulte${r.adults > 1 ? "s" : ""}` +
     (r.children > 0 ? `, ${r.children} enfant${r.children > 1 ? "s" : ""}` : "");
+
+  // Dossier issu de la distribution aérienne : la facture dit d'où vient le
+  // montant MAD (devise, taux figé, référence) — honnêteté de la conversion.
+  const { data: distRow } = await supabase
+    .from("distribution_bookings")
+    .select("currency, amount, fx_rate, fx_source, booking_reference")
+    .eq("reservation_id", reservationId)
+    .neq("status", "failed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const fxNote = distRow
+    ? ` — ${Number((distRow as any).amount).toFixed(2)} ${(distRow as any).currency} converti au taux ${Number((distRow as any).fx_rate)} MAD (${
+        (distRow as any).fx_source === "saisi" ? "taux saisi à la création" : "taux paramétré"
+      })${(distRow as any).booking_reference ? ` — réf. compagnie ${(distRow as any).booking_reference}` : ""}`
+    : "";
+
   const lines: InvoiceLine[] = [
     {
       description: circuit?.title || "Prestation touristique",
-      details: `Départ le ${new Date(r.departure_date).toLocaleDateString("fr-FR")} — ${paxLabel} — dossier ${r.reference}`,
+      details: `Départ le ${new Date(r.departure_date).toLocaleDateString("fr-FR")} — ${paxLabel} — dossier ${r.reference}${fxNote}`,
       quantity: 1,
       unit_price_ht_mad: totalHt,
       total_ht_mad: totalHt,

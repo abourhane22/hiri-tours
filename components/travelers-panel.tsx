@@ -179,6 +179,7 @@ function TravelerRow({
   disabled: boolean;
 }) {
   const meta = [
+    t.gender === "m" ? "Homme" : t.gender === "f" ? "Femme" : null,
     t.date_of_birth ? `Né(e) le ${formatDateShort(t.date_of_birth)} · ${ageFromDob(t.date_of_birth)} ans` : null,
     t.nationality,
   ].filter(Boolean);
@@ -200,6 +201,9 @@ function TravelerRow({
             <ShieldCheck className="size-3.5 text-[#968F84]" />
             <span>Passeport</span>
             <span className="font-mono tabular-nums">{revealed ? t.passport_number : maskPassport(t.passport_number)}</span>
+            {t.passport_expires_on && (
+              <span className="text-[#968F84]">· exp. {formatDateShort(t.passport_expires_on)}</span>
+            )}
             <button
               type="button"
               onClick={onReveal}
@@ -321,7 +325,17 @@ function TravelerForm({
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-2.5">
+      <div className="grid sm:grid-cols-3 gap-2.5">
+        <div>
+          <label htmlFor={`gender-${traveler?.id ?? "new"}`} className={labelCls}>
+            Genre <span className="text-[#968F84] font-normal">(billetterie)</span>
+          </label>
+          <select id={`gender-${traveler?.id ?? "new"}`} name="gender" defaultValue={traveler?.gender ?? ""} className={fieldCls}>
+            <option value="">—</option>
+            <option value="m">Homme</option>
+            <option value="f">Femme</option>
+          </select>
+        </div>
         <div>
           <label htmlFor={`passport-${traveler?.id ?? "new"}`} className={labelCls}>
             N° de passeport
@@ -335,6 +349,21 @@ function TravelerForm({
             className={`${fieldCls} font-mono`}
           />
         </div>
+        <div>
+          <label htmlFor={`passport-exp-${traveler?.id ?? "new"}`} className={labelCls}>
+            Expiration passeport
+          </label>
+          <input
+            id={`passport-exp-${traveler?.id ?? "new"}`}
+            name="passport_expires_on"
+            type="date"
+            defaultValue={traveler?.passport_expires_on ?? ""}
+            className={fieldCls}
+          />
+        </div>
+      </div>
+
+      <div>
         <div>
           <label htmlFor={`notes-${traveler?.id ?? "new"}`} className={labelCls}>
             Notes

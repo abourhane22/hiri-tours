@@ -49,6 +49,15 @@ function readTravelerFields(formData: FormData): { ok: true; data: Record<string
     if (d.getTime() > Date.now()) return { ok: false, error: "La date de naissance ne peut pas être dans le futur." };
   }
 
+  // Exigés par les distributeurs aériens (Duffel) à l'émission — facultatifs ailleurs.
+  const genderRaw = ((formData.get("gender") as string) || "").trim();
+  if (genderRaw && genderRaw !== "m" && genderRaw !== "f") return { ok: false, error: "Genre invalide." };
+  const passportExpires = ((formData.get("passport_expires_on") as string) || "").trim();
+  if (passportExpires) {
+    const d = new Date(passportExpires);
+    if (isNaN(d.getTime())) return { ok: false, error: "Date d'expiration du passeport invalide." };
+  }
+
   return {
     ok: true,
     data: {
@@ -57,6 +66,8 @@ function readTravelerFields(formData: FormData): { ok: true; data: Record<string
       date_of_birth: dob || null,
       nationality: nationality || null,
       passport_number: passport || null,
+      gender: genderRaw || null,
+      passport_expires_on: passportExpires || null,
       notes: notes || null,
     },
   };

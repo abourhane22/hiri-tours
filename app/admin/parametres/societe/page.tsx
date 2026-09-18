@@ -93,6 +93,33 @@ export default async function SocietePage({ searchParams }: { searchParams: Prom
             </div>
 
             <div className="pt-3 border-t border-sand-200 space-y-4">
+              <p className="text-xs text-sand-600 uppercase tracking-wide font-medium">Devises — taux de change par défaut</p>
+              <p className="text-xs text-sand-600 -mt-2">
+                MAD pour 1 unité de devise. Pré-rempli à la création d&apos;un dossier issu de la distribution aérienne ; le taux réellement appliqué est figé dossier par dossier (les prix Duffel sont en EUR sur ce compte).
+              </p>
+              <div className="grid sm:grid-cols-3 gap-4">
+                {(["EUR", "GBP", "USD"] as const).map((cur) => (
+                  <div key={cur}>
+                    <Label htmlFor={`fx_${cur}`}>1 {cur} =</Label>
+                    <div className="relative">
+                      <Input
+                        id={`fx_${cur}`}
+                        name={`fx_${cur}`}
+                        type="number"
+                        step="0.0001"
+                        min="0"
+                        defaultValue={s.fx_rates && typeof s.fx_rates[cur] === "number" ? String(s.fx_rates[cur]) : ""}
+                        placeholder="—"
+                        className="pr-14"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sand-600 text-sm pointer-events-none">MAD</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-sand-200 space-y-4">
               <p className="text-xs text-sand-600 uppercase tracking-wide font-medium">Coordonnées bancaires (optionnel, pour facture)</p>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div><Label htmlFor="bank_name">Banque</Label><Input id="bank_name" name="bank_name" defaultValue={s.bank_name ?? ""} /></div>

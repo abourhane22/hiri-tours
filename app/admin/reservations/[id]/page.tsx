@@ -46,7 +46,11 @@ import { PaymentCollector } from "@/components/payment-collector";
 import { SuiviLinkButton } from "@/components/suivi-link-button";
 import { TravelersPanel } from "@/components/travelers-panel";
 import { travelersStatus } from "@/lib/travelers";
-import type { ReservationTraveler } from "@/lib/types";
+import type { ReservationTraveler, DistributionBooking } from "@/lib/types";
+import { DistributionCard } from "@/components/distribution-card";
+import { duffelTokenMode } from "@/lib/duffel";
+import { DISTRIBUTION_STATUS_LABEL, DISTRIBUTION_STATUS_STYLE } from "@/lib/distribution";
+import { Plane } from "lucide-react";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   attijari: "Attijari Payment",
@@ -187,6 +191,16 @@ export default async function ReservationDetailPage({
     CreditNote,
     "id" | "credit_note_number" | "created_at" | "amount_mad" | "remaining_mad" | "status" | "reason"
   >[];
+
+  // Réservation issue de la distribution aérienne (Duffel) — snapshot + ordre.
+  const { data: distributionRow } = await supabase
+    .from("distribution_bookings")
+    .select("*")
+    .eq("reservation_id", id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const distribution = (distributionRow ?? null) as DistributionBooking | null;
 
   // Voyageurs nominatifs (staff via RLS ; la table n'est jamais lue hors backoffice).
   const { data: travelersData } = await supabase
@@ -603,6 +617,27 @@ export default async function ReservationDetailPage({
               )}
             </div>
           </InfoCard>
+
+          {/* b''. DÉTAIL DU VOL — dossier issu de la distribution aérienne */}
+          {distribution && (
+            <InfoCard
+              icon={Plane}
+              label="Détail du vol"
+              headerRight={
+                <span
+                  className="inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] font-medium"
+                  style={{
+                    backgroundColor: DISTRIBUTION_STATUS_STYLE[distribution.status].bg,
+                    color: DISTRIBUTION_STATUS_STYLE[distribution.status].color,
+                  }}
+                >
+                  {DISTRIBUTION_STATUS_LABEL[distribution.status]}
+                </span>
+              }
+            >
+              <DistributionCard booking={distribution} tokenMode={duffelTokenMode()} reservationCancelled={isCancelled} />
+            </InfoCard>
+          )}
 
           {/* b'. VOYAGEURS NOMINATIFS (client payeur ≠ voyageurs) */}
           <InfoCard icon={Users} label="Voyageurs" headerRight={travelersBadge}>

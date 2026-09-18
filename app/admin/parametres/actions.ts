@@ -35,6 +35,15 @@ export async function updateCompanySettings(id: string, formData: FormData) {
     rc_city: ((formData.get("rc_city") as string) || "").trim() || null,
     tva_number: ((formData.get("tva_number") as string) || "").trim() || null,
     travel_license: ((formData.get("travel_license") as string) || "").trim() || null,
+    // Devises : MAD pour 1 unité. Champ vide ⇒ devise retirée.
+    fx_rates: (() => {
+      const out: Record<string, number> = {};
+      for (const cur of ["EUR", "GBP", "USD"]) {
+        const n = parseFloat(((formData.get(`fx_${cur}`) as string) || "").replace(",", "."));
+        if (Number.isFinite(n) && n > 0) out[cur] = n;
+      }
+      return out;
+    })(),
   };
 
   const supabase = await createClient();

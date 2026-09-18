@@ -1,14 +1,29 @@
 import { Plane, ShieldOff, FlaskConical, Lock, HelpCircle } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
 import { duffelConfigured, duffelTokenMode, DUFFEL_ENV_VAR, type DuffelMode } from "@/lib/duffel";
 import { FlightSearch } from "@/components/billetterie/flight-search";
 
-// Lot D1a — recherche en lecture seule. Aucun appel Duffel au chargement :
-// la page ne fait qu'inspecter la configuration ; les appels partent des
-// server actions, à l'action de l'utilisateur.
-export default function BilletteriePage() {
+// Aucun appel Duffel au chargement : la page inspecte la configuration et
+// lit les taux de change ; les appels Duffel partent des server actions, à
+// l'action de l'utilisateur.
+export default async function BilletteriePage() {
   const configured = duffelConfigured();
   const mode = duffelTokenMode();
   const now = new Date();
+
+  // Taux de change par défaut (Paramètres › Société › Devises), pré-remplis à la création d'un dossier.
+  let fxRates: Record<string, number> = {};
+  if (configured) {
+    const supabase = await createClient();
+    const { data } = await supabase.from("company_settings").select("fx_rates").limit(1).maybeSingle();
+    const raw = (data as { fx_rates?: unknown } | null)?.fx_rates;
+    if (raw && typeof raw === "object") {
+      for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+        const n = Number(v);
+        if (Number.isFinite(n) && n > 0) fxRates[k.toUpperCase()] = n;
+      }
+    }
+  }
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
@@ -24,7 +39,7 @@ export default function BilletteriePage() {
       {!configured ? <NotConfigured /> : (
         <>
           <ModeBanner mode={mode} />
-          <FlightSearch mode={mode} />
+          <FlightSearch mode={mode} fxRates={fxRates} />
         </>
       )}
     </div>

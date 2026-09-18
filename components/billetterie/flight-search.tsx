@@ -7,6 +7,7 @@ import { searchOffersAction, getOfferAction, type SearchState, type OfferDetailR
 import { CABIN_CLASSES, formatMoney, offerTotalMinutes, amountNumber, formatMinutes, type DuffelOffer, type DuffelMode } from "@/lib/duffel";
 import { PlaceInput } from "@/components/billetterie/place-input";
 import { OfferCard, SliceRow, ConditionChips, AirlineBadge, countdownLabel } from "@/components/billetterie/offer-card";
+import { CreateDossierPanel } from "@/components/billetterie/create-dossier-panel";
 
 const labelCls = "block text-[12px] font-medium text-[#58524A] mb-1.5";
 const fieldCls =
@@ -14,7 +15,7 @@ const fieldCls =
 
 type Sort = "price" | "duration";
 
-export function FlightSearch({ mode }: { mode: DuffelMode }) {
+export function FlightSearch({ mode, fxRates }: { mode: DuffelMode; fxRates: Record<string, number> }) {
   const [state, formAction, isPending] = useActionState<SearchState, FormData>(searchOffersAction, { ok: null });
   const [withReturn, setWithReturn] = useState(false);
   const [children, setChildren] = useState(0);
@@ -255,7 +256,13 @@ export function FlightSearch({ mode }: { mode: DuffelMode }) {
                 )}
               </div>
             ) : (
-              <OfferDetail detail={detail} now={now} mode={mode} />
+              <OfferDetail
+                detail={detail}
+                now={now}
+                mode={mode}
+                fxRates={fxRates}
+                offerRequestId={state.ok === true ? state.result.offerRequestId : null}
+              />
             )}
           </div>
         </div>
@@ -264,10 +271,23 @@ export function FlightSearch({ mode }: { mode: DuffelMode }) {
   );
 }
 
-function OfferDetail({ detail, now, mode }: { detail: Extract<OfferDetailResult, { ok: true }>; now: number; mode: DuffelMode }) {
+function OfferDetail({
+  detail,
+  now,
+  mode,
+  fxRates,
+  offerRequestId,
+}: {
+  detail: Extract<OfferDetailResult, { ok: true }>;
+  now: number;
+  mode: DuffelMode;
+  fxRates: Record<string, number>;
+  offerRequestId: string | null;
+}) {
   const { offer, expired, priceChanged } = detail;
   const pr = offer.payment_requirements ?? {};
   const liveOffer = offer.live_mode === true;
+  const nowExpired = expired || Date.parse(offer.expires_at) <= now;
 
   return (
     <div className="space-y-3">
@@ -340,15 +360,17 @@ function OfferDetail({ detail, now, mode }: { detail: Extract<OfferDetailResult,
         <dd className="font-mono text-[11px] text-[#6B6862] break-all">{offer.id}</dd>
       </dl>
 
-      {/* Lot D1a : lecture seule. Le bouton montre l'étape suivante sans l'exécuter. */}
-      <button
-        type="button"
-        disabled
-        title="Disponible au lot D1b : création du produit, du dossier et des voyageurs depuis l'offre."
-        className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-[#1A1F2E] px-3 text-[13px] font-medium text-white opacity-50 cursor-not-allowed"
-      >
-        <Lock className="size-4" /> Créer le dossier — lot D1b
-      </button>
+      <CreateDossierPanel
+        offer={offer}
+        offerRequestId={offerRequestId}
+        fxRates={fxRates}
+        disabled={nowExpired || liveOffer || mode === "live"}
+        disabledReason={
+          nowExpired
+            ? "Offre expirée — relancez la recherche."
+            : "Offre ou identifiant LIVE : ce démonstrateur ne crée pas de dossier sur de vrais vols."
+        }
+      />
     </div>
   );
 }
