@@ -45,6 +45,44 @@ export function offerPax(offer: DuffelOffer): { adults: number; children: number
   return { adults: Math.max(1, adults), children };
 }
 
+// ---------------------------------------------------------------------------
+// Profils passagers déclarés à la recherche
+// ---------------------------------------------------------------------------
+
+export type ExpectedProfile = { type: "adult" | "child"; age: number | null };
+
+/**
+ * Profil de chaque passager tel que déclaré à l'offer request : les adultes
+ * par `type: "adult"` (toute date de naissance ≥ 18 ans acceptée), les
+ * mineurs par `age` exact. Ordre = ordre des passagers de l'offre.
+ */
+export function expectedProfiles(offer: DuffelOffer): ExpectedProfile[] {
+  return offer.passengers.map((p) =>
+    (p.type ?? "adult") === "adult" && (p.age === null || p.age === undefined)
+      ? { type: "adult", age: null }
+      : { type: "child", age: p.age ?? null },
+  );
+}
+
+/** Date à laquelle Duffel évalue l'âge : départ du DERNIER slice (doc offer_requests.passengers.age). */
+export function offerAgeReferenceDate(offer: DuffelOffer): string {
+  const last = offer.slices[offer.slices.length - 1];
+  const seg = last?.segments[0];
+  return (seg?.departing_at ?? offer.created_at).slice(0, 10);
+}
+
+/** Âge révolu à une date donnée (YYYY-MM-DD). null si illisible. */
+export function ageAt(dob: string | null | undefined, at: string): number | null {
+  if (!dob) return null;
+  const b = new Date(dob + "T00:00:00Z");
+  const d = new Date(at + "T00:00:00Z");
+  if (isNaN(b.getTime()) || isNaN(d.getTime())) return null;
+  let age = d.getUTCFullYear() - b.getUTCFullYear();
+  const m = d.getUTCMonth() - b.getUTCMonth();
+  if (m < 0 || (m === 0 && d.getUTCDate() < b.getUTCDate())) age -= 1;
+  return age;
+}
+
 /** Conversion figée : MAD = montant × taux, au centime. */
 export function fxConvert(amount: number, rate: number): number {
   return Math.round(amount * rate * 100) / 100;
@@ -179,25 +217,48 @@ export function buildOrderPassengers(
   if (!phone) missing.push("téléphone du client payeur (utilisé comme contact des passagers)");
 
   const needDocs = offer.passenger_identity_documents_required === true;
-  const pairs: { offerId: string; t: ReservationTraveler }[] = [
-    ...offerAdults.map((p, i) => ({ offerId: p.id, t: travAdults[i] })).filter((x) => x.t),
-    ...offerMinors.map((p, i) => ({ offerId: p.id, t: travChildren[i] })).filter((x) => x.t),
+  const refDate = offerAgeReferenceDate(offer);
+  const pairs: { offerId: string; declaredAge: number | null; t: ReservationTraveler }[] = [
+    ...offerAdults.map((p, i) => ({ offerId: p.id, declaredAge: null, t: travAdults[i] })).filter((x) => x.t),
+    ...offerMinors.map((p, i) => ({ offerId: p.id, declaredAge: p.age ?? null, t: travChildren[i] })).filter((x) => x.t),
   ];
 
   const passengers: DuffelOrderPassengerInput[] = [];
-  for (const { offerId, t } of pairs) {
+  for (const { offerId, declaredAge, t } of pairs) {
     const who = t.full_name || "Voyageur";
+    const isAdult = t.traveler_type === "adult";
+    const label = `${who} (${isAdult ? "Adulte" : declaredAge !== null ? `Enfant, ${declaredAge} ans` : "Enfant"})`;
     const { given, family } = splitName(t.full_name);
-    if (!given || !family) missing.push(`${who} : prénom ET nom (deux mots au moins)`);
-    if (!t.date_of_birth) missing.push(`${who} : date de naissance`);
-    if (t.gender !== "m" && t.gender !== "f") missing.push(`${who} : genre`);
+    if (!given || !family) missing.push(`${label} : prénom ET nom (deux mots au moins)`);
+    if (!t.date_of_birth) missing.push(`${label} : date de naissance`);
+    if (t.gender !== "m" && t.gender !== "f") missing.push(`${label} : genre`);
+
+    // Cohérence âge / profil déclaré à la recherche — Duffel refuse sinon
+    // (« Field 'age' does not match date of birth »). Bloqué AVANT l'appel.
+    let ageOk = true;
+    const age = ageAt(t.date_of_birth, refDate);
+    if (age !== null) {
+      const plural = (n: number) => `${n} an${n > 1 ? "s" : ""}`;
+      if (isAdult && age < 18) {
+        ageOk = false;
+        missing.push(`${label} : la date de naissance saisie donne ${plural(age)} à la date du vol — un adulte doit avoir 18 ans ou plus`);
+      } else if (!isAdult && declaredAge !== null && age !== declaredAge) {
+        ageOk = false;
+        missing.push(
+          `${label} : la date de naissance saisie donne ${plural(age)} à la date du vol — l'offre a été recherchée pour un enfant de ${plural(declaredAge)}`,
+        );
+      } else if (!isAdult && age >= 18) {
+        ageOk = false;
+        missing.push(`${label} : la date de naissance saisie donne ${plural(age)} à la date du vol — un enfant doit avoir moins de 18 ans`);
+      }
+    }
 
     let identity_documents: DuffelIdentityDocument[] | undefined;
     if (needDocs) {
       const country = countryCode(t.nationality);
-      if (!t.passport_number) missing.push(`${who} : numéro de passeport`);
-      if (!t.passport_expires_on) missing.push(`${who} : date d'expiration du passeport`);
-      if (!country) missing.push(`${who} : nationalité (pays émetteur du passeport)`);
+      if (!t.passport_number) missing.push(`${label} : numéro de passeport`);
+      if (!t.passport_expires_on) missing.push(`${label} : date d'expiration du passeport`);
+      if (!country) missing.push(`${label} : nationalité (pays émetteur du passeport)`);
       if (t.passport_number && t.passport_expires_on && country) {
         identity_documents = [
           {
@@ -210,7 +271,7 @@ export function buildOrderPassengers(
       }
     }
 
-    if (given && family && t.date_of_birth && (t.gender === "m" || t.gender === "f") && email && phone) {
+    if (given && family && t.date_of_birth && ageOk && (t.gender === "m" || t.gender === "f") && email && phone) {
       passengers.push({
         id: offerId,
         given_name: given,

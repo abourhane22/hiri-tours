@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Luggage, RefreshCw, Undo2, AlertTriangle, ChevronRight } from "lucide-react";
+import { Clock, Luggage, RefreshCw, Undo2, AlertTriangle, ChevronRight, CircleCheck } from "lucide-react";
 import { formatDateShort } from "@/lib/utils";
 import {
   baggageSummary,
@@ -29,8 +29,8 @@ export function countdownLabel(expiresAt: string, now: number): string {
   return `expire dans ${s} s`;
 }
 
-export function AirlineBadge({ name, iata, logo }: { name: string; iata: string | null; logo?: string | null }) {
-  const fictive = iata === "ZZ";
+export function AirlineBadge({ name, iata, logo, hideTestChip }: { name: string; iata: string | null; logo?: string | null; hideTestChip?: boolean }) {
+  const fictive = iata === "ZZ" && !hideTestChip;
   return (
     <span className="inline-flex items-center gap-2 min-w-0">
       {logo ? (
@@ -174,15 +174,30 @@ export function OfferCard({
 }) {
   const expired = offerIsExpired(offer, now);
   const soon = !expired && Date.parse(offer.expires_at) - now < 5 * 60_000;
+  // Duffel Airways (ZZ) : la seule compagnie dont les offres sont réservables
+  // de façon fiable en test — repérable au premier coup d'œil.
+  const bookableInTest = offer.owner.iata_code === "ZZ" && !offer.live_mode;
 
   return (
     <div
       className={`bg-white border rounded-xl p-4 transition-colors ${
-        selected ? "border-[#1A1F2E] ring-1 ring-[#1A1F2E]" : "border-[#E5E0D7]"
+        selected ? "border-[#1A1F2E] ring-1 ring-[#1A1F2E]" : bookableInTest ? "border-[#A9DFCC]" : "border-[#E5E0D7]"
       } ${expired ? "opacity-60" : ""}`}
+      style={bookableInTest ? { borderLeftWidth: 4, borderLeftColor: "#0F8A5F" } : undefined}
     >
+      {bookableInTest && (
+        <div className="flex items-center gap-1.5 mb-2.5">
+          <span
+            className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-wide"
+            style={{ backgroundColor: "#E1F5EE", color: "#085041", border: "1px solid #A9DFCC" }}
+            title="Compagnie fictive de l'environnement de test Duffel — la seule dont les offres sont réservables de façon fiable en test"
+          >
+            <CircleCheck className="size-3.5" /> ZZ · réservable en test
+          </span>
+        </div>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-        <AirlineBadge name={offer.owner.name} iata={offer.owner.iata_code} logo={offer.owner.logo_symbol_url} />
+        <AirlineBadge name={offer.owner.name} iata={offer.owner.iata_code} logo={offer.owner.logo_symbol_url} hideTestChip={bookableInTest} />
         <div className="text-right">
           <div className="font-display text-[22px] text-[#1A1F2E] tabular-nums leading-none">
             {formatMoney(offer.total_amount, offer.total_currency)}

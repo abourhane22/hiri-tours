@@ -2,7 +2,7 @@
 
 import "flag-icons/css/flag-icons.min.css";
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { Eye, EyeOff, Pencil, Trash2, Plus, UserPlus, Globe, ShieldCheck, Check } from "lucide-react";
+import { Eye, EyeOff, Pencil, Trash2, Plus, UserPlus, Globe, ShieldCheck, Check, Plane } from "lucide-react";
 import { CountrySelect } from "@/components/country-select";
 import { countryCode } from "@/lib/countries";
 import { formatDateShort, foldAccents } from "@/lib/utils";
@@ -29,9 +29,18 @@ type Props = {
   expectedChildren: number;
   payer: { fullName: string; country: string | null } | null;
   readOnly: boolean;
+  /** Dossier billetterie : profil déclaré à la recherche pour chaque passager (ordre de l'offre). */
+  expectedProfiles?: { type: TravelerType; age: number | null }[];
 };
 
-export function TravelersPanel({ reservationId, travelers, expectedAdults, expectedChildren, payer, readOnly }: Props) {
+export function TravelersPanel({ reservationId, travelers, expectedAdults, expectedChildren, payer, readOnly, expectedProfiles }: Props) {
+  // Voyageur i du type X ↔ profil i du type X (même appariement que l'émission d'ordre).
+  const expectedFor = (t: ReservationTraveler): { type: TravelerType; age: number | null } | null => {
+    if (!expectedProfiles) return null;
+    const idx = travelers.filter((x) => x.traveler_type === t.traveler_type).findIndex((x) => x.id === t.id);
+    const list = expectedProfiles.filter((p) => p.type === t.traveler_type);
+    return list[idx] ?? null;
+  };
   const [adding, setAdding] = useState(travelers.length === 0 && !readOnly);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
@@ -90,6 +99,7 @@ export function TravelersPanel({ reservationId, travelers, expectedAdults, expec
           <TravelerRow
             key={t.id}
             t={t}
+            expected={expectedFor(t)}
             readOnly={readOnly}
             revealed={revealed.has(t.id)}
             onReveal={() => toggleReveal(t.id)}
@@ -161,8 +171,27 @@ function TypeChip({ type }: { type: TravelerType }) {
   );
 }
 
+function ExpectedChip({ expected }: { expected: { type: TravelerType; age: number | null } }) {
+  const label =
+    expected.type === "adult"
+      ? "Adulte"
+      : expected.age !== null
+        ? `Enfant, ${expected.age} an${expected.age > 1 ? "s" : ""}`
+        : "Enfant";
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded px-1.5 py-px text-[10px] font-medium shrink-0"
+      style={{ backgroundColor: "#E3F0F5", color: "#0C447C" }}
+      title="Profil déclaré à la recherche du vol : la date de naissance doit lui correspondre à la date du vol (adulte ≥ 18 ans, enfant = âge exact)"
+    >
+      <Plane className="size-3" /> Attendu : {label}
+    </span>
+  );
+}
+
 function TravelerRow({
   t,
+  expected,
   readOnly,
   revealed,
   onReveal,
@@ -171,6 +200,7 @@ function TravelerRow({
   disabled,
 }: {
   t: ReservationTraveler;
+  expected: { type: TravelerType; age: number | null } | null;
   readOnly: boolean;
   revealed: boolean;
   onReveal: () => void;
@@ -194,6 +224,7 @@ function TravelerRow({
           <Flag country={t.nationality} />
           <span className="font-display text-[15px] text-[#1A1F2E] truncate">{t.full_name}</span>
           <TypeChip type={t.traveler_type} />
+          {expected && <ExpectedChip expected={expected} />}
         </div>
         {meta.length > 0 && <div className="text-[11.5px] text-[#6B6862] mt-0.5">{meta.join(" · ")}</div>}
         {t.passport_number && (

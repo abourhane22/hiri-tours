@@ -49,7 +49,7 @@ import { travelersStatus } from "@/lib/travelers";
 import type { ReservationTraveler, DistributionBooking } from "@/lib/types";
 import { DistributionCard } from "@/components/distribution-card";
 import { duffelTokenMode } from "@/lib/duffel";
-import { DISTRIBUTION_STATUS_LABEL, DISTRIBUTION_STATUS_STYLE } from "@/lib/distribution";
+import { DISTRIBUTION_STATUS_LABEL, DISTRIBUTION_STATUS_STYLE, expectedProfiles, offerFromSnapshot } from "@/lib/distribution";
 import { Plane } from "lucide-react";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -651,6 +651,10 @@ export default async function ReservationDetailPage({
               expectedChildren={r.children}
               payer={customer ? { fullName: customer.full_name, country: customer.country ?? null } : null}
               readOnly={isCancelled}
+              expectedProfiles={(() => {
+                const offer = distribution ? offerFromSnapshot(distribution.offer_snapshot) : null;
+                return offer ? expectedProfiles(offer) : undefined;
+              })()}
             />
           </InfoCard>
 

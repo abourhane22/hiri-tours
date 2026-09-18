@@ -31,9 +31,10 @@ export function DistributionCard({
       ? "L'offre a expiré : ce dossier ne peut plus être émis. Relancez une recherche et créez un nouveau dossier."
       : booking.status === "draft" && reservationCancelled
         ? "Dossier annulé — aucune émission possible."
-        : booking.failure_message && booking.status !== "ordered"
-          ? booking.failure_message
-          : null;
+        : null;
+  // Dernier refus persistant — affiché par le composant client uniquement
+  // tant qu'aucune nouvelle tentative n'a produit son propre message.
+  const lastFailure = booking.status === "draft" && booking.failure_message ? booking.failure_message : null;
 
   return (
     <div className="space-y-3">
@@ -134,7 +135,13 @@ export function DistributionCard({
         </p>
       )}
 
-      <DistributionActions bookingId={booking.id} canIssue={canIssue} canCancel={canCancel} blockedReason={blockedReason} />
+      <DistributionActions
+        bookingId={booking.id}
+        canIssue={canIssue}
+        canCancel={canCancel}
+        blockedReason={blockedReason}
+        lastFailure={lastFailure}
+      />
     </div>
   );
 }

@@ -10,11 +10,14 @@ export function DistributionActions({
   canIssue,
   canCancel,
   blockedReason,
+  lastFailure,
 }: {
   bookingId: string;
   canIssue: boolean;
   canCancel: boolean;
   blockedReason?: string | null;
+  /** failure_message persistant de la dernière tentative — remplacé par le résultat courant, jamais cumulé. */
+  lastFailure?: string | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -46,6 +49,13 @@ export function DistributionActions({
       {blockedReason && (
         <p className="flex items-start gap-1.5 text-[12px] rounded-lg px-3 py-2" style={{ backgroundColor: "#FCEBEB", border: "1px solid #F7C1C1", color: "#791F1F" }}>
           <AlertTriangle className="size-3.5 shrink-0 mt-px" /> {blockedReason}
+        </p>
+      )}
+
+      {lastFailure && !issue && !cancel && (
+        <p className="flex items-start gap-1.5 text-[12px] rounded-lg px-3 py-2" style={{ backgroundColor: "#FCEBEB", border: "1px solid #F7C1C1", color: "#791F1F" }}>
+          <AlertTriangle className="size-3.5 shrink-0 mt-px" />
+          <span><span className="font-medium">Dernière tentative refusée :</span> {lastFailure}</span>
         </p>
       )}
 
