@@ -2,7 +2,7 @@
 // modèle métier — produit `billetterie`, dossier, voyageurs, passagers d'ordre.
 // Fonctions pures, testables ; les écritures restent dans les server actions.
 
-import type { DuffelOffer, DuffelOrderPassengerInput, DuffelIdentityDocument } from "@/lib/duffel-types";
+import type { DuffelOffer, DuffelOrderPassengerInput, DuffelIdentityDocument, DuffelDocument } from "@/lib/duffel-types";
 import type { DistributionStatus, FxSource, ReservationTraveler } from "@/lib/types";
 import { countryCode } from "@/lib/countries";
 import { normalizePhone } from "@/lib/customers";
@@ -288,6 +288,30 @@ export function buildOrderPassengers(
 
   if (missing.length > 0) return { ok: false, missing: Array.from(new Set(missing)) };
   return { ok: true, passengers };
+}
+
+/**
+ * Numéros de billet électronique par voyageur, dans l'ordre des voyageurs
+ * fournis. Même appariement qu'à l'émission : i-ème adulte ↔ i-ème passager
+ * adulte de l'offre, idem enfants ; les documents Duffel portent
+ * `passenger_ids`. Un document sans passenger_ids est rattaché à tous.
+ */
+export function ticketsByTraveler(
+  offer: DuffelOffer,
+  documents: DuffelDocument[],
+  travelers: { traveler_type: "adult" | "child" }[],
+): string[][] {
+  const offerAdults = offer.passengers.filter((p) => (p.type ?? "adult") === "adult");
+  const offerMinors = offer.passengers.filter((p) => (p.type ?? "adult") !== "adult");
+  let a = 0;
+  let c = 0;
+  return travelers.map((t) => {
+    const pid = t.traveler_type === "adult" ? offerAdults[a++]?.id : offerMinors[c++]?.id;
+    if (!pid) return [];
+    return documents
+      .filter((d) => d.type === "electronic_ticket" && (!d.passenger_ids || d.passenger_ids.length === 0 || d.passenger_ids.includes(pid)))
+      .map((d) => d.unique_identifier);
+  });
 }
 
 /** Relecture typée d'un snapshot d'offre stocké en jsonb. */
