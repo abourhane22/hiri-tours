@@ -2,9 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Plus, Search, ChevronRight } from "lucide-react";
+import { Search, ChevronRight, Plane, Globe, Store } from "lucide-react";
 import { formatMAD, formatDateShort } from "@/lib/utils";
+import { NewReservationMenu } from "@/components/new-reservation-menu";
+import { userCan } from "@/lib/permissions";
 
 const STATUS_CONFIG: Record<string, { label: string; classes: string }> = {
   pending:   { label: "En attente", classes: "bg-purple-50 text-purple-800 border border-purple-200" },
@@ -16,7 +17,22 @@ const STATUS_CONFIG: Record<string, { label: string; classes: string }> = {
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
 interface PageProps {
-  searchParams: Promise<{ period?: string; status?: string; q?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ period?: string; status?: string; q?: string; from?: string; to?: string; kind?: string }>;
+}
+
+// Source du dossier, dérivée : distribution aérienne (snapshot Duffel),
+// site web (canal de paiement annoncé par le tunnel public), sinon agence.
+type Source = "agence" | "web" | "distribution";
+const SOURCE_CONFIG: Record<Source, { label: string; icon: typeof Store; classes: string }> = {
+  agence:       { label: "Agence",       icon: Store, classes: "bg-[#F1EFE8] text-[#58524A] border border-[#E0DACF]" },
+  web:          { label: "Site web",     icon: Globe, classes: "bg-[#E6F1FB] text-[#0C447C] border border-[#B6DDEE]" },
+  distribution: { label: "Distribution", icon: Plane, classes: "bg-[#E3F0F5] text-[#0C6B8A] border border-[#B6DDEE]" },
+};
+function sourceOf(r: { intended_payment_channel: string | null; distribution_bookings: unknown }): Source {
+  const db = r.distribution_bookings;
+  if (Array.isArray(db) ? db.length > 0 : !!db) return "distribution";
+  if (r.intended_payment_channel) return "web";
+  return "agence";
 }
 
 export default async function ReservationsPage({ searchParams }: PageProps) {
@@ -24,10 +40,13 @@ export default async function ReservationsPage({ searchParams }: PageProps) {
   const period = params.period || "all";
   const status = params.status || "";
   const q = params.q || "";
+  const kind = params.kind === "billetterie" ? "billetterie" : "all";
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const role = (profile as any)?.role ?? "commercial";
 
   const now = new Date();
   let dateFrom: string | null = null;
@@ -51,18 +70,36 @@ export default async function ReservationsPage({ searchParams }: PageProps) {
     dateTo = params.to || null;
   }
 
+  // Onglet Billetterie : jointure interne sur distribution_bookings (sinon jointure externe pour le badge Source).
+  const distJoin = kind === "billetterie" ? "distribution_bookings!inner(id)" : "distribution_bookings(id)";
   let query = supabase
     .from("reservations")
-    .select(`id, reference, departure_date, adults, children, total_amount_mad, status,
+    .select(`id, reference, departure_date, adults, children, total_amount_mad, status, intended_payment_channel,
              customer:customers(id, full_name, country),
-             circuit:circuits(id, title)`)
+             circuit:circuits(id, title),
+             ${distJoin}`)
     .order("departure_date", { ascending: false })
     .limit(500);
 
   if (dateFrom) query = query.gte("departure_date", dateFrom);
   if (dateTo)   query = query.lte("departure_date", dateTo);
   if (status)   query = query.eq("status", status);
-  if (q)        query = query.ilike("reference", `%${q}%`);
+  if (q) {
+    // Recherche globale : référence, nom du client ou téléphone.
+    const term = q.replace(/[%,()]/g, " ").trim();
+    const digits = term.replace(/\D/g, "");
+    let orClause = `reference.ilike.%${term}%`;
+    if (term) {
+      let cq = supabase.from("customers").select("id").ilike("full_name", `%${term}%`).limit(200);
+      const { data: byName } = await cq;
+      const { data: byPhone } = digits.length >= 4
+        ? await supabase.from("customers").select("id").ilike("phone", `%${digits}%`).limit(200)
+        : { data: [] as { id: string }[] };
+      const ids = Array.from(new Set([...(byName ?? []), ...(byPhone ?? [])].map((c: any) => c.id as string)));
+      if (ids.length > 0) orClause += `,customer_id.in.(${ids.join(",")})`;
+    }
+    query = query.or(orClause);
+  }
 
   const { data: reservations } = await query;
   const items = reservations || [];
@@ -83,7 +120,7 @@ export default async function ReservationsPage({ searchParams }: PageProps) {
 
   const buildLink = (overrides: Record<string, string>) => {
     const sp = new URLSearchParams();
-    const merged = { period, status, q, ...overrides };
+    const merged = { period, status, q, kind, ...overrides };
     for (const [k, v] of Object.entries(merged)) {
       if (v && v !== "all") sp.set(k, v);
     }
@@ -99,7 +136,30 @@ export default async function ReservationsPage({ searchParams }: PageProps) {
           <h1 className="font-display text-3xl text-ink">Réservations</h1>
           <p className="text-sm text-sand-700 mt-1">{items.length} réservation{items.length > 1 ? "s" : ""}</p>
         </div>
-        <Link href="/admin/reservations/new"><Button><Plus className="size-4" />Nouvelle réservation</Button></Link>
+        <NewReservationMenu canBilletterie={userCan(role, "viewBilletterie")} />
+      </div>
+
+      {/* Nature des dossiers */}
+      <div className="inline-flex gap-1 rounded-lg bg-[#F1EFE8] p-[3px] mb-4">
+        {[
+          { v: "all", l: "Tous les dossiers", Icon: null as null | typeof Plane },
+          { v: "billetterie", l: "Billetterie", Icon: Plane },
+        ].map((t) => {
+          const isActive = kind === t.v;
+          return (
+            <Link
+              key={t.v}
+              href={buildLink({ kind: t.v })}
+              aria-current={isActive ? "page" : undefined}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
+                isActive ? "bg-white text-[#1A1F2E] shadow-sm" : "text-[#6B6862] hover:text-[#1A1F2E]"
+              }`}
+            >
+              {t.Icon && <t.Icon className="size-3.5" />}
+              {t.l}
+            </Link>
+          );
+        })}
       </div>
 
       <div className="bg-white border border-sand-200 rounded-lg p-3 mb-6 flex flex-wrap items-center gap-3">
@@ -119,6 +179,7 @@ export default async function ReservationsPage({ searchParams }: PageProps) {
 
         <form action="/admin/reservations" method="get" className="flex flex-wrap items-center gap-2 flex-1">
           {period !== "all" && <input type="hidden" name="period" value={period} />}
+          {kind !== "all" && <input type="hidden" name="kind" value={kind} />}
           <select name="status" defaultValue={status}
             className="text-sm rounded border border-sand-300 px-3 py-1.5 bg-white h-9">
             <option value="">Tous statuts</option>
@@ -130,7 +191,7 @@ export default async function ReservationsPage({ searchParams }: PageProps) {
           </select>
           <div className="relative flex-1 min-w-[180px]">
             <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-sand-500 pointer-events-none" />
-            <input name="q" defaultValue={q} placeholder="Référence, client…"
+            <input name="q" defaultValue={q} placeholder="Référence, client, téléphone…"
               className="w-full h-9 pl-8 pr-3 text-sm rounded border border-sand-300" />
           </div>
           <button type="submit" className="h-9 px-3 text-sm rounded border border-sand-300 bg-white hover:bg-sand-50">
@@ -163,7 +224,8 @@ export default async function ReservationsPage({ searchParams }: PageProps) {
                     <th className="text-left px-4 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Référence</th>
                     <th className="text-left px-3 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Date</th>
                     <th className="text-left px-3 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Client</th>
-                    <th className="text-left px-3 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Circuit</th>
+                    <th className="text-left px-3 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Produit</th>
+                    <th className="text-left px-3 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Source</th>
                     <th className="text-center px-3 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Pax</th>
                     <th className="text-center px-3 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Statut</th>
                     <th className="text-right px-4 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Montant</th>
@@ -174,6 +236,8 @@ export default async function ReservationsPage({ searchParams }: PageProps) {
                     const cfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.pending;
                     const customer = r.customer as any;
                     const circuit = r.circuit as any;
+                    const src = SOURCE_CONFIG[sourceOf(r as any)];
+                    const SrcIcon = src.icon;
                     return (
                       <tr key={r.id} className="border-t border-sand-100 hover:bg-sand-50/50">
                         <td className="px-4 py-3">
@@ -184,6 +248,11 @@ export default async function ReservationsPage({ searchParams }: PageProps) {
                           <Link href={`/admin/reservations/${r.id}`} className="text-ink hover:text-terracotta-700">{customer?.full_name || "—"}</Link>
                         </td>
                         <td className="px-3 py-3 text-sand-700 text-xs">{circuit?.title || "—"}</td>
+                        <td className="px-3 py-3">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${src.classes}`}>
+                            <SrcIcon className="size-3" /> {src.label}
+                          </span>
+                        </td>
                         <td className="px-3 py-3 text-center text-sand-800 whitespace-nowrap">{r.adults}/{r.children}</td>
                         <td className="px-3 py-3 text-center">
                           <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium ${cfg.classes}`}>{cfg.label}</span>

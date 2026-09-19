@@ -28,7 +28,7 @@ export default async function BilletteriePage() {
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <div className="mb-6">
-        <p className="text-[10px] tracking-[2px] uppercase text-[#C84B31] font-medium">Ventes · Distribution aérienne</p>
+        <p className="text-[10px] tracking-[2px] uppercase text-[#C84B31] font-medium">Ventes · Réservations · Vols</p>
         <h1 className="font-display text-3xl text-[#1A1F2E] mt-1">Billetterie</h1>
         <p className="text-[12px] text-[#6B6862] mt-1 max-w-3xl">
           Connexion à un agrégateur de distribution aérienne s&apos;appuyant sur les GDS (Duffel : NDC, GDS et

@@ -47,7 +47,7 @@ function relative(iso: string): string {
   return "";
 }
 
-export function NotificationBell({ initial }: { initial: AppNotification[] }) {
+export function NotificationBell({ initial, variant = "dark" }: { initial: AppNotification[]; variant?: "dark" | "light" }) {
   const router = useRouter();
   const [notifs, setNotifs] = useState<AppNotification[]>(initial);
   const [open, setOpen] = useState(false);
@@ -106,7 +106,11 @@ export function NotificationBell({ initial }: { initial: AppNotification[] }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label="Notifications"
-        className="relative size-8 rounded-md border border-navy-400/50 text-navy-100 hover:bg-navy-600 flex items-center justify-center transition-colors"
+        className={`relative rounded-md border flex items-center justify-center transition-colors ${
+          variant === "light"
+            ? "size-9 border-[#E0DACF] text-[#1A1F2E] hover:bg-[#FBF9F5]"
+            : "size-8 border-navy-400/50 text-navy-100 hover:bg-navy-600"
+        }`}
       >
         <Bell className="size-4" />
         {badge > 0 && (

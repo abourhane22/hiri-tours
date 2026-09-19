@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ReportTabs } from "@/components/report-tabs";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardBody } from "@/components/ui/card";
 import { Select } from "@/components/ui/input";
@@ -52,13 +53,13 @@ export default async function RentabilitePage({ searchParams }: { searchParams: 
       <Link href="/admin/finance" className="inline-flex items-center gap-1 text-sm text-sand-700 hover:text-ink mb-4">
         <ArrowLeft className="size-4" /> Finance
       </Link>
-      <div className="flex items-end justify-between mb-8">
+      <div className="flex items-end justify-between mb-6">
         <div>
           <p className="eyebrow mb-2">États financiers</p>
           <h1 className="font-display text-3xl text-ink">Rentabilité par circuit</h1>
           <p className="text-sm text-sand-700 mt-1">{label}</p>
         </div>
-        <form method="get" className="flex items-end gap-2">
+        <form method="get" className="flex items-end gap-2 print:hidden">
           <Select name="period" defaultValue={period || "12m"}>
             <option value="12m">12 derniers mois</option>
             <option value="ytd">Année en cours</option>
@@ -67,6 +68,8 @@ export default async function RentabilitePage({ searchParams }: { searchParams: 
           <Button type="submit">Appliquer</Button>
         </form>
       </div>
+
+      <ReportTabs active="rentabilite" />
 
       <div className="grid sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white border border-sand-200 rounded-lg p-5">

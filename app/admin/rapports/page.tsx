@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { ReportTabs } from "@/components/report-tabs";
 import { VoucherPrintButton } from "@/components/voucher-print-button";
 import { PerformanceTrendChart, type TrendPoint } from "@/components/performance-trend-chart";
 import { KpiCard, DeltaPill } from "@/components/kpi-card";
@@ -158,6 +159,8 @@ export default async function RapportsPage() {
         </div>
         <VoucherPrintButton className="shrink-0 bg-white text-[#1A1F2E] border border-[#E0DACF] hover:bg-[#FBF9F5] rounded-full px-3 text-[11px]" />
       </div>
+
+      <ReportTabs active="rapports" />
 
       <div className="hidden print:block mb-6">
         <h1 className="font-display text-2xl text-ink">Hiri Tours — Rapport analytique</h1>
