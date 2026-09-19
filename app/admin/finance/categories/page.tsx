@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ExpenseTabs } from "@/components/report-tabs";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -20,11 +21,13 @@ export default async function CategoriesPage() {
       <Link href="/admin/finance" className="inline-flex items-center gap-1 text-sm text-sand-700 hover:text-ink mb-4">
         <ArrowLeft className="size-4" /> Finance
       </Link>
-      <div className="mb-8">
-        <p className="eyebrow mb-2">États financiers</p>
+      <div className="mb-6">
+        <p className="eyebrow mb-2">Finance · Dépenses</p>
         <h1 className="font-display text-3xl text-ink">Catégories de coûts</h1>
         <p className="text-sm text-sand-700 mt-2">Coûts <strong>directs</strong> : alloués à une réservation ou un circuit pour calculer la marge. <strong>Overhead</strong> : frais généraux non alloués.</p>
       </div>
+
+      <ExpenseTabs active="categories" />
 
       <Card className="mb-6">
         <div className="px-5 py-4 border-b border-sand-200">

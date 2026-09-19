@@ -91,14 +91,14 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       // Les avoirs sont un onglet du registre ; /admin/avoirs reste joignable et actif ici.
       { href: "/admin/factures", label: "Factures & avoirs", icon: Receipt, permission: "viewFinance", alsoMatch: ["/admin/avoirs"] },
-      { href: "/admin/finance/depenses", label: "Dépenses", icon: Wallet, permission: "viewFinance" },
+      { href: "/admin/finance/depenses", label: "Dépenses", icon: Wallet, permission: "viewFinance", alsoMatch: ["/admin/finance/categories"] },
       // Rentabilité = onglet en tête des Rapports ; les autres écrans /admin/finance/* restent joignables.
       {
         href: "/admin/rapports",
         label: "Rapports & rentabilité",
         icon: BarChart3,
         permission: "viewRapports",
-        alsoMatch: ["/admin/finance/rentabilite", "/admin/finance/pilotage", "/admin/finance/pnl", "/admin/finance/resultat-annuel", "/admin/finance/categories", "/admin/finance"],
+        alsoMatch: ["/admin/finance/rentabilite", "/admin/finance/pilotage", "/admin/finance/pnl", "/admin/finance/resultat-annuel", "/admin/finance"],
       },
     ],
   },

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ExpenseTabs } from "@/components/report-tabs";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
@@ -83,6 +84,8 @@ export default async function DepensesPage({ searchParams }: { searchParams: Pro
         </div>
         <Link href="/admin/finance/depenses/new"><Button><Plus className="size-4" />Nouvelle dépense</Button></Link>
       </div>
+
+      <ExpenseTabs active="depenses" />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         <Card>

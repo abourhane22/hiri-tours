@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ReportTabs } from "@/components/report-tabs";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardBody } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,8 @@ export default async function PnLPage({ searchParams }: { searchParams: Promise<
           <VoucherPrintButton />
         </div>
       </div>
+
+      <ReportTabs active="pnl" />
 
       <div className="hidden print:block mb-6">
         <h1 className="font-display text-2xl text-ink">Hiri Tours — Compte de résultat</h1>

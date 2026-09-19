@@ -1,4 +1,5 @@
 import { PieChart, TrendingUp, Clock, Ban } from "lucide-react";
+import { ReportTabs } from "@/components/report-tabs";
 import { createClient } from "@/lib/supabase/server";
 import { TargetEditor } from "./target-editor";
 
@@ -50,6 +51,9 @@ export default async function PilotagePage() {
         <p className="text-sm text-stone-600 mt-2">
           Définissez les cibles de l'agence et suivez votre rythme par rapport à elles.
         </p>
+        <div className="mt-4 -mb-4">
+          <ReportTabs active="pilotage" />
+        </div>
       </div>
 
       <div>

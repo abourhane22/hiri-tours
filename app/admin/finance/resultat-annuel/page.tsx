@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ReportTabs } from "@/components/report-tabs";
 import { createClient } from "@/lib/supabase/server";
 import { computeAnnualResult, type AnnualMonth, type AnnualResult, type AnnualCategory } from "@/lib/finance";
 import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
@@ -61,6 +62,8 @@ export default async function ResultatAnnuelPage({ searchParams }: { searchParam
           <PrintButton />
         </div>
       </div>
+
+      <ReportTabs active="resultat-annuel" />
 
       <Card className="mb-6">
         <div className="px-5 py-3 border-b border-sand-200 bg-sand-50/50">
