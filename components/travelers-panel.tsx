@@ -7,6 +7,7 @@ import { CountrySelect } from "@/components/country-select";
 import { countryCode } from "@/lib/countries";
 import { formatDateShort, foldAccents } from "@/lib/utils";
 import { ageFromDob, maskPassport, TRAVELER_TYPE_LABEL } from "@/lib/travelers";
+import { ID_DOCUMENT_TYPE_LABEL, TRAVELER_FIELD_LABEL, missingTravelerFields, type DossierProfile } from "@/lib/dossier-profile";
 import type { ReservationTraveler, TravelerType } from "@/lib/types";
 import {
   addTraveler,
@@ -29,11 +30,13 @@ type Props = {
   expectedChildren: number;
   payer: { fullName: string; country: string | null } | null;
   readOnly: boolean;
+  /** Profil du dossier (lib/dossier-profile) : champs affichés / requis. */
+  profile: DossierProfile;
   /** Dossier billetterie : profil déclaré à la recherche pour chaque passager (ordre de l'offre). */
   expectedProfiles?: { type: TravelerType; age: number | null }[];
 };
 
-export function TravelersPanel({ reservationId, travelers, expectedAdults, expectedChildren, payer, readOnly, expectedProfiles }: Props) {
+export function TravelersPanel({ reservationId, travelers, expectedAdults, expectedChildren, payer, readOnly, profile, expectedProfiles }: Props) {
   // Voyageur i du type X ↔ profil i du type X (même appariement que l'émission d'ordre).
   const expectedFor = (t: ReservationTraveler): { type: TravelerType; age: number | null } | null => {
     if (!expectedProfiles) return null;
@@ -81,6 +84,7 @@ export function TravelersPanel({ reservationId, travelers, expectedAdults, expec
 
   return (
     <div className="space-y-2.5">
+      {profile.travelerHint && <p className="text-[11.5px] text-[#968F84]">{profile.travelerHint}</p>}
       {travelers.length === 0 && (readOnly || !adding) && (
         <p className="text-[13px] text-[#968F84] italic">Aucun voyageur renseigné.</p>
       )}
@@ -93,6 +97,7 @@ export function TravelersPanel({ reservationId, travelers, expectedAdults, expec
             reservationId={reservationId}
             traveler={t}
             defaultType={t.traveler_type}
+            profile={profile}
             onDone={() => setEditingId(null)}
           />
         ) : (
@@ -100,6 +105,7 @@ export function TravelersPanel({ reservationId, travelers, expectedAdults, expec
             key={t.id}
             t={t}
             expected={expectedFor(t)}
+            profile={profile}
             readOnly={readOnly}
             revealed={revealed.has(t.id)}
             onReveal={() => toggleReveal(t.id)}
@@ -123,6 +129,7 @@ export function TravelersPanel({ reservationId, travelers, expectedAdults, expec
           mode="create"
           reservationId={reservationId}
           defaultType={defaultType}
+          profile={profile}
           onDone={() => setAdding(false)}
           onCancel={travelers.length > 0 ? () => setAdding(false) : undefined}
         />
@@ -192,6 +199,7 @@ function ExpectedChip({ expected }: { expected: { type: TravelerType; age: numbe
 function TravelerRow({
   t,
   expected,
+  profile,
   readOnly,
   revealed,
   onReveal,
@@ -201,6 +209,7 @@ function TravelerRow({
 }: {
   t: ReservationTraveler;
   expected: { type: TravelerType; age: number | null } | null;
+  profile: DossierProfile;
   readOnly: boolean;
   revealed: boolean;
   onReveal: () => void;
@@ -208,11 +217,14 @@ function TravelerRow({
   onDelete: () => void;
   disabled: boolean;
 }) {
+  const show = (f: "gender" | "date_of_birth" | "nationality" | "id_document" | "passport_expires_on") => profile.travelerFields.includes(f);
   const meta = [
-    t.gender === "m" ? "Homme" : t.gender === "f" ? "Femme" : null,
-    t.date_of_birth ? `Né(e) le ${formatDateShort(t.date_of_birth)} · ${ageFromDob(t.date_of_birth)} ans` : null,
-    t.nationality,
+    show("gender") ? (t.gender === "m" ? "Homme" : t.gender === "f" ? "Femme" : null) : null,
+    show("date_of_birth") && t.date_of_birth ? `Né(e) le ${formatDateShort(t.date_of_birth)} · ${ageFromDob(t.date_of_birth)} ans` : null,
+    show("nationality") ? t.nationality : null,
   ].filter(Boolean);
+  const missing = missingTravelerFields(profile, t);
+  const docType = t.id_document_type ?? (profile.idDocumentTypes.length === 1 ? profile.idDocumentTypes[0] : null);
 
   return (
     <div
@@ -227,12 +239,12 @@ function TravelerRow({
           {expected && <ExpectedChip expected={expected} />}
         </div>
         {meta.length > 0 && <div className="text-[11.5px] text-[#6B6862] mt-0.5">{meta.join(" · ")}</div>}
-        {t.passport_number && (
+        {show("id_document") && t.passport_number && (
           <div className="flex items-center gap-1.5 text-[11.5px] text-[#58524A] mt-0.5">
             <ShieldCheck className="size-3.5 text-[#968F84]" />
-            <span>Passeport</span>
+            <span>{docType ? ID_DOCUMENT_TYPE_LABEL[docType] : "Pièce d'identité"}</span>
             <span className="font-mono tabular-nums">{revealed ? t.passport_number : maskPassport(t.passport_number)}</span>
-            {t.passport_expires_on && (
+            {show("passport_expires_on") && t.passport_expires_on && (
               <span className="text-[#968F84]">· exp. {formatDateShort(t.passport_expires_on)}</span>
             )}
             <button
@@ -247,6 +259,11 @@ function TravelerRow({
           </div>
         )}
         {t.notes && <div className="text-[11.5px] text-[#6B6862] italic mt-0.5">{t.notes}</div>}
+        {missing.length > 0 && (
+          <div className="mt-1 inline-flex items-center rounded px-1.5 py-px text-[10.5px] font-medium" style={{ backgroundColor: "#FAEEDA", color: "#633806" }}>
+            Manque : {missing.map((f) => TRAVELER_FIELD_LABEL[f]).join(", ")}
+          </div>
+        )}
       </div>
 
       {!readOnly && (
@@ -275,6 +292,7 @@ function TravelerForm({
   reservationId,
   traveler,
   defaultType,
+  profile,
   onDone,
   onCancel,
 }: {
@@ -282,9 +300,14 @@ function TravelerForm({
   reservationId: string;
   traveler?: ReservationTraveler;
   defaultType: TravelerType;
+  profile: DossierProfile;
   onDone: () => void;
   onCancel?: () => void;
 }) {
+  const show = (f: "gender" | "date_of_birth" | "nationality" | "id_document" | "passport_expires_on") => profile.travelerFields.includes(f);
+  const req = (f: "gender" | "date_of_birth" | "nationality" | "id_document" | "passport_expires_on") =>
+    profile.travelerRequired.includes(f) ? <span className="text-red-600"> *</span> : null;
+  const singleDocType = profile.idDocumentTypes.length === 1 ? profile.idDocumentTypes[0] : null;
   const action =
     mode === "edit" && traveler
       ? updateTraveler.bind(null, reservationId, traveler.id)
@@ -321,7 +344,7 @@ function TravelerForm({
             required
             autoFocus
             defaultValue={traveler?.full_name ?? ""}
-            placeholder="Tel qu'il figure sur le passeport"
+            placeholder={show("id_document") ? "Tel qu'il figure sur la pièce d'identité" : "Prénom et nom"}
             className={fieldCls}
           />
         </div>
@@ -336,63 +359,90 @@ function TravelerForm({
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-2.5">
-        <div>
-          <label htmlFor={`dob-${traveler?.id ?? "new"}`} className={labelCls}>
-            Date de naissance
-          </label>
-          <input
-            id={`dob-${traveler?.id ?? "new"}`}
-            name="date_of_birth"
-            type="date"
-            max={today}
-            defaultValue={traveler?.date_of_birth ?? ""}
-            className={fieldCls}
-          />
+      {(show("date_of_birth") || show("nationality") || show("gender")) && (
+        <div className="grid sm:grid-cols-3 gap-2.5">
+          {show("date_of_birth") && (
+            <div>
+              <label htmlFor={`dob-${traveler?.id ?? "new"}`} className={labelCls}>
+                Date de naissance{req("date_of_birth")}
+              </label>
+              <input
+                id={`dob-${traveler?.id ?? "new"}`}
+                name="date_of_birth"
+                type="date"
+                max={today}
+                defaultValue={traveler?.date_of_birth ?? ""}
+                className={fieldCls}
+              />
+            </div>
+          )}
+          {show("nationality") && (
+            <div>
+              <label className={labelCls}>Nationalité{req("nationality")}</label>
+              <CountrySelect name="nationality" defaultValue={traveler?.nationality ?? ""} />
+            </div>
+          )}
+          {show("gender") && (
+            <div>
+              <label htmlFor={`gender-${traveler?.id ?? "new"}`} className={labelCls}>
+                Genre{req("gender")}
+              </label>
+              <select id={`gender-${traveler?.id ?? "new"}`} name="gender" defaultValue={traveler?.gender ?? ""} className={fieldCls}>
+                <option value="">—</option>
+                <option value="m">Homme</option>
+                <option value="f">Femme</option>
+              </select>
+            </div>
+          )}
         </div>
-        <div>
-          <label className={labelCls}>Nationalité</label>
-          <CountrySelect name="nationality" defaultValue={traveler?.nationality ?? ""} />
-        </div>
-      </div>
+      )}
 
-      <div className="grid sm:grid-cols-3 gap-2.5">
-        <div>
-          <label htmlFor={`gender-${traveler?.id ?? "new"}`} className={labelCls}>
-            Genre <span className="text-[#968F84] font-normal">(billetterie)</span>
-          </label>
-          <select id={`gender-${traveler?.id ?? "new"}`} name="gender" defaultValue={traveler?.gender ?? ""} className={fieldCls}>
-            <option value="">—</option>
-            <option value="m">Homme</option>
-            <option value="f">Femme</option>
-          </select>
+      {show("id_document") && (
+        <div className="grid sm:grid-cols-3 gap-2.5">
+          {singleDocType ? (
+            <input type="hidden" name="id_document_type" value={singleDocType} />
+          ) : (
+            <div>
+              <label htmlFor={`doctype-${traveler?.id ?? "new"}`} className={labelCls}>
+                Type de pièce{req("id_document")}
+              </label>
+              <select id={`doctype-${traveler?.id ?? "new"}`} name="id_document_type" defaultValue={traveler?.id_document_type ?? ""} className={fieldCls}>
+                <option value="">—</option>
+                {profile.idDocumentTypes.map((k) => (
+                  <option key={k} value={k}>{ID_DOCUMENT_TYPE_LABEL[k]}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className={singleDocType ? "sm:col-span-2" : ""}>
+            <label htmlFor={`passport-${traveler?.id ?? "new"}`} className={labelCls}>
+              N° de pièce d&apos;identité{singleDocType ? ` (${ID_DOCUMENT_TYPE_LABEL[singleDocType]})` : ""}{req("id_document")}
+            </label>
+            <input
+              id={`passport-${traveler?.id ?? "new"}`}
+              name="passport_number"
+              type="text"
+              autoComplete="off"
+              defaultValue={traveler?.passport_number ?? ""}
+              className={`${fieldCls} font-mono`}
+            />
+          </div>
+          {show("passport_expires_on") && (
+            <div>
+              <label htmlFor={`passport-exp-${traveler?.id ?? "new"}`} className={labelCls}>
+                Expiration{req("passport_expires_on")}
+              </label>
+              <input
+                id={`passport-exp-${traveler?.id ?? "new"}`}
+                name="passport_expires_on"
+                type="date"
+                defaultValue={traveler?.passport_expires_on ?? ""}
+                className={fieldCls}
+              />
+            </div>
+          )}
         </div>
-        <div>
-          <label htmlFor={`passport-${traveler?.id ?? "new"}`} className={labelCls}>
-            N° de passeport
-          </label>
-          <input
-            id={`passport-${traveler?.id ?? "new"}`}
-            name="passport_number"
-            type="text"
-            autoComplete="off"
-            defaultValue={traveler?.passport_number ?? ""}
-            className={`${fieldCls} font-mono`}
-          />
-        </div>
-        <div>
-          <label htmlFor={`passport-exp-${traveler?.id ?? "new"}`} className={labelCls}>
-            Expiration passeport
-          </label>
-          <input
-            id={`passport-exp-${traveler?.id ?? "new"}`}
-            name="passport_expires_on"
-            type="date"
-            defaultValue={traveler?.passport_expires_on ?? ""}
-            className={fieldCls}
-          />
-        </div>
-      </div>
+      )}
 
       <div>
         <div>

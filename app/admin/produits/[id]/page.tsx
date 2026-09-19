@@ -116,6 +116,7 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
           dayCount: initialDayCount,
           saleUnit: isSaleUnit(c.sale_unit) ? c.sale_unit : "per_person",
           pricingMode: c.pricing_mode === "on_request" ? "on_request" : "fixed",
+          identityDocumentsRequired: Boolean(c.identity_documents_required),
         }}
       />
 

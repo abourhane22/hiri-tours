@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ChevronRight, Users, Eye, Printer, Check, AlertTriangle } from "lucide-react";
+import { getDossierProfile, type DossierProfile } from "@/lib/dossier-profile";
 
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
@@ -23,14 +24,18 @@ type Manifest = {
   circuitId: string;
   circuitTitle: string;
   departureTime: string | null;
+  profile: DossierProfile;
   reservations: any[];
   totalPax: number;
 };
 
-function crewInfo(rs: any[]) {
-  const allGuide = rs.every((r) => r.guide_id);
-  const allDriver = rs.every((r) => r.driver_id);
-  const allVehicle = rs.every((r) => r.vehicle_id);
+/** L'alerte « à affecter » ne réclame que les ressources attendues par le profil du produit. */
+function crewInfo(rs: any[], profile: DossierProfile) {
+  const L = profile.logistics;
+  if (!L.vehicle && !L.driver && !L.guide) return { fully: true, missing: [] as string[], display: "Sans équipage" };
+  const allGuide = !L.guide || rs.every((r) => r.guide_id);
+  const allDriver = !L.driver || rs.every((r) => r.driver_id);
+  const allVehicle = !L.vehicle || rs.every((r) => r.vehicle_id);
   const fully = allGuide && allDriver && allVehicle;
   const missing: string[] = [];
   if (!allGuide) missing.push("guide");
@@ -41,7 +46,7 @@ function crewInfo(rs: any[]) {
   const vehicleLabel = v
     ? [[v.make, v.model].filter(Boolean).join(" "), v.registration].filter(Boolean).join(" · ")
     : "";
-  const crew = [firstName(first.guide?.full_name), firstName(first.driver?.full_name)]
+  const crew = [L.guide ? firstName(first.guide?.full_name) : "", firstName(first.driver?.full_name)]
     .filter(Boolean)
     .join(", ");
   const display = [crew, vehicleLabel].filter(Boolean).join(" · ") || "Équipage affecté";
@@ -77,7 +82,7 @@ export default async function ManifestesPage({
   const { data: departures } = await supabase
     .from("reservations")
     .select(`id, departure_date, adults, children, reference, status, guide_id, driver_id, vehicle_id,
-             circuit:circuits(id, title, category_fields),
+             circuit:circuits(id, title, category, identity_documents_required, category_fields),
              vehicles(registration, make, model),
              guide:staff_members!reservations_guide_id_fkey(full_name),
              driver:staff_members!reservations_driver_id_fkey(full_name)`)
@@ -100,6 +105,7 @@ export default async function ManifestesPage({
         circuitId: circuit.id,
         circuitTitle: circuit.title,
         departureTime: circuit.category_fields?.departure_time ?? null,
+        profile: getDossierProfile(circuit),
         reservations: [],
         totalPax: 0,
       });
@@ -124,7 +130,7 @@ export default async function ManifestesPage({
   const todayStr = ymd(now);
   const in7Str = ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7));
   const weekUnassigned = allManifests.filter(
-    (m) => m.date >= todayStr && m.date <= in7Str && !crewInfo(m.reservations).fully,
+    (m) => m.date >= todayStr && m.date <= in7Str && !crewInfo(m.reservations, m.profile).fully,
   ).length;
 
   const iconBtn =
@@ -210,7 +216,7 @@ export default async function ManifestesPage({
                   const d = new Date(m.date);
                   const isToday = m.date === todayStr;
                   const isSoon = m.date >= todayStr && m.date <= in7Str;
-                  const crew = crewInfo(m.reservations);
+                  const crew = crewInfo(m.reservations, m.profile);
                   const viewHref = `/admin/manifestes/${m.date}/${m.circuitId}`;
                   return (
                     <div

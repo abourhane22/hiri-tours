@@ -45,6 +45,7 @@ import {
   type IntendedChannel,
 } from "@/lib/booking";
 import type { Customer, CircuitCategory, SaleUnit } from "@/lib/types";
+import { MEAL_PLANS, stayDates } from "@/lib/dossier-profile";
 import { AvailabilityCalendar, dayInfo, type CalendarSeason } from "@/components/reservations/availability-calendar";
 import { createReservation } from "@/app/admin/reservations/new/actions";
 import { loadCustomerSummary, checkDuplicateDossier, type CustomerSummary, type DuplicateDossier, type MonthAvailability } from "@/app/admin/reservations/new/data-actions";
@@ -155,6 +156,10 @@ export function NewReservationForm({ products }: { products: BookingProduct[] })
   const [specialRequests, setSpecialRequests] = useState("");
   const [customerNote, setCustomerNote] = useState("");
   const [notes, setNotes] = useState("");
+  // Profil transfert / hébergement
+  const [arrivalFlight, setArrivalFlight] = useState("");
+  const [arrivalTime, setArrivalTime] = useState("");
+  const [mealPlan, setMealPlan] = useState("");
 
   // 4. Paiement
   const [intended, setIntended] = useState<IntendedChannel | "">("");
@@ -291,6 +296,9 @@ export function NewReservationForm({ products }: { products: BookingProduct[] })
       special_requests: specialRequests,
       customer_note: customerNote,
       intended_payment_channel: intended || null,
+      arrival_flight_number: product.category === "transfert" ? arrivalFlight : null,
+      arrival_time: product.category === "transfert" ? arrivalTime : null,
+      meal_plan: product.category === "hebergement" ? mealPlan || null : null,
       discount: discountMad > 0 ? { mode: discountMode, value: Number(String(discountValue).replace(",", ".")), reason: discountReason || null } : null,
       deposit: depositOn && depositNum > 0 ? { amount: depositNum, method: depositMethod, external_ref: depositRef.trim() || null } : null,
       credit_note: creditOn && selectedNote && creditUsed > 0 ? { id: selectedNote.id, amount: creditUsed } : null,
@@ -488,6 +496,29 @@ export function NewReservationForm({ products }: { products: BookingProduct[] })
                 ))}
               </Select>
             </div>
+            {product?.category === "transfert" && (
+              <>
+                <div>
+                  <Label htmlFor="arrival_flight">N° de vol <span className="text-[#968F84] font-normal">(arrivée)</span></Label>
+                  <Input id="arrival_flight" value={arrivalFlight} onChange={(e) => setArrivalFlight(e.target.value.toUpperCase())} placeholder="AT 1234" className="font-mono" />
+                </div>
+                <div>
+                  <Label htmlFor="arrival_time">Heure d&apos;arrivée <span className="text-[#968F84] font-normal">(le {date ? formatDateShort(date) : "jour du transfert"})</span></Label>
+                  <Input id="arrival_time" type="time" value={arrivalTime} onChange={(e) => setArrivalTime(e.target.value)} />
+                </div>
+              </>
+            )}
+            {product?.category === "hebergement" && (
+              <div>
+                <Label htmlFor="meal_plan">Régime</Label>
+                <Select id="meal_plan" value={mealPlan} onChange={(e) => setMealPlan(e.target.value)}>
+                  <option value="">— Non précisé —</option>
+                  {MEAL_PLANS.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </Select>
+              </div>
+            )}
             <div className="sm:col-span-2">
               <Label htmlFor="special_requests">Demandes spéciales <span className="text-[#968F84] font-normal">(manifeste)</span></Label>
               <Input id="special_requests" value={specialRequests} onChange={(e) => setSpecialRequests(e.target.value)} placeholder="Régime végétarien, siège bébé, mobilité réduite…" />
@@ -635,6 +666,20 @@ export function NewReservationForm({ products }: { products: BookingProduct[] })
                   </span>
                 )}
               </div>
+              {date && product.category === "hebergement" && (() => {
+                const s = stayDates(date, nq.nights);
+                return (
+                  <div className="text-[12px] text-[#6B6862] mt-1">
+                    Check-in {formatDateShort(s.checkIn)} → check-out {formatDateShort(s.checkOut)} · {s.nights} nuit{s.nights > 1 ? "s" : ""}
+                    {mealPlan && <> · {MEAL_PLANS.find((m) => m.value === mealPlan)?.label}</>}
+                  </div>
+                );
+              })()}
+              {date && product.category === "transfert" && (arrivalFlight || arrivalTime) && (
+                <div className="text-[12px] text-[#6B6862] mt-1 font-mono">
+                  Arrivée {arrivalFlight || "—"}{arrivalTime ? ` · ${arrivalTime}` : ""}
+                </div>
+              )}
               {date && (
                 <div className="text-[12px] mt-1.5" style={{ color: remainingPlaces !== null && pax > remainingPlaces ? "#B42318" : "#0F6E56" }}>
                   {info?.noDeparture

@@ -90,6 +90,7 @@ function buildCircuitPayload(
       // Itinéraire : source de vérité = category_fields.itinerary (répéteur).
       // Colonne legacy `itinerary` volontairement non écrite.
       is_active: formData.get("is_active") === "on",
+      identity_documents_required: formData.get("identity_documents_required") === "on",
       sale_unit: saleUnitRaw,
       pricing_mode: pricingModeRaw as PricingMode,
       category_fields: parsed.fields,

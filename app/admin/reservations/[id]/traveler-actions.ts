@@ -57,6 +57,9 @@ function readTravelerFields(formData: FormData): { ok: true; data: Record<string
     const d = new Date(passportExpires);
     if (isNaN(d.getTime())) return { ok: false, error: "Date d'expiration du passeport invalide." };
   }
+  // Type de la pièce (cin | passeport). Champ absent du formulaire (profil sans pièce) ⇒ inchangé.
+  const docTypeRaw = formData.has("id_document_type") ? ((formData.get("id_document_type") as string) || "").trim() : undefined;
+  if (docTypeRaw && docTypeRaw !== "cin" && docTypeRaw !== "passeport") return { ok: false, error: "Type de pièce invalide." };
 
   return {
     ok: true,
@@ -68,6 +71,7 @@ function readTravelerFields(formData: FormData): { ok: true; data: Record<string
       passport_number: passport || null,
       gender: genderRaw || null,
       passport_expires_on: passportExpires || null,
+      ...(docTypeRaw !== undefined ? { id_document_type: docTypeRaw || null } : {}),
       notes: notes || null,
     },
   };

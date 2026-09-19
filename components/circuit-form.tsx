@@ -43,6 +43,8 @@ export type CircuitFormDefaults = {
   dayCount: number;
   saleUnit: SaleUnit;
   pricingMode: "fixed" | "on_request";
+  /** Pièce d'identité exigée des voyageurs quel que soit le type. */
+  identityDocumentsRequired: boolean;
 };
 
 type Action = (prev: CircuitActionState, formData: FormData) => Promise<CircuitActionState>;
@@ -306,6 +308,28 @@ export function CircuitForm({
             sectionNumber={3}
             onDayCountChange={setDayCount}
           />
+          {/* Profil de dossier : force la pièce d'identité des voyageurs (lib/dossier-profile) */}
+          <div className="mt-4 pt-4 border-t border-[#EEE9E0] flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[13px] font-medium text-[#1A1F2E]">Pièce d&apos;identité exigée des voyageurs</div>
+              <p className="text-[11.5px] text-[#968F84] mt-0.5">
+                Exigé par un fournisseur ou une autorité (bivouac avec contrôle, frontière…). Ajoute date de naissance, pièce
+                (CIN / passeport) et nationalité aux champs requis, quel que soit le type de produit.
+              </p>
+            </div>
+            <label className="relative inline-flex cursor-pointer items-center shrink-0 mt-1">
+              <input
+                type="checkbox"
+                name="identity_documents_required"
+                defaultChecked={defaults.identityDocumentsRequired}
+                className="peer sr-only"
+              />
+              <span
+                className="h-[19px] w-[34px] rounded-full bg-[#D6D0C4] transition-colors peer-checked:bg-[#0F6E56] after:absolute after:left-[2px] after:top-[2px] after:size-[15px] after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-[15px]"
+                aria-hidden
+              />
+            </label>
+          </div>
         </section>
 
         {/* Médias */}

@@ -39,6 +39,7 @@ export default function NewCircuitPage() {
           dayCount: 1,
           saleUnit: DEFAULT_SALE_UNIT.circuit,
           pricingMode: "fixed",
+          identityDocumentsRequired: false,
         }}
       />
     </div>

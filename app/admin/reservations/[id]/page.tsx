@@ -45,12 +45,13 @@ import { ReservationStatusForm } from "@/components/reservation-status-form";
 import { PaymentCollector } from "@/components/payment-collector";
 import { SuiviLinkButton } from "@/components/suivi-link-button";
 import { TravelersPanel } from "@/components/travelers-panel";
-import { travelersStatus } from "@/lib/travelers";
+import { getDossierProfile, travelersStatus } from "@/lib/dossier-profile";
+import { ArrivalCard, StayCard } from "@/components/reservations/special-cards";
 import type { ReservationTraveler, DistributionBooking } from "@/lib/types";
 import { DistributionCard } from "@/components/distribution-card";
 import { duffelTokenMode } from "@/lib/duffel";
 import { DISTRIBUTION_STATUS_LABEL, DISTRIBUTION_STATUS_STYLE, expectedProfiles, offerFromSnapshot } from "@/lib/distribution";
-import { Plane } from "lucide-react";
+import { Plane, BedDouble } from "lucide-react";
 import { CreatedBanner } from "@/components/reservations/created-banner";
 import { BOOKING_CHANNEL_LABEL, DISCOUNT_REASON_LABEL, GROUP_LANGUAGE_LABEL, quantityLabel } from "@/lib/booking";
 import { isSaleUnit } from "@/lib/pricing";
@@ -134,7 +135,7 @@ export default async function ReservationDetailPage({
   const { data: reservation } = await supabase
     .from("reservations")
     .select(
-      "*, circuits(title, slug, category, meeting_point, sale_unit), customers(id, full_name, email, phone, country)",
+      "*, circuits(title, slug, category, meeting_point, sale_unit, identity_documents_required), customers(id, full_name, email, phone, country)",
     )
     .eq("id", id)
     .single();
@@ -180,7 +181,8 @@ export default async function ReservationDetailPage({
     guide: af?.guide?.full_name ?? null,
     driver: af?.driver?.full_name ?? null,
   };
-  const allAssigned = Boolean(af?.guide_id && af?.driver_id && af?.vehicle_id);
+  // « Équipage affecté » ne réclame que les ressources du profil (calculé plus bas, une fois le profil connu).
+  const assignedOf = (needGuide: boolean) => Boolean((af?.guide_id || !needGuide) && af?.driver_id && af?.vehicle_id);
 
   const { data: payments } = await supabase
     .from("payments")
@@ -287,14 +289,16 @@ export default async function ReservationDetailPage({
     `${r.adults} adulte${r.adults > 1 ? "s" : ""}` +
     (r.children > 0 ? ` · ${r.children} enfant${r.children > 1 ? "s" : ""}` : "");
   const expectedPax = r.adults + r.children;
-  const tStatus = travelersStatus(travelers.length, expectedPax);
+  // Profil du dossier : champs voyageurs, logistique attendue, carte spéciale.
+  const profile = getDossierProfile(circuit);
+  const { status: tStatus, complete: tComplete } = travelersStatus(profile, travelers, expectedPax);
   const travelersBadge =
     tStatus === "complete" ? (
       <span
         className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-medium tabular-nums"
         style={{ backgroundColor: "#E1F5EE", color: "#085041" }}
       >
-        <CircleCheck className="size-3.5" /> {travelers.length}/{expectedPax} renseignés
+        <CircleCheck className="size-3.5" /> {tComplete}/{expectedPax} renseignés
       </span>
     ) : tStatus === "incomplete" ? (
       <span
@@ -661,6 +665,31 @@ export default async function ReservationDetailPage({
             </div>
           </InfoCard>
 
+          {/* b'''. CARTE SPÉCIALE DU PROFIL — Arrivée (transfert) / Séjour (hébergement) */}
+          {profile.extraCard === "arrival" && (
+            <InfoCard icon={Plane} label="Arrivée">
+              <ArrivalCard
+                reservationId={id}
+                departureDate={r.departure_date}
+                flightNumber={r.arrival_flight_number ?? null}
+                arrivalAt={r.arrival_flight_at ?? null}
+                readOnly={isCancelled}
+              />
+            </InfoCard>
+          )}
+          {profile.extraCard === "stay" && (
+            <InfoCard icon={BedDouble} label="Séjour">
+              <StayCard
+                reservationId={id}
+                departureDate={r.departure_date}
+                nights={r.nights ?? 1}
+                rooms={r.rooms ?? 1}
+                mealPlan={r.meal_plan ?? null}
+                readOnly={isCancelled}
+              />
+            </InfoCard>
+          )}
+
           {/* b''. DÉTAIL DU VOL — dossier issu de la distribution aérienne */}
           {distribution && (
             <InfoCard
@@ -684,7 +713,7 @@ export default async function ReservationDetailPage({
 
           {/* b'. VOYAGEURS NOMINATIFS (client payeur ≠ voyageurs) */}
           <div id="voyageurs" className="scroll-mt-20" />
-          <InfoCard icon={Users} label="Voyageurs" headerRight={travelersBadge}>
+          <InfoCard icon={Users} label={profile.travelerLabel} headerRight={travelersBadge}>
             {isCancelled && (
               <p className="text-[12px] text-[#968F84] mb-2">Dossier annulé — liste en lecture seule.</p>
             )}
@@ -695,6 +724,7 @@ export default async function ReservationDetailPage({
               expectedChildren={r.children}
               payer={customer ? { fullName: customer.full_name, country: customer.country ?? null } : null}
               readOnly={isCancelled}
+              profile={profile}
               expectedProfiles={(() => {
                 const offer = distribution ? offerFromSnapshot(distribution.offer_snapshot) : null;
                 return offer ? expectedProfiles(offer) : undefined;
@@ -932,7 +962,8 @@ export default async function ReservationDetailPage({
             )}
           </InfoCard>
 
-          {/* e. LOGISTIQUE */}
+          {/* e. LOGISTIQUE — masquée quand le profil n'attend aucune ressource (hébergement, billetterie) */}
+          {(profile.logistics.vehicle || profile.logistics.driver || profile.logistics.guide) && (
           <InfoCard icon={Truck} label="Logistique">
             {isCancelled ? (
               <div className="space-y-1.5">
@@ -942,7 +973,7 @@ export default async function ReservationDetailPage({
                 {(affectationNames.vehicle || affectationNames.guide || affectationNames.driver) && (
                   <div className="text-[12px] text-[#B4AC9E] line-through space-y-0.5">
                     {affectationNames.vehicle && <div>Véhicule : {affectationNames.vehicle}</div>}
-                    {affectationNames.guide && <div>Guide : {affectationNames.guide}</div>}
+                    {profile.logistics.guide && affectationNames.guide && <div>Guide : {affectationNames.guide}</div>}
                     {affectationNames.driver && <div>Chauffeur : {affectationNames.driver}</div>}
                   </div>
                 )}
@@ -950,7 +981,7 @@ export default async function ReservationDetailPage({
             ) : (
               <>
                 <div className="flex justify-end mb-3">
-                  {allAssigned ? (
+                  {assignedOf(profile.logistics.guide) ? (
                     <span
                       className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium"
                       style={{ backgroundColor: "#E1F5EE", color: "#085041" }}
@@ -979,10 +1010,12 @@ export default async function ReservationDetailPage({
                   staff={staffList as any}
                   conflictedVehicleIds={conflictedVehicleIds}
                   conflictedStaffIds={conflictedStaffIds}
+                  showGuide={profile.logistics.guide}
                 />
               </>
             )}
           </InfoCard>
+          )}
 
           {/* f. STATUT */}
           <InfoCard icon={RefreshCw} label="Statut du dossier">

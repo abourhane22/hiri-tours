@@ -18,12 +18,15 @@ type Props = {
   staff: Staff[];
   conflictedVehicleIds: string[];
   conflictedStaffIds: string[];
+  /** Transfert : pas de guide attendu (profil du dossier). */
+  showGuide?: boolean;
 };
 
 export function AffectationForm(props: Props) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const showGuide = props.showGuide !== false;
   const guides = props.staff.filter((s) => s.role === "guide" || s.role === "both");
   const drivers = props.staff.filter((s) => s.role === "driver" || s.role === "both");
 
@@ -51,13 +54,15 @@ export function AffectationForm(props: Props) {
               <div className="text-ink">{props.currentNames.vehicle ?? <span className="text-sand-500 italic">Non affecté</span>}</div>
             </div>
           </div>
-          <div className="flex items-start gap-2">
-            <User className="size-4 text-sand-600 shrink-0 mt-0.5" />
-            <div>
-              <div className="text-xs text-sand-600">Guide</div>
-              <div className="text-ink">{props.currentNames.guide ?? <span className="text-sand-500 italic">Non affecté</span>}</div>
+          {showGuide && (
+            <div className="flex items-start gap-2">
+              <User className="size-4 text-sand-600 shrink-0 mt-0.5" />
+              <div>
+                <div className="text-xs text-sand-600">Guide</div>
+                <div className="text-ink">{props.currentNames.guide ?? <span className="text-sand-500 italic">Non affecté</span>}</div>
+              </div>
             </div>
-          </div>
+          )}
           <div className="flex items-start gap-2">
             <User className="size-4 text-sand-600 shrink-0 mt-0.5" />
             <div>
@@ -90,16 +95,20 @@ export function AffectationForm(props: Props) {
         </Select>
       </div>
 
-      <div>
-        <Label htmlFor="guide_id">Guide</Label>
-        <Select id="guide_id" name="guide_id" defaultValue={props.current.guide_id ?? ""}>
-          <option value="">— Aucun —</option>
-          {guides.map((g) => {
-            const conflict = props.conflictedStaffIds.includes(g.id);
-            return <option key={g.id} value={g.id}>{g.full_name}{conflict ? " ⚠ conflit" : ""}</option>;
-          })}
-        </Select>
-      </div>
+      {showGuide ? (
+        <div>
+          <Label htmlFor="guide_id">Guide</Label>
+          <Select id="guide_id" name="guide_id" defaultValue={props.current.guide_id ?? ""}>
+            <option value="">— Aucun —</option>
+            {guides.map((g) => {
+              const conflict = props.conflictedStaffIds.includes(g.id);
+              return <option key={g.id} value={g.id}>{g.full_name}{conflict ? " ⚠ conflit" : ""}</option>;
+            })}
+          </Select>
+        </div>
+      ) : (
+        <input type="hidden" name="guide_id" value={props.current.guide_id ?? ""} />
+      )}
 
       <div>
         <Label htmlFor="driver_id">Chauffeur</Label>

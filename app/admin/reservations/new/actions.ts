@@ -22,6 +22,7 @@ import {
 import { addPayment } from "@/app/admin/reservations/[id]/actions";
 import { createPaymentLink } from "@/app/admin/reservations/[id]/payment-link-actions";
 import { autoConfirmOnPayment } from "@/lib/payments";
+import { MEAL_PLAN_LABEL } from "@/lib/dossier-profile";
 
 export type CreateReservationInput = {
   circuit_id: string;
@@ -44,6 +45,11 @@ export type CreateReservationInput = {
   special_requests?: string | null;
   customer_note?: string | null;
   intended_payment_channel?: string | null;
+  /** Transfert : vol et heure d'arrivée (HH:MM, le jour du transfert). */
+  arrival_flight_number?: string | null;
+  arrival_time?: string | null;
+  /** Hébergement : régime (none | breakfast | half_board | full_board | all_inclusive). */
+  meal_plan?: string | null;
   discount?: { mode: DiscountMode; value: number; reason: DiscountReason | string | null } | null;
   deposit?: { amount: number; method: DepositMethod | string; external_ref?: string | null } | null;
   credit_note?: { id: string; amount: number } | null;
@@ -158,6 +164,19 @@ export async function createReservation(input: CreateReservationInput): Promise<
   const bookingChannel = isBookingChannel(input.booking_channel) ? input.booking_channel : null;
   const intended = isIntendedChannel(input.intended_payment_channel) ? input.intended_payment_channel : null;
 
+  // Profil transfert : vol + heure d'arrivée (le jour du transfert) ; profil hébergement : régime.
+  const arrivalFlight = clean(input.arrival_flight_number)?.toUpperCase() ?? null;
+  let arrivalAt: string | null = null;
+  const arrivalTime = clean(input.arrival_time);
+  if (arrivalTime) {
+    if (!/^\d{2}:\d{2}$/.test(arrivalTime)) return { ok: false, error: "Heure d'arrivée invalide (HH:MM)." };
+    const d = new Date(`${input.departure_date}T${arrivalTime}:00`);
+    if (isNaN(d.getTime())) return { ok: false, error: "Heure d'arrivée invalide." };
+    arrivalAt = d.toISOString();
+  }
+  const mealPlan = clean(input.meal_plan);
+  if (mealPlan && !(mealPlan in MEAL_PLAN_LABEL)) return { ok: false, error: "Régime invalide." };
+
   const { data, error } = await supabase
     .from("reservations")
     .insert({
@@ -180,6 +199,9 @@ export async function createReservation(input: CreateReservationInput): Promise<
       special_requests: clean(input.special_requests),
       customer_note: clean(input.customer_note),
       intended_payment_channel: intended,
+      arrival_flight_number: arrivalFlight,
+      arrival_flight_at: arrivalAt,
+      meal_plan: mealPlan,
     })
     .select("id, reference")
     .single();

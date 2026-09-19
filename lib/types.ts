@@ -65,6 +65,8 @@ export type Circuit = {
   category_fields: Record<string, unknown> | null;
   sale_unit: SaleUnit;
   pricing_mode: PricingMode;
+  /** Force la pièce d'identité des voyageurs quel que soit le type (fournisseur / autorité). */
+  identity_documents_required?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -103,6 +105,11 @@ export type Reservation = {
   nights?: number;
   rooms?: number;
   units?: number;
+  /** Transferts : vol et heure d'arrivée attendus par le chauffeur. */
+  arrival_flight_number?: string | null;
+  arrival_flight_at?: string | null;
+  /** Hébergement : régime. */
+  meal_plan?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -122,6 +129,8 @@ export type ReservationTraveler = {
   gender: "m" | "f" | null;
   /** Expiration du passeport — exigée quand l'offre requiert un document. */
   passport_expires_on: string | null;
+  /** Type de la pièce dont le numéro est dans passport_number. */
+  id_document_type?: "cin" | "passeport" | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
