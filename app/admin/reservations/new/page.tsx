@@ -1,219 +1,47 @@
-"use client";
-
-import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
-import { CustomerPicker } from "@/components/customer-picker";
-import { formatMAD } from "@/lib/utils";
-import { ArrowLeft, Info } from "lucide-react";
-import type { Circuit, Customer, CircuitSeason } from "@/lib/types";
-import { sendBookingConfirmationAction } from "@/app/admin/reservations/[id]/email-actions";
-import { createReservation } from "./actions";
-import { findSeasonForDate, computeReservationTotal } from "@/lib/pricing";
+import { redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { NewReservationForm, type BookingProduct } from "@/components/reservations/new-reservation-form";
 
-type CircuitWithSeasons = Circuit & { circuit_seasons: CircuitSeason[] };
+// Nouveau dossier depuis le catalogue (backoffice). Les produits issus de la
+// distribution aérienne (une offre = un produit inactif) ne sont pas proposés :
+// leur porte d'entrée est /admin/billetterie.
+export default async function NewReservationPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
 
-export default function NewReservationPage() {
-  const router = useRouter();
-  const supabase = createClient();
-  const [circuits, setCircuits] = useState<CircuitWithSeasons[]>([]);
-  const [selectedCircuitId, setSelectedCircuitId] = useState("");
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [adults, setAdults] = useState(1);
-  const [children, setChildren] = useState(0);
-  const [departureDate, setDepartureDate] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notesError, setNotesError] = useState<string | null>(null);
-  const notesRef = useRef<HTMLTextAreaElement>(null);
+  const { data } = await supabase
+    .from("circuits")
+    .select(
+      "id, title, category, base_price_mad, child_price_mad, max_participants, sale_unit, pricing_mode, duration_days, duration_hours, meeting_point, category_fields, circuit_seasons(name, starts_on, ends_on, price_multiplier)",
+    )
+    .eq("is_active", true)
+    .order("title", { ascending: true });
 
-  useEffect(() => {
-    supabase.from("circuits").select("*, circuit_seasons(*)").eq("is_active", true).order("title").then(({ data }) => {
-      if (data && data.length > 0) {
-        setCircuits(data as CircuitWithSeasons[]);
-        setSelectedCircuitId(data[0].id);
-      }
-    });
-  }, []);
-
-  const selectedCircuit = circuits.find((c) => c.id === selectedCircuitId);
-  const matchingSeason = useMemo(
-    () => selectedCircuit && departureDate ? findSeasonForDate(departureDate, selectedCircuit.circuit_seasons || []) : null,
-    [selectedCircuit, departureDate]
-  );
-
-  const multiplier = matchingSeason ? Number(matchingSeason.price_multiplier) : 1;
-  const baseAdult = selectedCircuit ? Number(selectedCircuit.base_price_mad) : 0;
-  const baseChild = selectedCircuit ? Number(selectedCircuit.child_price_mad ?? selectedCircuit.base_price_mad) : 0;
-  const effectiveAdult = baseAdult * multiplier;
-  const effectiveChild = baseChild * multiplier;
-  const total = selectedCircuit
-    ? computeReservationTotal({
-        basePriceMad: selectedCircuit.base_price_mad,
-        childPriceMad: selectedCircuit.child_price_mad,
-        adults,
-        children,
-        multiplier,
-      })
-    : 0;
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setNotesError(null);
-    if (!selectedCustomer) { setError("Veuillez sélectionner ou créer un client."); return; }
-
-    const formData = new FormData(e.currentTarget);
-    const notesRaw = (formData.get("notes") as string) || "";
-    if (!notesRaw.trim()) {
-      setNotesError("Les notes internes sont obligatoires");
-      notesRef.current?.focus();
-      return;
-    }
-
-    setSubmitting(true); setError(null);
-    const result = await createReservation({
-      circuit_id: selectedCircuitId,
-      customer_id: selectedCustomer.id,
-      departure_date: formData.get("departure_date") as string,
-      adults,
-      children,
-      total_amount_mad: total,
-      status: formData.get("status") as string,
-      notes: notesRaw,
-    });
-
-    if (!result.ok) {
-      setError(result.error);
-      setSubmitting(false);
-      return;
-    }
-
-    sendBookingConfirmationAction(result.id).catch(() => {});
-    router.push(`/admin/reservations?created=${result.reference}`);
-  }
+  const products = ((data ?? []) as any[])
+    .filter((p) => (p.category_fields as any)?.source !== "duffel")
+    .map((p) => ({
+      ...p,
+      base_price_mad: Number(p.base_price_mad),
+      child_price_mad: p.child_price_mad === null ? null : Number(p.child_price_mad),
+      circuit_seasons: Array.isArray(p.circuit_seasons) ? p.circuit_seasons : [],
+    })) as BookingProduct[];
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
-      <Link href="/admin/reservations" className="inline-flex items-center gap-1 text-sm text-sand-700 hover:text-ink mb-4">
+    <div className="p-8 max-w-7xl mx-auto">
+      <Link href="/admin/reservations" className="inline-flex items-center gap-1 text-sm text-[#6B6862] hover:text-[#1A1F2E] mb-4">
         <ArrowLeft className="size-4" /> Retour aux réservations
       </Link>
-      <div className="mb-8">
-        <p className="eyebrow mb-2">Module 1 — Réservations</p>
-        <h1 className="font-display text-3xl text-ink">Nouvelle réservation</h1>
-        <p className="text-sand-700 mt-2">Créer manuellement un dossier (téléphone, walk-in, WhatsApp...).</p>
+      <div className="mb-6">
+        <p className="text-[10px] tracking-[2px] uppercase text-[#C84B31] font-medium">Ventes · Nouveau dossier</p>
+        <h1 className="font-display text-3xl text-[#1A1F2E] mt-1">Nouvelle réservation</h1>
+        <p className="text-[12px] text-[#6B6862] mt-1">Créer un dossier depuis le catalogue — téléphone, comptoir, WhatsApp, partenaire.</p>
       </div>
-
-      {error && <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-sm text-red-800">{error}</div>}
-
-      <form onSubmit={handleSubmit} className="bg-white border border-sand-200 rounded-lg p-6 space-y-5">
-        <div>
-          <Label>Client</Label>
-          <CustomerPicker selectedCustomer={selectedCustomer} onSelect={setSelectedCustomer} />
-        </div>
-
-        <div className="pt-4 border-t border-sand-200">
-          <Label htmlFor="circuit_id">Circuit / Prestation</Label>
-          <Select id="circuit_id" value={selectedCircuitId} onChange={(e) => setSelectedCircuitId(e.target.value)} required>
-            {circuits.length === 0 && <option value="">Chargement…</option>}
-            {circuits.map((c) => <option key={c.id} value={c.id}>{c.title} — {formatMAD(c.base_price_mad)}/adulte</option>)}
-          </Select>
-        </div>
-
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="departure_date">Date de départ</Label>
-            <Input id="departure_date" name="departure_date" type="date" required min={new Date().toISOString().split("T")[0]} value={departureDate} onChange={(e) => setDepartureDate(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="status">Statut initial</Label>
-            <Select id="status" name="status" defaultValue="pending" required>
-              <option value="pending">En attente</option>
-              <option value="confirmed">Confirmée</option>
-              <option value="paid">Payée</option>
-            </Select>
-          </div>
-        </div>
-
-        {matchingSeason && (
-          <div className="p-3 rounded-md bg-atlantic-50 border border-atlantic-200 text-sm text-atlantic-900 flex items-start gap-2">
-            <Info className="size-4 shrink-0 mt-0.5" />
-            <div>
-              <div className="font-medium">Tarif saisonnier appliqué : {matchingSeason.name}</div>
-              <div className="text-xs">Multiplicateur ×{Number(matchingSeason.price_multiplier).toFixed(2)} ({Math.round((Number(matchingSeason.price_multiplier) - 1) * 100) >= 0 ? "+" : ""}{Math.round((Number(matchingSeason.price_multiplier) - 1) * 100)}%)</div>
-            </div>
-          </div>
-        )}
-
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="adults">Adultes</Label>
-            <Input id="adults" type="number" min={1} value={adults} onChange={(e) => setAdults(Math.max(1, parseInt(e.target.value, 10) || 1))} required />
-          </div>
-          <div>
-            <Label htmlFor="children">Enfants</Label>
-            <Input id="children" type="number" min={0} value={children} onChange={(e) => setChildren(Math.max(0, parseInt(e.target.value, 10) || 0))} />
-          </div>
-        </div>
-
-        <div>
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Label htmlFor="notes" className="mb-0">
-              Notes internes <span className="text-red-600">*</span>
-            </Label>
-            <span className="relative group inline-flex">
-              <Info className="size-3.5 text-sand-600 cursor-help" />
-              <span
-                role="tooltip"
-                className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 rounded-lg bg-[#1A1F2E] text-white text-xs px-3 py-2 leading-snug opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg"
-              >
-                Renseignez ici les informations spécifiques à la réservation et
-                à son type : allergies, régimes, hébergement, demandes
-                particulières du client.
-              </span>
-            </span>
-          </div>
-          <Textarea
-            ref={notesRef}
-            id="notes"
-            name="notes"
-            rows={3}
-            required
-            aria-invalid={notesError ? true : undefined}
-            aria-describedby={notesError ? "notes-error" : undefined}
-            placeholder="Allergies, préférences, demandes spéciales, particularités du groupe…"
-            onChange={() => {
-              if (notesError) setNotesError(null);
-            }}
-          />
-          {notesError && (
-            <p id="notes-error" className="text-sm text-red-600 mt-1">
-              {notesError}
-            </p>
-          )}
-        </div>
-
-        <div className="pt-4 border-t border-sand-200 flex items-center justify-between bg-sand-50 -mx-6 -mb-1 px-6 py-4">
-          <div>
-            <div className="text-xs text-sand-600 uppercase tracking-wide">Total</div>
-            <div className="font-display text-3xl text-terracotta-600 tabular-nums">{formatMAD(total)}</div>
-          </div>
-          {selectedCircuit && (
-            <div className="text-xs text-sand-700 text-right tabular-nums">
-              {adults} × {formatMAD(effectiveAdult)}
-              {children > 0 && <><br />{children} × {formatMAD(effectiveChild)}</>}
-              {matchingSeason && <div className="text-atlantic-700 mt-1">(saisonnier ×{Number(matchingSeason.price_multiplier).toFixed(2)})</div>}
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-end gap-3 pt-2">
-          <Link href="/admin/reservations"><Button type="button" variant="secondary" disabled={submitting}>Annuler</Button></Link>
-          <Button type="submit" disabled={submitting || !selectedCustomer || !selectedCircuit}>{submitting ? "Création…" : "Créer la réservation"}</Button>
-        </div>
-      </form>
+      <NewReservationForm products={products} />
     </div>
   );
 }

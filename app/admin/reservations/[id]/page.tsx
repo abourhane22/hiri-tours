@@ -51,6 +51,9 @@ import { DistributionCard } from "@/components/distribution-card";
 import { duffelTokenMode } from "@/lib/duffel";
 import { DISTRIBUTION_STATUS_LABEL, DISTRIBUTION_STATUS_STYLE, expectedProfiles, offerFromSnapshot } from "@/lib/distribution";
 import { Plane } from "lucide-react";
+import { CreatedBanner } from "@/components/reservations/created-banner";
+import { BOOKING_CHANNEL_LABEL, DISCOUNT_REASON_LABEL, GROUP_LANGUAGE_LABEL, quantityLabel } from "@/lib/booking";
+import { isSaleUnit } from "@/lib/pricing";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   attijari: "Attijari Payment",
@@ -58,6 +61,7 @@ const PAYMENT_METHOD_LABEL: Record<string, string> = {
   stripe: "Stripe · carte internationale",
   paypal: "PayPal",
   cash: "Espèces",
+  card_tpe: "Carte (TPE agence)",
   transfer: "Virement",
 };
 
@@ -118,16 +122,19 @@ function relativeTime(dateStr: string): string {
 
 export default async function ReservationDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ created?: string }>;
 }) {
   const { id } = await params;
+  const { created } = (await searchParams) ?? {};
   const supabase = await createClient();
 
   const { data: reservation } = await supabase
     .from("reservations")
     .select(
-      "*, circuits(title, slug, category, meeting_point), customers(id, full_name, email, phone, country)",
+      "*, circuits(title, slug, category, meeting_point, sale_unit), customers(id, full_name, email, phone, country)",
     )
     .eq("id", id)
     .single();
@@ -357,6 +364,18 @@ export default async function ReservationDetailPage({
       >
         <ArrowLeft className="size-4" /> Retour aux réservations
       </Link>
+
+      {created === "1" && !isCancelled && (
+        <CreatedBanner
+          reservationId={id}
+          reference={r.reference}
+          phone={customer?.phone ?? null}
+          whatsappMessage={waMessage}
+          balance={balance}
+          travelersCount={travelers.length}
+          expectedPax={expectedPax}
+        />
+      )}
 
       {/* 1. EN-TÊTE DE DOSSIER */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-2">
@@ -611,7 +630,31 @@ export default async function ReservationDetailPage({
                 }
               />
               <KV label="Départ" value={formatDate(r.departure_date)} />
-              <KV label="Passagers" value={paxLabel} />
+              <KV
+                label="Passagers"
+                value={
+                  circuit?.sale_unit && isSaleUnit(circuit.sale_unit) && circuit.sale_unit !== "per_person"
+                    ? quantityLabel(circuit.sale_unit, {
+                        adults: r.adults,
+                        children: r.children,
+                        trips: r.trips ?? 1,
+                        nights: r.nights ?? 1,
+                        rooms: r.rooms ?? 1,
+                        units: r.units ?? 1,
+                      })
+                    : paxLabel
+                }
+              />
+              {(r.booking_channel || r.group_language) && (
+                <KV
+                  label="Origine · langue"
+                  value={[r.booking_channel ? BOOKING_CHANNEL_LABEL[r.booking_channel] ?? r.booking_channel : null, r.group_language ? GROUP_LANGUAGE_LABEL[r.group_language] ?? r.group_language : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                />
+              )}
+              {r.special_requests && <KV label="Demandes spéciales" value={<span className="text-right">{r.special_requests}</span>} />}
+              {r.customer_note && <KV label="Note pour le client" value={<span className="text-right">{r.customer_note}</span>} />}
               {circuit?.meeting_point && (
                 <KV label="Point de rendez-vous" value={circuit.meeting_point} />
               )}
@@ -640,6 +683,7 @@ export default async function ReservationDetailPage({
           )}
 
           {/* b'. VOYAGEURS NOMINATIFS (client payeur ≠ voyageurs) */}
+          <div id="voyageurs" className="scroll-mt-20" />
           <InfoCard icon={Users} label="Voyageurs" headerRight={travelersBadge}>
             {isCancelled && (
               <p className="text-[12px] text-[#968F84] mb-2">Dossier annulé — liste en lecture seule.</p>
@@ -877,6 +921,15 @@ export default async function ReservationDetailPage({
               {formatMAD(totalAmount)}
             </div>
             <div className="text-xs text-[#6B6862] mt-2">{paxLabel}</div>
+            {Number(r.discount_mad) > 0 && (
+              <div className="mt-2 text-[12px] text-[#6B6862] flex items-baseline justify-between gap-2 border-t border-[#EEE9E0] pt-2">
+                <span>
+                  Remise · {DISCOUNT_REASON_LABEL[r.discount_reason ?? ""] ?? r.discount_reason ?? "—"}
+                  <span className="text-[#968F84]"> (prix catalogue {formatMAD(totalAmount + Number(r.discount_mad))})</span>
+                </span>
+                <span className="tabular-nums" style={{ color: "#B25F0B" }}>− {formatMAD(Number(r.discount_mad))}</span>
+              </div>
+            )}
           </InfoCard>
 
           {/* e. LOGISTIQUE */}

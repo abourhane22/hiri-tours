@@ -30,6 +30,7 @@ export const PAYMENT_METHOD_LABEL: Record<string, string> = {
   stripe: "Carte internationale (Stripe)",
   paypal: "PayPal",
   cash: "Espèces",
+  card_tpe: "Carte (TPE agence)",
   transfer: "Virement",
 };
 

@@ -155,6 +155,12 @@ export default async function ManifestePage({
                   <td className="px-3 py-2 border-r border-sand-200 text-right tabular-nums">{r.adults}</td>
                   <td className="px-3 py-2 border-r border-sand-200 text-right tabular-nums">{r.children}</td>
                   <td className="px-3 py-2 text-xs text-sand-800">
+                    {r.special_requests && (
+                      <div className="font-medium text-ink rounded px-1.5 py-0.5 mb-1 inline-block" style={{ backgroundColor: "#FAEEDA" }}>
+                        ★ {r.special_requests}
+                      </div>
+                    )}
+                    {r.group_language && <div className="text-sand-700">Langue : {r.group_language.toUpperCase()}</div>}
                     {r.notes && <div>{r.notes}</div>}
                     {r.customers?.internal_notes && <div className="text-sand-600 italic">{r.customers.internal_notes}</div>}
                   </td>

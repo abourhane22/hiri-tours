@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Coins, Landmark, Link2, Info, Loader2, ShieldCheck, CircleCheck, FileMinus } from "lucide-react";
+import { Coins, Landmark, Link2, Info, Loader2, ShieldCheck, CircleCheck, FileMinus, CreditCard } from "lucide-react";
 import { Input, Label } from "@/components/ui/input";
 import { formatMAD } from "@/lib/utils";
 import { addPayment } from "@/app/admin/reservations/[id]/actions";
@@ -13,13 +13,14 @@ import {
   type ShareData,
 } from "@/components/payment-link-panel";
 
-type Mode = "especes" | "virement" | "lien" | "avoir";
+type Mode = "especes" | "carte" | "virement" | "lien" | "avoir";
 
 /** Avoir du même client encore utilisable. */
 export type AvailableCreditNote = { id: string; number: string; remaining: number };
 
 const METHODS: { mode: Mode; label: string; icon: typeof Coins }[] = [
   { mode: "especes", label: "Espèces", icon: Coins },
+  { mode: "carte", label: "Carte (TPE agence)", icon: CreditCard },
   { mode: "virement", label: "Virement", icon: Landmark },
   { mode: "lien", label: "Lien de paiement", icon: Link2 },
   { mode: "avoir", label: "Avoir", icon: FileMinus },
@@ -131,7 +132,7 @@ export function PaymentCollector({
     setFieldError(null);
 
     const formData = new FormData();
-    formData.set("method", isVirement ? "transfer" : "cash");
+    formData.set("method", isVirement ? "transfer" : mode === "carte" ? "card_tpe" : "cash");
     formData.set("amount_mad", amount);
     if (isVirement) formData.set("external_ref", externalRef.trim());
 
@@ -181,8 +182,8 @@ export function PaymentCollector({
         })}
       </div>
 
-      {/* Espèces / Virement */}
-      {mode === "especes" || mode === "virement" ? (
+      {/* Espèces / Carte TPE / Virement */}
+      {mode === "especes" || mode === "carte" || mode === "virement" ? (
         settled ? (
           <div className="mt-3 flex items-center justify-center gap-2 rounded-md bg-[#E1F5EE] px-3 py-2.5 text-sm font-medium text-[#085041]">
             <CircleCheck className="size-4 shrink-0" /> Dossier soldé

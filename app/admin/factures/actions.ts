@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { missingLegalMentions } from "@/lib/invoices";
+import { DISCOUNT_REASON_LABEL } from "@/lib/booking";
 import type {
   CompanySettings,
   InvoiceCustomerSnapshot,
@@ -38,7 +39,7 @@ export async function generateInvoice(
   const { data: reservation } = await supabase
     .from("reservations")
     .select(
-      "id, reference, status, departure_date, adults, children, total_amount_mad, customer_id, " +
+      "id, reference, status, departure_date, adults, children, total_amount_mad, customer_id, discount_mad, discount_reason, " +
         "circuits(title, category, duration_days, duration_hours), " +
         "customers(id, full_name, email, phone, address_line, city, country)",
     )
@@ -111,16 +112,32 @@ export async function generateInvoice(
       })${(distRow as any).booking_reference ? ` — réf. compagnie ${(distRow as any).booking_reference}` : ""}`
     : "";
 
+  // Remise commerciale : prix catalogue en brut sur la première ligne, ligne
+  // négative séparée « Remise · motif », totaux (HT/TVA/TTC) sur le NET.
+  const discount = Number(r.discount_mad) || 0;
+  const grossTtc = +(totalTtc + discount).toFixed(2);
+  const grossHt = +(grossTtc / (1 + tvaRate)).toFixed(2);
+  const discountHt = +(grossHt - totalHt).toFixed(2);
   const lines: InvoiceLine[] = [
     {
       description: circuit?.title || "Prestation touristique",
       details: `Départ le ${new Date(r.departure_date).toLocaleDateString("fr-FR")} — ${paxLabel} — dossier ${r.reference}${fxNote}`,
       quantity: 1,
-      unit_price_ht_mad: totalHt,
-      total_ht_mad: totalHt,
-      total_ttc_mad: totalTtc,
+      unit_price_ht_mad: discount > 0 ? grossHt : totalHt,
+      total_ht_mad: discount > 0 ? grossHt : totalHt,
+      total_ttc_mad: discount > 0 ? grossTtc : totalTtc,
     },
   ];
+  if (discount > 0) {
+    lines.push({
+      description: `Remise · ${DISCOUNT_REASON_LABEL[r.discount_reason ?? ""] ?? r.discount_reason ?? "geste commercial"}`,
+      details: "Remise commerciale accordée sur le dossier — le prix catalogue n'est pas modifié",
+      quantity: 1,
+      unit_price_ht_mad: -discountHt,
+      total_ht_mad: -discountHt,
+      total_ttc_mad: -discount,
+    });
+  }
 
   const customerSnapshot: InvoiceCustomerSnapshot = {
     id: customerRow?.id,

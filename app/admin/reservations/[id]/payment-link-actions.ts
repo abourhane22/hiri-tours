@@ -19,7 +19,7 @@ function linkUrl(token: string) {
 }
 
 /**
- * Crée un lien de paiement tokenisé (7 j), révoque les liens actifs précédents.
+ * Crée un lien de paiement tokenisé (24 h), révoque les liens actifs précédents.
  * Écritures via service-role. Le token n'est jamais journalisé.
  */
 export async function createPaymentLink(reservationId: string): Promise<CreateLinkResult> {

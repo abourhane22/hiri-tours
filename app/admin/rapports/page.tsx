@@ -5,8 +5,9 @@ import { PerformanceTrendChart, type TrendPoint } from "@/components/performance
 import { KpiCard, DeltaPill } from "@/components/kpi-card";
 import { formatMAD } from "@/lib/utils";
 import { SOURCE_LABELS } from "@/lib/customers";
+import { BOOKING_CHANNEL_LABEL } from "@/lib/booking";
 import { creditNotesByReservation } from "@/lib/credit-notes";
-import { BarChart3, Info, AlertTriangle, FileMinus } from "lucide-react";
+import { BarChart3, Info, AlertTriangle, FileMinus, Percent } from "lucide-react";
 
 const MONTHS_FR_SHORT = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
 
@@ -26,7 +27,7 @@ export default async function RapportsPage() {
 
   const [reservationsRes, circuitsRes, staffRes, invoicesRes] = await Promise.all([
     supabase.from("reservations")
-      .select("id, status, total_amount_mad, paid_amount_mad, departure_date, adults, children, circuit_id, guide_id, driver_id, circuits(title, max_participants), customers(acquisition_source)")
+      .select("id, status, total_amount_mad, paid_amount_mad, departure_date, adults, children, circuit_id, guide_id, driver_id, discount_mad, booking_channel, circuits(title, max_participants), customers(acquisition_source)")
       .gte("departure_date", iso(start24)),
     supabase.from("circuits").select("id, title, max_participants").eq("is_active", true),
     supabase.from("staff_members").select("id, full_name, role").eq("is_active", true),
@@ -120,6 +121,21 @@ export default async function RapportsPage() {
     .map(([source, count]) => ({ label: SOURCE_LABELS[source] || source, count }))
     .sort((a, b) => b.count - a.count)
     .map((s, i) => ({ ...s, color: SOURCE_COLORS[i] ?? SOURCE_COLORS[SOURCE_COLORS.length - 1], pct: sourcesTotal > 0 ? Math.round((s.count / sourcesTotal) * 100) : 0 }));
+
+  // Origine des dossiers (12 mois, actifs) — canal de création du dossier
+  const channelCounts: Record<string, number> = {};
+  recent12.filter((r) => r.status !== "cancelled").forEach((r) => {
+    const ch = r.booking_channel || "inconnu";
+    channelCounts[ch] = (channelCounts[ch] || 0) + 1;
+  });
+  const channelsTotal = Object.values(channelCounts).reduce((s, n) => s + n, 0);
+  const channels = Object.entries(channelCounts)
+    .map(([ch, count]) => ({ label: ch === "inconnu" ? "Non renseigné" : BOOKING_CHANNEL_LABEL[ch] || ch, count }))
+    .sort((a, b) => b.count - a.count)
+    .map((s, i) => ({ ...s, color: SOURCE_COLORS[i] ?? SOURCE_COLORS[SOURCE_COLORS.length - 1], pct: channelsTotal > 0 ? Math.round((s.count / channelsTotal) * 100) : 0 }));
+
+  // Remises accordées sur la période (déjà déduites de total_amount_mad — transparence)
+  const discounted12 = recent12.filter((r) => isConverted(r)).reduce((s, r) => s + (Number(r.discount_mad) || 0), 0);
 
   // Occupation (12 mois)
   const occupancy = circuits.map((c) => {
@@ -224,10 +240,16 @@ export default async function RapportsPage() {
             Dont avoirs émis sur la période : − {formatMAD(credited12)} — déduits du CA de chaque mois concerné.
           </p>
         )}
+        {discounted12 > 0 && (
+          <p className="flex items-center gap-1.5 text-[11px] mt-1" style={{ color: "#B25F0B" }}>
+            <Percent className="size-3.5 shrink-0" />
+            Dont remises commerciales : − {formatMAD(discounted12)} — déjà déduites du montant de chaque dossier (le CA affiché est net).
+          </p>
+        )}
       </div>
 
-      {/* Top 5 + Sources */}
-      <div className="grid lg:grid-cols-2 gap-4 mb-6 items-start">
+      {/* Top 5 + Sources + Origine */}
+      <div className="grid lg:grid-cols-3 gap-4 mb-6 items-start">
         {/* Top 5 circuits */}
         <div className={`${cardCls} p-4`}>
           <span className={`${cardLabel} mb-3`}>Top 5 circuits par CA</span>
@@ -271,6 +293,34 @@ export default async function RapportsPage() {
               </div>
               <div className="divide-y divide-[#F1EDE5]">
                 {sources.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="size-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color }} />
+                      <span className="text-[#1A1F2E] truncate">{s.label}</span>
+                    </span>
+                    <span className="text-[#6B6862] tabular-nums shrink-0">{s.count} · {s.pct} %</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-[13px] text-[#968F84] py-4 text-center">Aucune donnée sur la période.</p>
+          )}
+        </div>
+
+        {/* Origine des dossiers */}
+        <div className={`${cardCls} p-4`}>
+          <span className={`${cardLabel} mb-3`}>Origine des dossiers</span>
+          <p className="text-[11px] text-[#968F84] -mt-1">Canal de création · 12 mois · dossiers actifs</p>
+          {channels.length > 0 ? (
+            <div className="mt-3">
+              <div className="flex h-2.5 rounded-full overflow-hidden mb-4">
+                {channels.map((s, i) => (
+                  <div key={i} style={{ width: `${s.pct}%`, backgroundColor: s.color }} title={`${s.label} · ${s.pct} %`} />
+                ))}
+              </div>
+              <div className="divide-y divide-[#F1EDE5]">
+                {channels.map((s, i) => (
                   <div key={i} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
                     <span className="flex items-center gap-2 min-w-0">
                       <span className="size-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color }} />

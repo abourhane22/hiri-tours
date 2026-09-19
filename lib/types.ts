@@ -88,6 +88,21 @@ export type Reservation = {
   total_amount_mad: number;
   paid_amount_mad: number;
   notes: string | null;
+  customer_id?: string | null;
+  intended_payment_channel?: "carte" | "virement" | "agence" | null;
+  /** Remise commerciale déjà déduite de total_amount_mad ; motif obligatoire si > 0. */
+  discount_mad?: number;
+  discount_reason?: string | null;
+  /** Origine du dossier : telephone | comptoir | whatsapp | email | partenaire | site_web. */
+  booking_channel?: string | null;
+  special_requests?: string | null; // manifeste
+  customer_note?: string | null; // voucher
+  group_language?: string | null;
+  /** Quantités hors per_person (défaut 1). */
+  trips?: number;
+  nights?: number;
+  rooms?: number;
+  units?: number;
   created_at: string;
   updated_at: string;
 };

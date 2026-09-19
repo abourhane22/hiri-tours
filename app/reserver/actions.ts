@@ -215,6 +215,7 @@ export async function createPublicReservation(
       total_amount_mad: serverTotal,
       status: "pending",
       intended_payment_channel: channel,
+      booking_channel: "site_web",
       notes: `Réservation en ligne (tunnel public) · canal annoncé : ${channel}`,
     })
     .select("id, reference")

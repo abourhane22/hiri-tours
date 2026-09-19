@@ -123,6 +123,7 @@ export default async function VoucherPage({ params }: { params: Promise<{ id: st
                   </tr>
                 )}
                 {r.circuits?.meeting_point && <tr><td className="py-2 text-sand-700">Point de rendez-vous</td><td className="py-2 text-ink">{r.circuits.meeting_point}</td></tr>}
+                {r.customer_note && <tr><td className="py-2 text-sand-700 align-top">Note de l&apos;agence</td><td className="py-2 text-ink">{r.customer_note}</td></tr>}
               </tbody>
             </table>
           </div>

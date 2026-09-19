@@ -76,6 +76,7 @@ export function PaymentForm({ reservationId, balance }: Props) {
             disabled={isPending}
           >
             <option value="cash">Espèces</option>
+            <option value="card_tpe">Carte (TPE agence)</option>
             <option value="transfer">Virement</option>
           </Select>
         </div>
