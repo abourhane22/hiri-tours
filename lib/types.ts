@@ -67,6 +67,9 @@ export type Circuit = {
   pricing_mode: PricingMode;
   /** Force la pièce d'identité des voyageurs quel que soit le type (fournisseur / autorité). */
   identity_documents_required?: boolean;
+  /** Capacité propre : coût de revient estimé, même unité que sale_unit (utilisé si aucun tarif d'achat). */
+  internal_unit_cost_mad?: number | null;
+  internal_child_cost_mad?: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -110,6 +113,10 @@ export type Reservation = {
   arrival_flight_at?: string | null;
   /** Hébergement : régime. */
   meal_plan?: string | null;
+  /** Coût prévisionnel FIGÉ à la vente (lib/margin) ; null = non renseigné. */
+  expected_cost_mad?: number | null;
+  cost_snapshot?: unknown;
+  cost_snapshot_at?: string | null;
   created_at: string;
   updated_at: string;
 };

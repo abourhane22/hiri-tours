@@ -117,6 +117,8 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
           saleUnit: isSaleUnit(c.sale_unit) ? c.sale_unit : "per_person",
           pricingMode: c.pricing_mode === "on_request" ? "on_request" : "fixed",
           identityDocumentsRequired: Boolean(c.identity_documents_required),
+          internalUnitCost: c.internal_unit_cost_mad != null ? String(c.internal_unit_cost_mad) : "",
+          internalChildCost: c.internal_child_cost_mad != null ? String(c.internal_child_cost_mad) : "",
         }}
       />
 

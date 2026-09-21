@@ -91,6 +91,8 @@ function buildCircuitPayload(
       // Colonne legacy `itinerary` volontairement non écrite.
       is_active: formData.get("is_active") === "on",
       identity_documents_required: formData.get("identity_documents_required") === "on",
+      internal_unit_cost_mad: formData.get("internal_unit_cost_mad") ? parseFloat(formData.get("internal_unit_cost_mad") as string) : null,
+      internal_child_cost_mad: formData.get("internal_child_cost_mad") ? parseFloat(formData.get("internal_child_cost_mad") as string) : null,
       sale_unit: saleUnitRaw,
       pricing_mode: pricingModeRaw as PricingMode,
       category_fields: parsed.fields,

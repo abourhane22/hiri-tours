@@ -1,3 +1,4 @@
+import { margin as computeMargin } from "@/lib/margin";
 import { creditNotesByReservation } from "@/lib/credit-notes";
 
 export type PnLData = {
@@ -19,9 +20,15 @@ export type CircuitProfitability = {
   circuitTitle: string;
   revenue: number;
   reservationCount: number;
+  /** Coût réel alloué : dépenses des dossiers du produit + dépenses produit sur la période. */
   directCosts: number;
   margin: number;
   marginRate: number;
+  /** Coût prévisionnel figé (Σ expected_cost_mad des dossiers renseignés) ; null si aucun dossier renseigné. */
+  expectedCost: number | null;
+  /** Revenu des seuls dossiers dont le coût prévisionnel est renseigné (base du % de marge prévisionnelle). */
+  coveredRevenue: number;
+  missingCount: number;
 };
 
 export function computePnL(opts: {
@@ -104,8 +111,11 @@ export function computeCircuitProfitability(opts: {
         .filter((e) => (e.circuit_id === c.id || (e.reservation_id && reservationIds.includes(e.reservation_id))) && inRange(e.expense_date))
         .reduce((s, e) => s + Number(e.amount_mad), 0);
 
-      const margin = revenue - directCosts;
-      const marginRate = revenue > 0 ? (margin / revenue) * 100 : 0;
+      // Marge réelle et prévisionnelle : une seule autorité, lib/margin.ts.
+      const real = computeMargin(revenue, directCosts);
+      const covered = cReservations.filter((r) => r.expected_cost_mad !== null && r.expected_cost_mad !== undefined);
+      const expectedCost = covered.length > 0 ? covered.reduce((s, r) => s + Number(r.expected_cost_mad), 0) : null;
+      const coveredRevenue = covered.reduce((s, r) => s + Number(r.total_amount_mad || 0), 0);
 
       return {
         circuitId: c.id,
@@ -113,8 +123,11 @@ export function computeCircuitProfitability(opts: {
         revenue,
         reservationCount: cReservations.length,
         directCosts,
-        margin,
-        marginRate,
+        margin: real.amount ?? revenue,
+        marginRate: real.pct ?? 0,
+        expectedCost,
+        coveredRevenue,
+        missingCount: cReservations.length - covered.length,
       };
     })
     .filter((c) => c.revenue > 0 || c.directCosts > 0)

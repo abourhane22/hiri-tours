@@ -45,6 +45,9 @@ export type CircuitFormDefaults = {
   pricingMode: "fixed" | "on_request";
   /** Pièce d'identité exigée des voyageurs quel que soit le type. */
   identityDocumentsRequired: boolean;
+  /** Capacité propre : coût de revient estimé (même unité que le prix). */
+  internalUnitCost: string;
+  internalChildCost: string;
 };
 
 type Action = (prev: CircuitActionState, formData: FormData) => Promise<CircuitActionState>;
@@ -298,6 +301,25 @@ export function CircuitForm({
             <ShieldCheck className="size-3.5 shrink-0 mt-px text-[#0F6E56]" />
             Le total d&apos;une réservation est recalculé côté serveur : prix × passagers × saison.
           </p>
+
+          {/* Coût interne (capacité propre) — utilisé par lib/margin uniquement si aucun tarif d'achat ne se résout */}
+          <div className="mt-4 pt-4 border-t border-[#EEE9E0]">
+            <div className="text-[13px] font-medium text-[#1A1F2E]">Coût de revient interne <span className="text-[#968F84] font-normal">(capacité propre)</span></div>
+            <p className="text-[11.5px] text-[#968F84] mt-0.5 mb-3">
+              Coût de revient estimé pour la capacité propre (carburant, chauffeur, guide…), dans la même unité que le prix de vente.
+              Utilisé pour la marge prévisionnelle seulement si aucun tarif d&apos;achat fournisseur ne s&apos;applique.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="internal_unit_cost_mad" className={labelCls}>Coût unitaire (MAD)</label>
+                <input id="internal_unit_cost_mad" name="internal_unit_cost_mad" type="number" min="0" step="0.01" defaultValue={defaults.internalUnitCost} placeholder="—" className={fieldCls} />
+              </div>
+              <div>
+                <label htmlFor="internal_child_cost_mad" className={labelCls}>Coût enfant (MAD)</label>
+                <input id="internal_child_cost_mad" name="internal_child_cost_mad" type="number" min="0" step="0.01" defaultValue={defaults.internalChildCost} placeholder="= coût unitaire si vide" className={fieldCls} />
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Section 3 — catégorie : champs spécifiques */}

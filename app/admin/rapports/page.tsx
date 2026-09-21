@@ -6,6 +6,7 @@ import { KpiCard, DeltaPill } from "@/components/kpi-card";
 import { formatMAD } from "@/lib/utils";
 import { SOURCE_LABELS } from "@/lib/customers";
 import { BOOKING_CHANNEL_LABEL } from "@/lib/booking";
+import { margin as computeMargin, marginTone, formatPct, MARGIN_TONE_STYLE } from "@/lib/margin";
 import { creditNotesByReservation } from "@/lib/credit-notes";
 import { BarChart3, Info, AlertTriangle, FileMinus, Percent } from "lucide-react";
 
@@ -27,7 +28,7 @@ export default async function RapportsPage() {
 
   const [reservationsRes, circuitsRes, staffRes, invoicesRes] = await Promise.all([
     supabase.from("reservations")
-      .select("id, status, total_amount_mad, paid_amount_mad, departure_date, adults, children, circuit_id, guide_id, driver_id, discount_mad, booking_channel, circuits(title, max_participants), customers(acquisition_source)")
+      .select("id, status, total_amount_mad, paid_amount_mad, departure_date, adults, children, circuit_id, guide_id, driver_id, discount_mad, booking_channel, expected_cost_mad, circuits(title, max_participants), customers(acquisition_source)")
       .gte("departure_date", iso(start24)),
     supabase.from("circuits").select("id, title, max_participants").eq("is_active", true),
     supabase.from("staff_members").select("id, full_name, role").eq("is_active", true),
@@ -108,6 +109,25 @@ export default async function RapportsPage() {
   });
   const topCircuits = Object.values(circuitTotals).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
   const topMax = topCircuits[0]?.revenue || 1;
+
+  // Marge prévisionnelle (12 mois, dossiers convertis avec coût figé) — CA net d'avoirs, lib/margin.
+  const withCost = conv12.filter((r) => r.expected_cost_mad !== null && r.expected_cost_mad !== undefined);
+  const coveredRevenue12 = withCost.reduce((s, r) => s + netOf(r), 0);
+  const expectedCost12 = withCost.reduce((s, r) => s + Number(r.expected_cost_mad), 0);
+  const margin12 = computeMargin(coveredRevenue12, withCost.length > 0 ? expectedCost12 : null);
+  const marginCoverage = conv12.length > 0 ? Math.round((withCost.length / conv12.length) * 100) : 0;
+
+  // Top 5 produits par MARGE prévisionnelle (dossiers renseignés uniquement)
+  const marginTotals: Record<string, { title: string; margin: number; revenue: number; count: number }> = {};
+  withCost.forEach((r) => {
+    const id = r.circuit_id;
+    if (!marginTotals[id]) marginTotals[id] = { title: r.circuits?.title || "Sans titre", margin: 0, revenue: 0, count: 0 };
+    marginTotals[id].margin += netOf(r) - Number(r.expected_cost_mad);
+    marginTotals[id].revenue += netOf(r);
+    marginTotals[id].count += 1;
+  });
+  const topByMargin = Object.values(marginTotals).sort((a, b) => b.margin - a.margin).slice(0, 5);
+  const topMarginMax = Math.max(1, ...topByMargin.map((c) => Math.abs(c.margin)));
   const topShare = ca12 > 0 && topCircuits[0] ? Math.round((topCircuits[0].revenue / ca12) * 100) : 0;
 
   // Sources d'acquisition (12 mois, actives)
@@ -197,6 +217,16 @@ export default async function RapportsPage() {
           delta={yoy !== null ? <DeltaPill up={yoy >= 0}>{yoy >= 0 ? "+" : "−"}{Math.abs(yoy)} %</DeltaPill> : undefined}
         />
         <KpiCard
+          label="Marge prévisionnelle · 12 mois"
+          value={margin12.amount === null ? "—" : formatMAD(margin12.amount)}
+          accent="amber"
+          sub={
+            margin12.amount === null
+              ? "aucun dossier avec coût figé"
+              : `${formatPct(margin12.pct)} · ${withCost.length}/${conv12.length} dossiers renseignés (${marginCoverage} %)${credited12 > 0 ? " · net d'avoirs" : ""}`
+          }
+        />
+        <KpiCard
           label="Panier moyen"
           value={formatMAD(basket)}
           sub={credited12 > 0 ? "par réservation · 12 mois · net d'avoirs" : "par réservation · 12 mois"}
@@ -248,8 +278,8 @@ export default async function RapportsPage() {
         )}
       </div>
 
-      {/* Top 5 + Sources + Origine */}
-      <div className="grid lg:grid-cols-3 gap-4 mb-6 items-start">
+      {/* Top 5 CA + Top 5 marge + Sources + Origine */}
+      <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-4 mb-6 items-start">
         {/* Top 5 circuits */}
         <div className={`${cardCls} p-4`}>
           <span className={`${cardLabel} mb-3`}>Top 5 circuits par CA</span>
@@ -278,6 +308,39 @@ export default async function RapportsPage() {
             </div>
           ) : (
             <p className="text-[13px] text-[#968F84] py-4 text-center">Aucune donnée sur la période.</p>
+          )}
+        </div>
+
+        {/* Top 5 produits par marge prévisionnelle */}
+        <div className={`${cardCls} p-4`}>
+          <span className={`${cardLabel} mb-3`}>Top 5 produits par marge</span>
+          <p className="text-[11px] text-[#968F84] -mt-1">Marge prévisionnelle · dossiers avec coût figé · net d&apos;avoirs</p>
+          {topByMargin.length > 0 ? (
+            <div className="space-y-3 mt-3">
+              {topByMargin.map((c, i) => {
+                const m = computeMargin(c.revenue, c.revenue - c.margin);
+                const tone = MARGIN_TONE_STYLE[marginTone(m.pct)];
+                return (
+                  <div key={i}>
+                    <div className="flex items-center justify-between gap-3 text-[13px] mb-1">
+                      <span className="min-w-0 flex items-center gap-2">
+                        <span className="font-display text-[#C84B31] w-4 shrink-0">{i + 1}</span>
+                        <span className="text-[#1A1F2E] truncate">{c.title}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5 shrink-0">
+                        <span className="font-medium tabular-nums">{formatMAD(c.margin)}</span>
+                        <span className="rounded px-1.5 py-px text-[10.5px] font-medium tabular-nums" style={{ backgroundColor: tone.bg, color: tone.color }}>{formatPct(m.pct)}</span>
+                      </span>
+                    </div>
+                    <div className="h-[5px] rounded-full overflow-hidden" style={{ backgroundColor: "#EEE9E0" }}>
+                      <div className="h-full rounded-full" style={{ width: `${Math.round((Math.abs(c.margin) / topMarginMax) * 100)}%`, backgroundColor: c.margin >= 0 ? "#0F8A5F" : "#B42318" }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-[13px] text-[#968F84] py-4 text-center">Aucun dossier avec coût prévisionnel figé.</p>
           )}
         </div>
 

@@ -14,6 +14,7 @@ import type {
   SupplierContract,
   SupplierType,
 } from "@/lib/types";
+import { margin as computeMargin } from "@/lib/margin";
 
 // ---------------------------------------------------------------------------
 // Libellés
@@ -214,17 +215,13 @@ export function rateCurrency(rate: PurchaseRate, contract: RateContractContext |
 }
 
 /**
- * Marge indicative d'un produit face à un tarif d'achat, en MAD et en %.
- * Indicative seulement : la marge réelle par dossier arrive en C3, une fois le
- * coût d'achat rapproché des dépenses effectivement décaissées.
+ * Marge indicative d'un produit face à un tarif d'achat (prix catalogue − coût
+ * unitaire). Même calcul que la carte Marge des dossiers : lib/margin.ts est la
+ * seule autorité, ceci n'est qu'un alias typé pour la grille C2a.
  */
-export function indicativeMargin(
-  salePriceMad: number,
-  purchaseCostMad: number,
-): { amount: number; pct: number | null } {
-  const amount = salePriceMad - purchaseCostMad;
-  const pct = salePriceMad > 0 ? (amount / salePriceMad) * 100 : null;
-  return { amount, pct };
+export function indicativeMargin(salePriceMad: number, purchaseCostMad: number): { amount: number; pct: number | null } {
+  const m = computeMargin(salePriceMad, purchaseCostMad);
+  return { amount: m.amount ?? 0, pct: m.pct };
 }
 
 /** Libellé lisible d'un barème d'annulation, pour l'affichage. */

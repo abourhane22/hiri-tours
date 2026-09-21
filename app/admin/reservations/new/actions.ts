@@ -23,6 +23,7 @@ import { addPayment } from "@/app/admin/reservations/[id]/actions";
 import { createPaymentLink } from "@/app/admin/reservations/[id]/payment-link-actions";
 import { autoConfirmOnPayment } from "@/lib/payments";
 import { MEAL_PLAN_LABEL } from "@/lib/dossier-profile";
+import { computeAndStoreExpectedCost } from "@/lib/cost-snapshot";
 
 export type CreateReservationInput = {
   circuit_id: string;
@@ -232,6 +233,14 @@ export async function createReservation(input: CreateReservationInput): Promise<
 
   // --- Étapes post-création : le dossier existe, on remonte ce qui n'a pas abouti.
   const followups: string[] = [];
+
+  // Coût prévisionnel FIGÉ à la vente (tarif d'achat résolu ou coût interne). Un
+  // échec n'est pas bloquant : la carte Marge dira « non renseigné » et pourquoi.
+  const {
+    data: { user: actor },
+  } = await supabase.auth.getUser();
+  const cost = await computeAndStoreExpectedCost(supabase, id, { actorId: actor?.id ?? null });
+  if (!cost.ok && cost.code !== "no_rate") console.warn(`[createReservation] coût prévisionnel non figé (${reference}) :`, cost.reason);
 
   if (deposit) {
     const fd = new FormData();

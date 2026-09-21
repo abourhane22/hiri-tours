@@ -142,7 +142,8 @@ export function PurchaseRatesEditor({
       )}
 
       <p className="text-[11px] text-[#968F84]">
-        Marge indicative = prix de vente catalogue − coût unitaire. La marge réelle par dossier arrive au lot C3.
+        Marge indicative = prix de vente catalogue − coût unitaire (même calcul que la carte Marge des dossiers). La marge réelle par
+        dossier se lit sur la fiche et dans Rentabilité.
       </p>
 
       {!open ? (

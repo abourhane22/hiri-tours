@@ -8,6 +8,7 @@ import { seasonMultiplier, computeLineTotal, isSaleUnit } from "@/lib/pricing";
 import { sendBookingConfirmation } from "@/lib/email";
 import { ensureAccessToken, suiviUrl } from "@/lib/access-token";
 import { consumeAllotment, blockedMessage, RELEASED_MESSAGE } from "@/lib/allotments";
+import { computeAndStoreExpectedCost } from "@/lib/cost-snapshot";
 
 export type PaymentChannel = "carte" | "virement" | "agence";
 
@@ -255,6 +256,13 @@ export async function createPublicReservation(
       `[createPublicReservation] contrôle d'allotement indisponible — dossier ${reference} créé sans décompte :`,
       stock.error,
     );
+  }
+
+  // Coût prévisionnel figé à la vente (best-effort, jamais bloquant pour le client).
+  try {
+    await computeAndStoreExpectedCost(supabase, id, { actorId: null });
+  } catch (e) {
+    console.error("[createPublicReservation] coût prévisionnel:", e);
   }
 
   // Journalise pour le rate-limit (best-effort).

@@ -40,6 +40,8 @@ export default function NewCircuitPage() {
           saleUnit: DEFAULT_SALE_UNIT.circuit,
           pricingMode: "fixed",
           identityDocumentsRequired: false,
+          internalUnitCost: "",
+          internalChildCost: "",
         }}
       />
     </div>

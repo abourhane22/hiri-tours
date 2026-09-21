@@ -47,6 +47,9 @@ import { SuiviLinkButton } from "@/components/suivi-link-button";
 import { TravelersPanel } from "@/components/travelers-panel";
 import { getDossierProfile, travelersStatus } from "@/lib/dossier-profile";
 import { ArrivalCard, StayCard } from "@/components/reservations/special-cards";
+import { MarginCard, type MarginExpense } from "@/components/reservations/margin-card";
+import type { CostSnapshot } from "@/lib/margin";
+import { TrendingUp } from "lucide-react";
 import type { ReservationTraveler, DistributionBooking } from "@/lib/types";
 import { DistributionCard } from "@/components/distribution-card";
 import { duffelTokenMode } from "@/lib/duffel";
@@ -210,6 +213,30 @@ export default async function ReservationDetailPage({
     .limit(1)
     .maybeSingle();
   const distribution = (distributionRow ?? null) as DistributionBooking | null;
+
+  // Marge : dépenses rattachées au dossier + dépenses produit non ventilées autour du départ (± 3 j).
+  const resaRow = reservation as any; // `r` est déclaré plus bas ; même ligne.
+  const depDate = new Date(resaRow.departure_date + "T00:00:00");
+  const around = (d: number) => {
+    const x = new Date(depDate);
+    x.setDate(depDate.getDate() + d);
+    return x.toISOString().slice(0, 10);
+  };
+  const [{ data: dossierExpenses }, { data: productExpenses }] = await Promise.all([
+    supabase.from("expenses").select("id, expense_date, amount_mad, description, cost_categories(name)").eq("reservation_id", id).order("expense_date", { ascending: false }),
+    supabase.from("expenses").select("id, amount_mad").eq("circuit_id", resaRow.circuit_id).is("reservation_id", null).gte("expense_date", around(-3)).lte("expense_date", around(3)),
+  ]);
+  const marginExpenses: MarginExpense[] = ((dossierExpenses ?? []) as any[]).map((e) => ({
+    id: e.id,
+    expense_date: e.expense_date,
+    amount_mad: Number(e.amount_mad),
+    description: e.description ?? null,
+    category: (Array.isArray(e.cost_categories) ? e.cost_categories[0] : e.cost_categories)?.name ?? null,
+  }));
+  const unallocated = {
+    count: (productExpenses ?? []).length,
+    total: ((productExpenses ?? []) as any[]).reduce((s, e) => s + Number(e.amount_mad), 0),
+  };
 
   // Voyageurs nominatifs (staff via RLS ; la table n'est jamais lue hors backoffice).
   const { data: travelersData } = await supabase
@@ -960,6 +987,21 @@ export default async function ReservationDetailPage({
                 <span className="tabular-nums" style={{ color: "#B25F0B" }}>− {formatMAD(Number(r.discount_mad))}</span>
               </div>
             )}
+          </InfoCard>
+
+          {/* d'. MARGE — prévisionnelle (figée à la vente) vs réelle (dépenses rattachées) */}
+          <InfoCard icon={TrendingUp} label="Marge">
+            <MarginCard
+              reservationId={id}
+              saleMad={totalAmount}
+              expectedCost={r.expected_cost_mad === null || r.expected_cost_mad === undefined ? null : Number(r.expected_cost_mad)}
+              snapshot={(r.cost_snapshot ?? null) as CostSnapshot | null}
+              expenses={marginExpenses}
+              unallocated={unallocated}
+              departureDate={r.departure_date}
+              circuitId={r.circuit_id}
+              readOnly={isCancelled}
+            />
           </InfoCard>
 
           {/* e. LOGISTIQUE — masquée quand le profil n'attend aucune ressource (hébergement, billetterie) */}

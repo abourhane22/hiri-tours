@@ -9,8 +9,11 @@ import { formatMAD, formatDateShort } from "@/lib/utils";
 
 const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
-export default async function DepensesPage({ searchParams }: { searchParams: Promise<{ year?: string; month?: string; type?: string }> }) {
+export default async function DepensesPage({ searchParams }: { searchParams: Promise<{ year?: string; month?: string; type?: string; reservation?: string; circuit?: string }> }) {
   const params = await searchParams;
+  // Filtres de rattachement (liens depuis la carte Marge d'un dossier).
+  const reservationFilter = params.reservation || "";
+  const circuitFilter = params.circuit || "";
   const now = new Date();
   const year = params.year ? parseInt(params.year, 10) : now.getFullYear();
   const month = params.month !== undefined ? parseInt(params.month, 10) : now.getMonth();
@@ -30,7 +33,7 @@ export default async function DepensesPage({ searchParams }: { searchParams: Pro
     .order("type", { ascending: true })
     .order("sort_order", { ascending: true });
 
-  const { data: rawExpenses } = await supabase
+  let expQuery = supabase
     .from("expenses")
     .select(`id, expense_date, amount_mad, description, notes, category_id,
              vehicle:vehicles(registration, make, model),
@@ -39,6 +42,16 @@ export default async function DepensesPage({ searchParams }: { searchParams: Pro
     .gte("expense_date", startDate)
     .lte("expense_date", endDate)
     .order("expense_date", { ascending: false });
+  if (reservationFilter) expQuery = expQuery.eq("reservation_id", reservationFilter);
+  if (circuitFilter) expQuery = expQuery.eq("circuit_id", circuitFilter).is("reservation_id", null);
+  const { data: rawExpenses } = await expQuery;
+  const firstRow = (rawExpenses ?? [])[0] as any;
+  const one = (v: any) => (Array.isArray(v) ? v[0] : v);
+  const filterLabel = reservationFilter
+    ? `dossier ${one(firstRow?.reservation)?.reference ?? ""}`.trim()
+    : circuitFilter
+      ? `produit ${one(firstRow?.circuit)?.title ?? ""} (non ventilées)`.trim()
+      : null;
 
   const cats = categories || [];
   const expenses = rawExpenses || [];
@@ -59,10 +72,12 @@ export default async function DepensesPage({ searchParams }: { searchParams: Pro
 
   const buildLink = (overrides: Record<string, any>) => {
     const sp = new URLSearchParams();
-    const merged = { year, month, type: typeFilter, ...overrides };
+    const merged = { year, month, type: typeFilter, reservation: reservationFilter, circuit: circuitFilter, ...overrides };
     if (merged.year !== now.getFullYear()) sp.set("year", String(merged.year));
     if (merged.month !== now.getMonth()) sp.set("month", String(merged.month));
     if (merged.type && merged.type !== "all") sp.set("type", merged.type);
+    if (merged.reservation) sp.set("reservation", merged.reservation);
+    if (merged.circuit) sp.set("circuit", merged.circuit);
     const s = sp.toString();
     return s ? `?${s}` : "/admin/finance/depenses";
   };
@@ -117,6 +132,12 @@ export default async function DepensesPage({ searchParams }: { searchParams: Pro
             className="size-8 inline-flex items-center justify-center rounded border border-sand-300 hover:bg-sand-50 text-sm">›</Link>
         </div>
 
+        {filterLabel !== null && (
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#E0DACF] bg-[#FBF9F5] px-3 h-8 text-[12px] text-[#58524A]">
+            Filtre : {filterLabel || "rattachement"}
+            <Link href={buildLink({ reservation: "", circuit: "" })} className="text-[#0C6B8A] hover:underline">retirer</Link>
+          </span>
+        )}
         <div className="inline-flex gap-0.5 bg-sand-100 p-0.5 rounded-md">
           {[
             { v: "all",      l: "Tous" },

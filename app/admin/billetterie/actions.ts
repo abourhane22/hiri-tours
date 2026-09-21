@@ -20,6 +20,7 @@ import {
   type OfferSearchResult,
 } from "@/lib/duffel";
 import { buildProductFromOffer, fxConvert, offerPax } from "@/lib/distribution";
+import { storeDistributionCost } from "@/lib/cost-snapshot";
 import { createReservation } from "@/app/admin/reservations/new/actions";
 
 // Toutes les actions passent par le serveur : le token ne quitte jamais
@@ -290,6 +291,17 @@ export async function createDossierFromOfferAction(_prev: CreateDossierState, fd
     await supabase.from("circuits").delete().eq("id", productId);
     return { ok: false, error: "Impossible d'enregistrer le détail de l'offre — dossier annulé." };
   }
+
+  // 6) Coût prévisionnel = montant figé de l'offre (source distribution).
+  await storeDistributionCost(supabase, resa.id, {
+    amount,
+    currency: offer.total_currency,
+    fxRate,
+    amountMad,
+    pax,
+    supplierName: offer.owner.name,
+    actorId: user.id,
+  });
 
   revalidatePath("/admin/reservations");
   revalidatePath("/admin/produits");
