@@ -13,3 +13,6 @@ next-env.d.ts
 
 # Réglages locaux Claude Code (permissions par poste)
 .claude/settings.local.json
+
+# Sauvegardes de la base (pg_dump) — jamais versionnées
+backups/
