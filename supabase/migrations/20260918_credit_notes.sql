@@ -13,7 +13,7 @@ alter type payment_method add value if not exists 'credit_note';
 -- B. Avoirs
 create table if not exists public.credit_notes (
   id                 uuid primary key default gen_random_uuid(),
-  credit_note_number text not null unique,                 -- AV-2026-00001 (trigger)
+  credit_note_number text not null unique,                 -- AV-2026-0001 (trigger, 4 chiffres)
   invoice_id         uuid not null references public.invoices(id),
   reservation_id     uuid not null references public.reservations(id),
   customer_id        uuid references public.customers(id),  -- pour « avoirs du même client »
@@ -40,7 +40,7 @@ create trigger credit_notes_updated_at before update on public.credit_notes
 alter table public.invoices
   add column if not exists cancelled_by_credit_note_id uuid references public.credit_notes(id);
 
--- C. Numérotation AV-AAAA-NNNNN : compteur séparé, même mécanique que les factures
+-- C. Numérotation AV-AAAA-NNNN (4 chiffres) : compteur séparé, même mécanique que les factures
 create table if not exists public.credit_note_counters (
   year        int primary key,
   last_number int not null default 0
@@ -57,7 +57,8 @@ begin
   insert into credit_note_counters (year, last_number) values (v_year, 1)
   on conflict (year) do update set last_number = credit_note_counters.last_number + 1
   returning last_number into v_n;
-  new.credit_note_number := format('AV-%s-%s', v_year, lpad(v_n::text, 5, '0'));
+  -- Format définitif AV-AAAA-NNNN (4 chiffres) — aligné sur les factures HT-AAAA-NNNN (21/09/2026).
+  new.credit_note_number := format('AV-%s-%s', v_year, lpad(v_n::text, 4, '0'));
   return new;
 end $$;
 

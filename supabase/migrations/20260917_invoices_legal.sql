@@ -21,7 +21,7 @@ alter table public.invoices
   add column if not exists balance_at_issue_mad numeric(10, 2) not null default 0,
   add column if not exists created_by           uuid references auth.users(id) default auth.uid();
 
--- C. Numérotation séquentielle continue par année (trigger BEFORE INSERT).
+-- C. Numérotation séquentielle continue par année (trigger BEFORE INSERT) : HT-AAAA-NNNN.
 --    Verrou de ligne sur le compteur → pas de doublon ; incrément dans la
 --    transaction de l'insert → pas de trou si l'insert échoue.
 create table if not exists public.invoice_counters (
@@ -33,7 +33,7 @@ alter table public.invoice_counters enable row level security;  -- aucune policy
 -- Reprise de l'existant : le compteur démarre après le dernier numéro déjà émis
 insert into public.invoice_counters (year, last_number)
 select extract(year from issued_at)::int,
-       greatest(count(*), coalesce(max((regexp_match(invoice_number, '^FAC-\d{4}-(\d+)$'))[1]::int), 0))
+       greatest(count(*), coalesce(max((regexp_match(invoice_number, '^HT-\d{4}-(\d+)$'))[1]::int), 0))
 from public.invoices
 group by 1
 on conflict (year) do update set last_number = greatest(invoice_counters.last_number, excluded.last_number);
@@ -50,7 +50,9 @@ begin
   insert into invoice_counters (year, last_number) values (v_year, 1)
   on conflict (year) do update set last_number = invoice_counters.last_number + 1
   returning last_number into v_n;
-  new.invoice_number := format('FAC-%s-%s', v_year, lpad(v_n::text, 5, '0'));
+  -- Format définitif HT-AAAA-NNNN (4 chiffres) — aligné sur la renumérotation du 21/09/2026
+  -- (voir 20260926_schema_catchup.sql). Historique : FAC-AAAA-NNNNN jusqu'à cette date.
+  new.invoice_number := format('HT-%s-%s', v_year, lpad(v_n::text, 4, '0'));
   return new;
 end $$;
 
