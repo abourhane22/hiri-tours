@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useActionState, useState } from "react";
+import { useActionFeedback } from "@/components/ui/toaster";
 import Link from "next/link";
 import { Check, Info, ShieldCheck, Image as ImageIcon } from "lucide-react";
 import { formatMAD } from "@/lib/utils";
@@ -65,6 +66,8 @@ export function CircuitForm({
     action,
     { ok: true },
   );
+  // Erreur → toast + champ en évidence ; succès → flash « Produit créé / enregistré » après redirection.
+  useActionFeedback(state, null);
 
   const [category, setCategory] = useState<CircuitCategory>(defaults.category);
   const [title, setTitle] = useState(defaults.title);

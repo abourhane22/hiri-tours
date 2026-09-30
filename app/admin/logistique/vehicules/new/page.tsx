@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { DocumentsManager } from "@/components/documents-manager";
@@ -65,7 +66,7 @@ export default function NewVehiculePage() {
 
         <div className="flex justify-end gap-3 pt-3 border-t border-sand-200">
           <Link href="/admin/logistique/vehicules"><Button type="button" variant="secondary">Annuler</Button></Link>
-          <Button type="submit">Créer le véhicule</Button>
+          <SubmitButton>Créer le véhicule</SubmitButton>
         </div>
       </form>
     </div>

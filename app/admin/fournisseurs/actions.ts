@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { flashSuccess } from "@/lib/flash";
 import { isContractStatus, isPaymentTerms, isRemunerationMode, isSupplierType } from "@/lib/purchasing";
 import type { CancellationStep, PaymentStep, SupplierContact } from "@/lib/types";
 
-export type AchatActionState = { ok: true; savedAt?: number } | { ok: false; error: string };
+export type AchatActionState = { ok: true; savedAt?: number; message?: string } | { ok: false; error: string; field?: string | null };
 
-const fail = (error: string): AchatActionState => ({ ok: false, error });
+const fail = (error: string, field?: string): AchatActionState => ({ ok: false, error, field: field ?? null });
 const str = (fd: FormData, k: string) => ((fd.get(k) as string) || "").trim();
 
 /** Session staff — les écrans Achats sont protégés par la RLS et le middleware. */
@@ -36,19 +37,19 @@ function parseJsonArray<T>(raw: string, fallback: T[]): T[] {
 // Fournisseurs
 // ---------------------------------------------------------------------------
 
-function readSupplier(fd: FormData): { ok: true; data: Record<string, unknown> } | { ok: false; error: string } {
+function readSupplier(fd: FormData): { ok: true; data: Record<string, unknown> } | { ok: false; error: string; field?: string | null } {
   const name = str(fd, "name");
-  if (!name) return { ok: false, error: "Le nom du fournisseur est obligatoire." };
+  if (!name) return { ok: false, error: "Le nom du fournisseur est obligatoire.", field: "name" };
 
   const supplierType = str(fd, "supplier_type");
-  if (!isSupplierType(supplierType)) return { ok: false, error: "Type de fournisseur invalide." };
+  if (!isSupplierType(supplierType)) return { ok: false, error: "Type de fournisseur invalide.", field: "supplier_type" };
 
   const paymentTerms = str(fd, "payment_terms");
-  if (!isPaymentTerms(paymentTerms)) return { ok: false, error: "Conditions de paiement invalides." };
+  if (!isPaymentTerms(paymentTerms)) return { ok: false, error: "Conditions de paiement invalides.", field: "payment_terms" };
 
   const email = str(fd, "email");
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { ok: false, error: "L'email du fournisseur est invalide." };
+    return { ok: false, error: "L'email du fournisseur est invalide.", field: "email" };
   }
 
   return {
@@ -92,6 +93,7 @@ export async function createSupplier(_prev: AchatActionState, fd: FormData): Pro
   }
 
   revalidatePath("/admin/fournisseurs");
+  await flashSuccess("Fournisseur créé");
   redirect(`/admin/fournisseurs/${(data as any).id}?created=1`);
 }
 
@@ -109,7 +111,7 @@ export async function updateSupplier(id: string, _prev: AchatActionState, fd: Fo
 
   revalidatePath("/admin/fournisseurs");
   revalidatePath(`/admin/fournisseurs/${id}`);
-  return { ok: true, savedAt: Date.now() };
+  return { ok: true, savedAt: Date.now(), message: "Fournisseur mis à jour" };
 }
 
 /**
@@ -137,6 +139,7 @@ export async function deleteSupplier(id: string): Promise<AchatActionState> {
   }
 
   revalidatePath("/admin/fournisseurs");
+  await flashSuccess("Fournisseur supprimé");
   redirect("/admin/fournisseurs");
 }
 
@@ -144,20 +147,20 @@ export async function deleteSupplier(id: string): Promise<AchatActionState> {
 // Contrats
 // ---------------------------------------------------------------------------
 
-function readContract(fd: FormData): { ok: true; data: Record<string, unknown> } | { ok: false; error: string } {
+function readContract(fd: FormData): { ok: true; data: Record<string, unknown> } | { ok: false; error: string; field?: string | null } {
   const label = str(fd, "label");
-  if (!label) return { ok: false, error: "Le libellé du contrat est obligatoire." };
+  if (!label) return { ok: false, error: "Le libellé du contrat est obligatoire.", field: "label" };
 
   const validFrom = str(fd, "valid_from");
   const validTo = str(fd, "valid_to");
-  if (!validFrom || !validTo) return { ok: false, error: "Les dates de validité sont obligatoires." };
-  if (validFrom > validTo) return { ok: false, error: "La date de fin doit être postérieure à la date de début." };
+  if (!validFrom || !validTo) return { ok: false, error: "Les dates de validité sont obligatoires.", field: "valid_from" };
+  if (validFrom > validTo) return { ok: false, error: "La date de fin doit être postérieure à la date de début.", field: "valid_to" };
 
   const mode = str(fd, "remuneration_mode");
-  if (!isRemunerationMode(mode)) return { ok: false, error: "Mode de rémunération invalide." };
+  if (!isRemunerationMode(mode)) return { ok: false, error: "Mode de rémunération invalide.", field: "remuneration_mode" };
 
   const status = str(fd, "status");
-  if (!isContractStatus(status)) return { ok: false, error: "Statut de contrat invalide." };
+  if (!isContractStatus(status)) return { ok: false, error: "Statut de contrat invalide.", field: "status" };
 
   // Miroir exact de la contrainte SQL supplier_contracts_remuneration_chk.
   let commissionRate: number | null = null;
@@ -165,21 +168,21 @@ function readContract(fd: FormData): { ok: true; data: Record<string, unknown> }
   if (mode === "commission") {
     const n = parseFloat(str(fd, "commission_rate"));
     if (!Number.isFinite(n) || n < 0 || n > 100) {
-      return { ok: false, error: "Le taux de commission doit être compris entre 0 et 100 %." };
+      return { ok: false, error: "Le taux de commission doit être compris entre 0 et 100 %.", field: "commission_rate" };
     }
     commissionRate = n / 100;
   }
   if (mode === "markup") {
     const n = parseFloat(str(fd, "markup_rate"));
     if (!Number.isFinite(n) || n < 0) {
-      return { ok: false, error: "Le taux de marge doit être un nombre positif." };
+      return { ok: false, error: "Le taux de marge doit être un nombre positif.", field: "markup_rate" };
     }
     markupRate = n / 100;
   }
 
   const releaseDays = parseInt(str(fd, "release_days_default") || "0", 10);
   if (!Number.isInteger(releaseDays) || releaseDays < 0) {
-    return { ok: false, error: "Le préavis de release doit être un entier positif ou nul." };
+    return { ok: false, error: "Le préavis de release doit être un entier positif ou nul.", field: "release_days_default" };
   }
 
   return {
@@ -224,6 +227,7 @@ export async function createContract(
   }
 
   revalidatePath(`/admin/fournisseurs/${supplierId}`);
+  await flashSuccess("Contrat créé");
   redirect(`/admin/fournisseurs/${supplierId}/contrats/${(data as any).id}?created=1`);
 }
 
@@ -250,7 +254,7 @@ export async function updateContract(
 
   revalidatePath(`/admin/fournisseurs/${supplierId}`);
   revalidatePath(`/admin/fournisseurs/${supplierId}/contrats/${contractId}`);
-  return { ok: true, savedAt: Date.now() };
+  return { ok: true, savedAt: Date.now(), message: "Contrat mis à jour" };
 }
 
 // ---------------------------------------------------------------------------
@@ -268,17 +272,17 @@ export async function createPurchaseRate(
 
   const validFrom = str(fd, "valid_from");
   const validTo = str(fd, "valid_to");
-  if (!validFrom || !validTo) return fail("Les dates de validité du tarif sont obligatoires.");
-  if (validFrom > validTo) return fail("La date de fin doit être postérieure à la date de début.");
+  if (!validFrom || !validTo) return fail("Les dates de validité du tarif sont obligatoires.", "valid_from");
+  if (validFrom > validTo) return fail("La date de fin doit être postérieure à la date de début.", "valid_to");
 
   const unitCost = parseFloat(str(fd, "unit_cost_mad"));
-  if (!Number.isFinite(unitCost) || unitCost < 0) return fail("Le coût unitaire doit être un nombre positif ou nul.");
+  if (!Number.isFinite(unitCost) || unitCost < 0) return fail("Le coût unitaire doit être un nombre positif ou nul.", "unit_cost_mad");
 
   const childRaw = str(fd, "child_cost_mad");
   let childCost: number | null = null;
   if (childRaw) {
     const n = parseFloat(childRaw);
-    if (!Number.isFinite(n) || n < 0) return fail("Le coût enfant doit être un nombre positif ou nul.");
+    if (!Number.isFinite(n) || n < 0) return fail("Le coût enfant doit être un nombre positif ou nul.", "child_cost_mad");
     childCost = n;
   }
 
@@ -290,13 +294,13 @@ export async function createPurchaseRate(
   };
   const minPax = parsePax("min_pax");
   const maxPax = parsePax("max_pax");
-  if (Number.isNaN(minPax) || Number.isNaN(maxPax)) return fail("Les paliers de passagers doivent être des entiers ≥ 1.");
+  if (Number.isNaN(minPax) || Number.isNaN(maxPax)) return fail("Les paliers de passagers doivent être des entiers ≥ 1.", "min_pax");
   if (minPax !== null && maxPax !== null && minPax > maxPax) {
-    return fail("Le palier minimum ne peut pas dépasser le palier maximum.");
+    return fail("Le palier minimum ne peut pas dépasser le palier maximum.", "min_pax");
   }
 
   const priority = parseInt(str(fd, "priority") || "0", 10);
-  if (!Number.isInteger(priority)) return fail("La priorité doit être un entier.");
+  if (!Number.isInteger(priority)) return fail("La priorité doit être un entier.", "priority");
 
   // Conditions libres : clé=valeur, une par ligne.
   const conditions: Record<string, string> = {};
@@ -328,7 +332,7 @@ export async function createPurchaseRate(
   }
 
   revalidatePath(`/admin/fournisseurs/${supplierId}/contrats/${contractId}`);
-  return { ok: true, savedAt: Date.now() };
+  return { ok: true, savedAt: Date.now(), message: "Tarif d'achat ajouté" };
 }
 
 export async function deletePurchaseRate(
@@ -351,5 +355,5 @@ export async function deletePurchaseRate(
   }
 
   revalidatePath(`/admin/fournisseurs/${supplierId}/contrats/${contractId}`);
-  return { ok: true, savedAt: Date.now() };
+  return { ok: true, savedAt: Date.now(), message: "Tarif d'achat supprimé" };
 }

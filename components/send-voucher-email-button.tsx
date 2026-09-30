@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { sendVoucherEmailAction } from "@/app/admin/reservations/[id]/email-actions";
+import { useToast } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { Mail, Check, Loader2 } from "lucide-react";
@@ -17,6 +18,7 @@ export function SendVoucherEmailButton({
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     return () => {
@@ -37,9 +39,11 @@ export function SendVoucherEmailButton({
     setPending(false);
     if (result.ok) {
       setSuccess(true);
+      toast.success(`Voucher envoyé à ${customerEmail}`);
       timerRef.current = setTimeout(() => setSuccess(false), 4000);
     } else {
       setError(result.error);
+      toast.error(`Voucher non envoyé : ${result.error}`);
       timerRef.current = setTimeout(() => setError(null), 6000);
     }
   }
@@ -54,7 +58,7 @@ export function SendVoucherEmailButton({
       >
         {pending ? (
           <>
-            <Loader2 className="size-3.5 animate-spin" /> Envoi...
+            <Loader2 className="size-3.5 animate-spin" /> Envoi…
           </>
         ) : success ? (
           <>

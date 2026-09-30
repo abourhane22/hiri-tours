@@ -8,6 +8,7 @@ import { Search, Plus, Check, X, Mail, Phone, AlertTriangle } from "lucide-react
 import { customerDuplicateMessage, normalizePhone } from "@/lib/customers";
 import { findPotentialDuplicates, type DuplicateMatch } from "@/app/admin/clients/actions";
 import type { Customer } from "@/lib/types";
+import { useToast } from "@/components/ui/toaster";
 
 type Props = { selectedCustomer: Customer | null; onSelect: (c: Customer | null) => void };
 
@@ -28,6 +29,7 @@ export function CustomerPicker({ selectedCustomer, onSelect }: Props) {
   const [emailMatch, setEmailMatch] = useState<DuplicateMatch | null>(null);
   const [nameMatches, setNameMatches] = useState<DuplicateMatch[]>([]);
   const [using, setUsing] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     if (selectedCustomer || mode === "create") return;
@@ -82,13 +84,16 @@ export function CustomerPicker({ selectedCustomer, onSelect }: Props) {
       .insert({ full_name: newName.trim(), email: newEmail.trim() || null, phone, phone_normalized: normalizePhone(phone) })
       .select("*").single();
     if (insertError) {
-      setError(customerDuplicateMessage(insertError) ?? insertError.message);
+      const msg = customerDuplicateMessage(insertError) ?? `Client non créé : ${insertError.message}`;
+      setError(msg);
+      toast.error(msg);
       setCreating(false);
       // Course : créé entre-temps → on relance la détection pour proposer « Utiliser ce client ».
       if (insertError.code === "23505") await Promise.all([checkPhone(), checkEmail()]);
       return;
     }
     onSelect(data as Customer);
+    toast.success(`Client créé — ${(data as Customer).full_name}`);
     setCreating(false);
     resetCreate();
   }

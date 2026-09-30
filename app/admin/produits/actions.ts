@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { flashSuccess } from "@/lib/flash";
+import type { FormFeedback } from "@/lib/flash-shared";
 import {
   parseCategoryFieldsFromForm,
   deriveLegacyColumns,
@@ -11,7 +13,7 @@ import {
 import { isSaleUnit } from "@/lib/pricing";
 import type { CircuitCategory, PricingMode } from "@/lib/types";
 
-export type CircuitActionState = { ok: true } | { ok: false; error: string };
+export type CircuitActionState = { ok: true } | { ok: false; error: string; field?: string | null };
 
 const VALID_CATEGORIES: readonly CircuitCategory[] = [
   "circuit",
@@ -23,42 +25,48 @@ const VALID_CATEGORIES: readonly CircuitCategory[] = [
   "prestation",
 ];
 
+/** Violation d'unicité du slug → message métier (champ slug). */
+function slugConflict(error: { code?: string; message?: string } | null | undefined): string | null {
+  if (error?.code === "23505" && /slug/i.test(error.message ?? "")) return "Ce slug est déjà utilisé par un autre produit.";
+  return null;
+}
+
 /**
  * Construit le payload circuit depuis le FormData (validations Lot A/B).
  * Retourne { error } au lieu de lever, pour affichage inline via useActionState.
  */
 function buildCircuitPayload(
   formData: FormData,
-): { ok: true; payload: Record<string, unknown> } | { ok: false; error: string } {
+): { ok: true; payload: Record<string, unknown> } | { ok: false; error: string; field?: string | null } {
   const category = formData.get("category") as CircuitCategory;
   if (!VALID_CATEGORIES.includes(category)) {
-    return { ok: false, error: "Catégorie invalide." };
+    return { ok: false, error: "Catégorie invalide.", field: "category" };
   }
 
   const title = ((formData.get("title") as string) || "").trim();
-  if (!title) return { ok: false, error: "Le titre est obligatoire." };
+  if (!title) return { ok: false, error: "Le titre est obligatoire.", field: "title" };
 
   const slug = ((formData.get("slug") as string) || "").trim().toLowerCase();
-  if (!slug) return { ok: false, error: "Le slug est obligatoire." };
+  if (!slug) return { ok: false, error: "Le slug est obligatoire.", field: "slug" };
 
   const basePrice = parseFloat(formData.get("base_price_mad") as string);
   if (!Number.isFinite(basePrice) || basePrice <= 0) {
-    return { ok: false, error: "Le prix adulte doit être un nombre supérieur à 0." };
+    return { ok: false, error: "Le prix adulte doit être un nombre supérieur à 0.", field: "base_price_mad" };
   }
 
   const maxParticipants = parseInt(formData.get("max_participants") as string, 10);
   if (!Number.isInteger(maxParticipants) || maxParticipants <= 0) {
-    return { ok: false, error: "Le nombre maximum de participants doit être un entier supérieur à 0." };
+    return { ok: false, error: "Le nombre maximum de participants doit être un entier supérieur à 0.", field: "max_participants" };
   }
 
   // Unité de vente : détermine la formule de prix (lib/pricing.ts).
   const saleUnitRaw = formData.get("sale_unit");
   if (!isSaleUnit(saleUnitRaw)) {
-    return { ok: false, error: "Unité de vente invalide." };
+    return { ok: false, error: "Unité de vente invalide.", field: "sale_unit" };
   }
   const pricingModeRaw = (formData.get("pricing_mode") as string) || "fixed";
   if (pricingModeRaw !== "fixed" && pricingModeRaw !== "on_request") {
-    return { ok: false, error: "Mode de tarification invalide." };
+    return { ok: false, error: "Mode de tarification invalide.", field: "pricing_mode" };
   }
 
   const parsed = parseCategoryFieldsFromForm(category, formData);
@@ -118,10 +126,11 @@ export async function createCircuit(
     .single();
   if (error || !data) {
     console.error("[createCircuit] insert error:", error);
-    return { ok: false, error: error?.message || "Erreur lors de la création." };
+    return { ok: false, error: slugConflict(error) ?? `Produit non créé : ${error?.message || "erreur inconnue"}`, field: slugConflict(error) ? "slug" : null };
   }
 
   revalidatePath("/admin/produits");
+  await flashSuccess("Produit créé");
   redirect(`/admin/produits/${data.id}`);
 }
 
@@ -137,11 +146,12 @@ export async function updateCircuit(
   const { error } = await supabase.from("circuits").update(built.payload).eq("id", id);
   if (error) {
     console.error("[updateCircuit] update error:", error);
-    return { ok: false, error: error.message };
+    return { ok: false, error: slugConflict(error) ?? `Produit non enregistré : ${error.message}`, field: slugConflict(error) ? "slug" : null };
   }
 
   revalidatePath("/admin/produits");
   revalidatePath(`/admin/produits/${id}`);
+  await flashSuccess("Produit enregistré");
   redirect("/admin/produits");
 }
 
@@ -178,33 +188,36 @@ export async function deleteCircuit(
   }
 
   revalidatePath("/admin/produits");
+  await flashSuccess("Produit supprimé");
   redirect("/admin/produits");
 }
 
 /** Désactive un circuit (le retire de la vente sans le supprimer). */
-export async function deactivateCircuit(id: string): Promise<void> {
+export async function deactivateCircuit(id: string): Promise<FormFeedback> {
   const supabase = await createClient();
   const { error } = await supabase
     .from("circuits")
     .update({ is_active: false })
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) return { ok: false, error: `Produit non désactivé : ${error.message}` };
 
   revalidatePath(`/admin/produits/${id}`);
   revalidatePath("/admin/produits");
+  return { ok: true, message: "Produit désactivé — retiré de la vente" };
 }
 
-export async function createSeason(circuitId: string, formData: FormData) {
+// Résultat typé (jamais d'exception : en production, Next.js masque le message d'une erreur levée).
+export async function createSeason(circuitId: string, formData: FormData): Promise<FormFeedback> {
   const name = ((formData.get("name") as string) || "").trim();
   const startsOn = formData.get("starts_on") as string;
   const endsOn = formData.get("ends_on") as string;
   const multiplier = parseFloat(formData.get("price_multiplier") as string);
 
-  if (!name || !startsOn || !endsOn || isNaN(multiplier)) {
-    throw new Error("Tous les champs sont obligatoires");
-  }
-  if (multiplier <= 0) throw new Error("Le multiplicateur doit être positif");
-  if (startsOn > endsOn) throw new Error("La date de fin doit être après la date de début");
+  if (!name) return { ok: false, error: "Le nom de la période est obligatoire.", field: "name" };
+  if (!startsOn) return { ok: false, error: "La date de début est obligatoire.", field: "starts_on" };
+  if (!endsOn) return { ok: false, error: "La date de fin est obligatoire.", field: "ends_on" };
+  if (isNaN(multiplier) || multiplier <= 0) return { ok: false, error: "Le multiplicateur doit être un nombre positif.", field: "price_multiplier" };
+  if (startsOn > endsOn) return { ok: false, error: "La date de fin doit être après la date de début.", field: "ends_on" };
 
   const supabase = await createClient();
   const { error } = await supabase.from("circuit_seasons").insert({
@@ -214,14 +227,16 @@ export async function createSeason(circuitId: string, formData: FormData) {
     ends_on: endsOn,
     price_multiplier: multiplier,
   });
-  if (error) throw new Error(error.message);
+  if (error) return { ok: false, error: `Période non créée : ${error.message}` };
 
   revalidatePath(`/admin/produits/${circuitId}`);
+  return { ok: true, message: `Période « ${name} » créée` };
 }
 
-export async function deleteSeason(circuitId: string, seasonId: string) {
+export async function deleteSeason(circuitId: string, seasonId: string): Promise<FormFeedback> {
   const supabase = await createClient();
   const { error } = await supabase.from("circuit_seasons").delete().eq("id", seasonId);
-  if (error) throw new Error(error.message);
+  if (error) return { ok: false, error: `Période non supprimée : ${error.message}` };
   revalidatePath(`/admin/produits/${circuitId}`);
+  return { ok: true, message: "Période supprimée" };
 }

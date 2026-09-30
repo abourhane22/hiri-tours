@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -75,7 +76,7 @@ export default async function EditVehiculePage({ params }: { params: Promise<{ i
 
         <div className="flex justify-end gap-3 pt-3 border-t border-sand-200">
           <Link href="/admin/logistique/vehicules"><Button type="button" variant="secondary">Annuler</Button></Link>
-          <Button type="submit">Enregistrer</Button>
+          <SubmitButton>Enregistrer</SubmitButton>
         </div>
       </form>
 
@@ -86,7 +87,7 @@ export default async function EditVehiculePage({ params }: { params: Promise<{ i
           </div>
           <CardBody>
             <p className="text-sm text-sand-800 mb-4">Suppression définitive. Impossible si le véhicule est lié à des réservations.</p>
-            <Button type="submit" variant="danger" size="sm"><Trash2 className="size-3.5" />Supprimer</Button>
+            <SubmitButton variant="danger" size="sm" pendingLabel="Suppression…"><Trash2 className="size-3.5" />Supprimer</SubmitButton>
           </CardBody>
         </Card>
       </form>

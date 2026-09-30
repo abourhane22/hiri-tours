@@ -3,17 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { flashSuccess, formAction } from "@/lib/flash";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizePhone, normalizeEmail, maskPhone, customerDuplicateMessage } from "@/lib/customers";
 import { computeLoyaltyPoints, getLoyaltyTier } from "@/lib/loyalty";
 import type { CustomerLanguage, CustomerSource } from "@/lib/types";
 
-export type CustomerActionState = { ok: true } | { ok: false; error: string };
+export type CustomerActionState = { ok: true } | { ok: false; error: string; field?: string | null };
 
 /** Lit + valide les champs communs. Renvoie soit les données, soit une erreur. */
 function readCustomerFields(
   formData: FormData,
-): { ok: true; data: Record<string, unknown> } | { ok: false; error: string } {
+): { ok: true; data: Record<string, unknown> } | { ok: false; error: string; field?: string | null } {
   const firstName = ((formData.get("first_name") as string) || "").trim();
   const lastName = ((formData.get("last_name") as string) || "").trim();
   const phone = ((formData.get("phone") as string) || "").trim();
@@ -21,10 +22,11 @@ function readCustomerFields(
   const source = (formData.get("acquisition_source") as string) || "";
   const email = ((formData.get("email") as string) || "").trim();
 
-  if (!firstName || !lastName) return { ok: false, error: "Le nom et le prénom sont obligatoires." };
-  if (!phone) return { ok: false, error: "Le téléphone est obligatoire." };
-  if (!country) return { ok: false, error: "Le pays est obligatoire." };
-  if (!source) return { ok: false, error: "La source d'acquisition est obligatoire." };
+  if (!lastName) return { ok: false, error: "Le nom est obligatoire.", field: "last_name" };
+  if (!firstName) return { ok: false, error: "Le prénom est obligatoire.", field: "first_name" };
+  if (!phone) return { ok: false, error: "Le téléphone est obligatoire.", field: "phone" };
+  if (!country) return { ok: false, error: "Le pays est obligatoire.", field: "country" };
+  if (!source) return { ok: false, error: "La source d'acquisition est obligatoire.", field: "acquisition_source" };
 
   // full_name reste synchronisé : tout le reste de l'app l'affiche.
   const fullName = `${firstName} ${lastName}`.trim();
@@ -64,11 +66,12 @@ export async function createCustomer(
     .single();
 
   if (error) {
-    return { ok: false, error: customerDuplicateMessage(error) ?? error.message };
+    return { ok: false, error: customerDuplicateMessage(error) ?? `Client non créé : ${error.message}`, field: duplicateField(error) };
   }
 
   revalidatePath("/admin/clients");
-  redirect(`/admin/clients/${data.id}?created=1`);
+  await flashSuccess(`Client créé — ${fields.data.full_name as string}`);
+  redirect(`/admin/clients/${data.id}`);
 }
 
 export async function updateCustomer(
@@ -83,19 +86,37 @@ export async function updateCustomer(
   const { error } = await supabase.from("customers").update(fields.data).eq("id", id);
 
   if (error) {
-    return { ok: false, error: customerDuplicateMessage(error) ?? error.message };
+    return { ok: false, error: customerDuplicateMessage(error) ?? `Fiche non enregistrée : ${error.message}`, field: duplicateField(error) };
   }
 
   revalidatePath("/admin/clients");
   revalidatePath(`/admin/clients/${id}`);
-  redirect(`/admin/clients/${id}?updated=1`);
+  await flashSuccess("Fiche client mise à jour");
+  redirect(`/admin/clients/${id}`);
 }
 
 export async function deleteCustomer(id: string) {
-  const supabase = await createClient();
-  await supabase.from("customers").delete().eq("id", id);
-  revalidatePath("/admin/clients");
-  redirect("/admin/clients");
+  return formAction("Client supprimé", async () => {
+    const supabase = await createClient();
+    const { error } = await supabase.from("customers").delete().eq("id", id);
+    // Échec jamais silencieux : une fiche référencée (factures, avoirs) n'est pas supprimée.
+    if (error) {
+      throw new Error(
+        error.code === "23503"
+          ? "Suppression impossible : ce client est référencé par des factures ou des avoirs."
+          : `Suppression impossible : ${error.message}`,
+      );
+    }
+    revalidatePath("/admin/clients");
+    return "/admin/clients";
+  });
+}
+
+/** Champ à mettre en évidence pour une violation d'unicité (téléphone / email). */
+function duplicateField(error: { code?: string; message?: string; details?: string | null }): string | null {
+  if (error.code !== "23505") return null;
+  const hay = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+  return hay.includes("phone") ? "phone" : hay.includes("email") ? "email" : null;
 }
 
 // ---------------------------------------------------------------------------

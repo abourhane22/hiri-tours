@@ -1,20 +1,22 @@
 "use client";
 
 import { useActionState } from "react";
+import { useActionFeedback } from "@/components/ui/toaster";
 import { Check, Plane, BedDouble, Loader2 } from "lucide-react";
 import { Input, Label, Select } from "@/components/ui/input";
 import { formatDateShort } from "@/lib/utils";
+import { agencyDate, agencyTime } from "@/lib/tz";
 import { MEAL_PLANS, MEAL_PLAN_LABEL, stayDates } from "@/lib/dossier-profile";
 import { updateArrivalInfo, updateStayInfo, type SpecialActionState } from "@/app/admin/reservations/[id]/special-actions";
 
 const btn = "inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#1A1F2E] px-3 text-[12px] font-medium text-white hover:bg-[#2A3142] disabled:opacity-60 transition-colors";
 
+/** Date et heure d'arrivée à Casablanca (même fuseau que la saisie, cf. special-actions). */
 function localParts(iso: string | null): { date: string; time: string } {
   if (!iso) return { date: "", time: "" };
   const d = new Date(iso);
   if (isNaN(d.getTime())) return { date: "", time: "" };
-  const p = (n: number) => String(n).padStart(2, "0");
-  return { date: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, time: `${p(d.getHours())}:${p(d.getMinutes())}` };
+  return { date: agencyDate(d), time: agencyTime(d) };
 }
 
 /** Transfert : vol et heure d'arrivée attendus par le chauffeur. */
@@ -32,6 +34,7 @@ export function ArrivalCard({
   readOnly: boolean;
 }) {
   const [state, action, pending] = useActionState<SpecialActionState, FormData>(updateArrivalInfo.bind(null, reservationId), { ok: true });
+  useActionFeedback(state, null);
   const parts = localParts(arrivalAt);
 
   if (readOnly) {
@@ -67,10 +70,9 @@ export function ArrivalCard({
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-[#968F84]">Repris sur le manifeste du chauffeur.</p>
         <button type="submit" disabled={pending} className={btn}>
-          {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Enregistrer
+          {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} {pending ? "Enregistrement…" : "Enregistrer"}
         </button>
       </div>
-      {state.ok && state.savedAt && <p className="text-[11.5px]" style={{ color: "#085041" }}>Arrivée enregistrée.</p>}
     </form>
   );
 }
@@ -92,6 +94,7 @@ export function StayCard({
   readOnly: boolean;
 }) {
   const [state, action, pending] = useActionState<SpecialActionState, FormData>(updateStayInfo.bind(null, reservationId), { ok: true });
+  useActionFeedback(state, null);
   const s = stayDates(departureDate, nights);
   const r = Math.max(1, Number(rooms) || 1);
 
@@ -124,12 +127,11 @@ export function StayCard({
             </Select>
           </div>
           <button type="submit" disabled={pending} className={`${btn} h-10`}>
-            {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} Enregistrer
+            {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />} {pending ? "Enregistrement…" : "Enregistrer"}
           </button>
         </form>
       )}
       {state.ok === false && <p className="text-[12px] text-[#791F1F]">{state.error}</p>}
-      {state.ok && state.savedAt && <p className="text-[11.5px]" style={{ color: "#085041" }}>Séjour enregistré.</p>}
     </div>
   );
 }

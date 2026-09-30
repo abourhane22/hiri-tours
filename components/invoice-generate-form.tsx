@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useToast } from "@/components/ui/toaster";
 import Link from "next/link";
 import { FileText, AlertTriangle, Check } from "lucide-react";
 import { generateInvoice, type InvoiceActionState } from "@/app/admin/factures/actions";
@@ -32,10 +33,19 @@ export function InvoiceGenerateForm({
   } | null;
 }) {
   const [open, setOpen] = useState(false);
-  const [state, formAction, isPending] = useActionState<InvoiceActionState, FormData>(
-    generateInvoice.bind(null, reservationId),
-    { ok: true },
-  );
+  const toast = useToast();
+  // Toasts émis DANS l'action : au succès la carte remplace ce formulaire par la facture
+  // (même rendu), un effet ne s'exécuterait jamais. Le provider, lui, persiste.
+  const [state, formAction, isPending] = useActionState<InvoiceActionState, FormData>(async (prev, fd) => {
+    const res = await generateInvoice(reservationId, prev, fd);
+    if (res.ok && res.invoiceNumber) {
+      toast.success(`Facture ${res.invoiceNumber} émise`);
+      for (const w of res.warnings ?? []) if (w.startsWith("Facture émise")) toast.error(w);
+    } else if (!res.ok) {
+      toast.error(res.error);
+    }
+    return res;
+  }, { ok: true });
 
   return (
     <div className="space-y-3">

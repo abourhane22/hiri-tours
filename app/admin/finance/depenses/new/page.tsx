@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
@@ -75,7 +76,7 @@ export default async function NewExpensePage() {
 
         <div className="flex justify-end gap-3 pt-3 border-t border-sand-200">
           <Link href="/admin/finance/depenses"><Button type="button" variant="secondary">Annuler</Button></Link>
-          <Button type="submit">Enregistrer la dépense</Button>
+          <SubmitButton>Enregistrer la dépense</SubmitButton>
         </div>
       </form>
     </div>

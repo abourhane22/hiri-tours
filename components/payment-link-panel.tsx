@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/toaster";
 import { Copy, Check, Mail, Loader2, Link } from "lucide-react";
 import {
   createPaymentLink,
@@ -78,14 +79,20 @@ export function PaymentLinkPanel({
   const [copied, setCopied] = useState(false);
   const [emailState, setEmailState] = useState<"idle" | "sent" | "error">("idle");
   const [emailMsg, setEmailMsg] = useState<string | null>(null);
+  const toast = useToast();
 
   function generate() {
     if (isPending) return;
     setError(null);
     startTransition(async () => {
       const res = await createPaymentLink(reservationId);
-      if (res.ok) setLink({ url: res.url, expiresAt: res.expiresAt });
-      else setError(res.error);
+      if (res.ok) {
+        setLink({ url: res.url, expiresAt: res.expiresAt });
+        toast.success("Lien de paiement généré");
+      } else {
+        setError(res.error);
+        toast.error(res.error);
+      }
     });
   }
 
@@ -105,9 +112,11 @@ export function PaymentLinkPanel({
       const res = await sendPaymentLinkEmailAction(reservationId);
       if (res.ok) {
         setEmailState("sent");
+        toast.success("Lien de paiement envoyé par email");
       } else {
         setEmailState("error");
         setEmailMsg(res.error);
+        toast.error(res.error);
       }
     });
   }
@@ -120,8 +129,10 @@ export function PaymentLinkPanel({
         setLink(null);
         setEmailState("idle");
         setEmailMsg(null);
+        toast.success("Lien de paiement révoqué");
       } else {
         setError(res.error);
+        toast.error(res.error);
       }
     });
   }

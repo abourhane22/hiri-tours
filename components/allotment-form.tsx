@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Check, Info, Lock } from "lucide-react";
 import { AlertBanner } from "@/components/ui/alert-banner";
+import { useActionFeedback } from "@/components/ui/toaster";
 import {
   COMMITMENT_LABEL,
   COMMITMENT_HINT,
@@ -60,6 +61,7 @@ export function AllotmentForm({
   productTitle?: string;
 }) {
   const [state, formAction, isPending] = useActionState<AllotmentActionState, FormData>(action, { ok: true });
+  useActionFeedback(state, null);
 
   const [productId, setProductId] = useState(defaults.productId);
   const [origin, setOrigin] = useState<"own" | "contract">(defaults.origin);
@@ -96,7 +98,6 @@ export function AllotmentForm({
   return (
     <form action={formAction} className="space-y-4">
       {state.ok === false && <AlertBanner tone="error" message={state.error} />}
-      {state.ok && state.savedAt && <AlertBanner tone="success" message="Allotement enregistré — compteurs resynchronisés." />}
 
       {/* Section 1 — Produit et origine */}
       <section className="bg-white border border-[#E5E0D7] rounded-xl p-4">

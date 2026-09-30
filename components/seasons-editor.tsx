@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import { createSeason, deleteSeason } from "@/app/admin/produits/actions";
 import { formatDateShort } from "@/lib/utils";
+import { useToast } from "@/components/ui/toaster";
 import type { CircuitSeason } from "@/lib/types";
 
 type Props = { circuitId: string; seasons: CircuitSeason[] };
@@ -15,13 +16,23 @@ export function SeasonsEditor({ circuitId, seasons }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const toast = useToast();
+
   async function handleAdd(formData: FormData) {
     setSubmitting(true); setError(null);
     try {
-      await createSeason(circuitId, formData);
-      setAdding(false);
-    } catch (e: any) {
-      setError(e.message);
+      const res = await createSeason(circuitId, formData);
+      if (res.ok) {
+        toast.success(res.message ?? "Période créée");
+        setAdding(false);
+      } else {
+        setError(res.error);
+        toast.error(res.error, res.field);
+      }
+    } catch {
+      const msg = "Période non créée — erreur réseau ou serveur, réessayez.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -30,9 +41,11 @@ export function SeasonsEditor({ circuitId, seasons }: Props) {
   async function handleDelete(seasonId: string) {
     if (!confirm("Supprimer cette saison ?")) return;
     try {
-      await deleteSeason(circuitId, seasonId);
-    } catch (e: any) {
-      alert(e.message);
+      const res = await deleteSeason(circuitId, seasonId);
+      if (res.ok) toast.success(res.message ?? "Période supprimée");
+      else toast.error(res.error);
+    } catch {
+      toast.error("Période non supprimée — erreur réseau ou serveur, réessayez.");
     }
   }
 
@@ -86,7 +99,7 @@ export function SeasonsEditor({ circuitId, seasons }: Props) {
             <Input id="price_multiplier" name="price_multiplier" type="number" step="0.01" min="0.1" defaultValue="1.5" required />
             <p className="text-xs text-sand-600 mt-1">Ex : 1.5 pour +50%, 0.8 pour -20%, 1.0 pour pas de changement</p>
           </div>
-          <Button type="submit" size="sm" disabled={submitting}>{submitting ? "Création..." : "Créer la période"}</Button>
+          <Button type="submit" size="sm" disabled={submitting}>{submitting ? "Enregistrement…" : "Créer la période"}</Button>
         </form>
       ) : (
         <button type="button" onClick={() => setAdding(true)} className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-terracotta-600 hover:bg-sand-100 rounded-md border border-dashed border-sand-300">

@@ -68,3 +68,9 @@
     display: table-header-group;
   }
 }
+
+/* Champ en erreur (retour d'enregistrement, components/ui/toaster.tsx#highlightField). */
+[data-field-error="true"] {
+  border-color: #C84B31 !important;
+  box-shadow: 0 0 0 3px rgba(200, 75, 49, 0.18) !important;
+}

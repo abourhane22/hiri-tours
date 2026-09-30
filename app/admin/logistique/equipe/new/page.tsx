@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { LanguageSelector } from "@/components/language-selector";
@@ -52,7 +53,7 @@ export default function NewStaffPage() {
 
         <div className="flex justify-end gap-3 pt-3 border-t border-sand-200">
           <Link href="/admin/logistique/equipe"><Button type="button" variant="secondary">Annuler</Button></Link>
-          <Button type="submit">Créer le membre</Button>
+          <SubmitButton>Créer le membre</SubmitButton>
         </div>
       </form>
     </div>

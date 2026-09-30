@@ -2,6 +2,7 @@
 
 import "flag-icons/css/flag-icons.min.css";
 import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionFeedback, useToast } from "@/components/ui/toaster";
 import { Eye, EyeOff, Pencil, Trash2, Plus, UserPlus, Globe, ShieldCheck, Check, Plane } from "lucide-react";
 import { CountrySelect } from "@/components/country-select";
 import { countryCode } from "@/lib/countries";
@@ -49,6 +50,7 @@ export function TravelersPanel({ reservationId, travelers, expectedAdults, expec
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [rowError, setRowError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
 
   const adultsFilled = travelers.filter((t) => t.traveler_type === "adult").length;
   const defaultType: TravelerType = adultsFilled >= expectedAdults && expectedChildren > 0 ? "child" : "adult";
@@ -70,7 +72,10 @@ export function TravelersPanel({ reservationId, travelers, expectedAdults, expec
     setRowError(null);
     startTransition(async () => {
       const res = await deleteTraveler(reservationId, t.id);
-      if (!res.ok) setRowError(res.error);
+      if (!res.ok) {
+        setRowError(res.error);
+        toast.error(res.error);
+      } else toast.success(res.message ?? "Voyageur retiré");
     });
   }
 
@@ -78,7 +83,10 @@ export function TravelersPanel({ reservationId, travelers, expectedAdults, expec
     setRowError(null);
     startTransition(async () => {
       const res = await addPayerAsTraveler(reservationId);
-      if (!res.ok) setRowError(res.error);
+      if (!res.ok) {
+        setRowError(res.error);
+        toast.error(res.error);
+      } else toast.success(res.message ?? "Client payeur ajouté aux voyageurs");
     });
   }
 
@@ -313,6 +321,7 @@ function TravelerForm({
       ? updateTraveler.bind(null, reservationId, traveler.id)
       : addTraveler.bind(null, reservationId);
   const [state, formAction, isPending] = useActionState<TravelerActionState, FormData>(action, { ok: true });
+  useActionFeedback(state, null);
 
   // Succès signalé par savedAt → on referme le formulaire.
   useEffect(() => {

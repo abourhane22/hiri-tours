@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { ActionError, formAction } from "@/lib/flash";
 import { autoConfirmOnPayment } from "@/lib/payments";
 import { releaseAllotment } from "@/lib/allotments";
 
@@ -15,7 +16,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export type ActionResult<T = undefined> =
   | ({ ok: true } & (T extends undefined ? {} : T))
-  | { ok: false; error: string };
+  | { ok: false; error: string; field?: string | null };
 
 export async function updateStatus(
   id: string,
@@ -127,12 +128,12 @@ export async function addPayment(
   const externalRef = ((formData.get("external_ref") as string) || "").trim();
 
   if (!method || isNaN(amount) || amount <= 0) {
-    return { ok: false, error: "Montant invalide" };
+    return { ok: false, error: "Montant invalide.", field: "amount_mad" };
   }
 
   // Le numéro de virement est obligatoire pour un paiement par virement.
   if (method === "transfer" && !externalRef) {
-    return { ok: false, error: "Le numéro de virement est obligatoire." };
+    return { ok: false, error: "Le numéro de virement est obligatoire.", field: "external_ref" };
   }
 
   const supabase = await createClient();
@@ -160,7 +161,8 @@ export async function addPayment(
   if (amount - remaining > 0.01) {
     return {
       ok: false,
-      error: `Le montant dépasse le restant dû (${remaining.toFixed(2)} MAD)`,
+      error: `Le montant dépasse le restant dû (${remaining.toFixed(2)} MAD).`,
+      field: "amount_mad",
     };
   }
 
@@ -188,7 +190,7 @@ export async function addPayment(
 
   if (error) {
     console.error("[addPayment] Supabase insert error:", error);
-    return { ok: false, error: error.message };
+    return { ok: false, error: `Encaissement non enregistré : ${error.message}` };
   }
 
   // Demande → Confirmée au premier encaissement.
@@ -202,26 +204,29 @@ export async function addPayment(
 }
 
 export async function updateNotes(id: string, formData: FormData) {
-  const notes = ((formData.get("notes") as string) || "").trim() || null;
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("reservations")
-    .update({ notes })
-    .eq("id", id);
+  return formAction("Notes enregistrées", async () => {
+    const notes = ((formData.get("notes") as string) || "").trim() || null;
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("reservations")
+      .update({ notes })
+      .eq("id", id);
 
-  if (error) throw new Error(error.message);
+    if (error) throw new ActionError(`Notes non enregistrées : ${error.message}`, "notes");
 
-  revalidatePath(`/admin/reservations/${id}`);
+    revalidatePath(`/admin/reservations/${id}`);
+  });
 }
 
 export async function cancelReservation(id: string) {
+  return formAction("Réservation annulée — places d'allotement rendues", async () => {
   const supabase = await createClient();
   const { error } = await supabase
     .from("reservations")
     .update({ status: "cancelled" })
     .eq("id", id);
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(`Annulation impossible : ${error.message}`);
 
   // Rend les places d'allotement consommées par ce dossier (idempotent).
   await releaseAllotment(supabase, id, "cancellation");
@@ -229,4 +234,5 @@ export async function cancelReservation(id: string) {
   revalidatePath(`/admin/reservations/${id}`);
   revalidatePath("/admin/reservations");
   revalidatePath("/admin");
+  });
 }

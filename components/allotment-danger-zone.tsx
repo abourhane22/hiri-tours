@@ -3,10 +3,12 @@
 import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
 import { deleteAllotment } from "@/app/admin/allotements/actions";
+import { useToast } from "@/components/ui/toaster";
 
 export function AllotmentDangerZone({ allotmentId, label, movementCount }: { allotmentId: string; label: string; movementCount: number }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
   const blocked = movementCount > 0;
 
   function onDelete() {
@@ -15,7 +17,10 @@ export function AllotmentDangerZone({ allotmentId, label, movementCount }: { all
     setError(null);
     startTransition(async () => {
       const res = await deleteAllotment(allotmentId);
-      if (res && !res.ok) setError(res.error);
+      if (res && !res.ok) {
+        setError(res.error);
+        toast.error(res.error);
+      }
     });
   }
 

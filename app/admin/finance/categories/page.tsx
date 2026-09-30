@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { ExpenseTabs } from "@/components/report-tabs";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -43,7 +44,7 @@ export default async function CategoriesPage() {
                 <option value="overhead">Frais général</option>
               </Select>
             </div>
-            <Button type="submit"><Plus className="size-4" />Ajouter</Button>
+            <SubmitButton><Plus className="size-4" />Ajouter</SubmitButton>
           </form>
         </CardBody>
       </Card>
@@ -69,8 +70,8 @@ export default async function CategoriesPage() {
                   <td className="px-5 py-3"><Badge tone={c.is_active ? "success" : "neutral"}>{c.is_active ? "Actif" : "Inactif"}</Badge></td>
                   <td className="px-5 py-3 text-right">
                     <div className="inline-flex gap-2">
-                      <form action={toggleBound}><Button type="submit" variant="secondary" size="sm">{c.is_active ? "Désactiver" : "Activer"}</Button></form>
-                      <form action={deleteBound}><Button type="submit" variant="danger" size="sm"><Trash2 className="size-3.5" /></Button></form>
+                      <form action={toggleBound}><SubmitButton variant="secondary" size="sm" pendingLabel="…">{c.is_active ? "Désactiver" : "Activer"}</SubmitButton></form>
+                      <form action={deleteBound}><SubmitButton variant="danger" size="sm" pendingLabel="Suppression…"><Trash2 className="size-3.5" /></SubmitButton></form>
                     </div>
                   </td>
                 </tr>

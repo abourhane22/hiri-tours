@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureAccessToken, suiviUrl } from "@/lib/access-token";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/input";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
 import {
@@ -833,9 +834,9 @@ export default async function ReservationDetailPage({
                 className="text-[13px]"
               />
               <div className="flex items-center gap-2">
-                <Button type="submit" variant="secondary" size="sm">
+                <SubmitButton variant="secondary" size="sm">
                   Enregistrer les notes
-                </Button>
+                </SubmitButton>
                 <span className="relative group inline-flex">
                   <Info className="size-3.5 text-[#968F84] cursor-help" />
                   <span
@@ -1183,9 +1184,9 @@ export default async function ReservationDetailPage({
                   Annule le dossier. Le client devra être recontacté pour un
                   remboursement éventuel.
                 </p>
-                <Button type="submit" variant="danger" size="sm" className="w-full">
+                <SubmitButton variant="danger" size="sm" className="w-full" pendingLabel="Annulation…">
                   Annuler la réservation
-                </Button>
+                </SubmitButton>
               </div>
             </form>
           )}

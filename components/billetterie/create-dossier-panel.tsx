@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionFeedback, useToast } from "@/components/ui/toaster";
 import { useRouter } from "next/navigation";
 import { Check, Loader2, Info, Lock } from "lucide-react";
 import { CustomerPicker } from "@/components/customer-picker";
@@ -58,9 +59,13 @@ export function CreateDossierPanel({
   const serviceFee = amountMad !== null && feeValid ? computeServiceFee({ perPaxMad: perPaxNum, pax, pct: pctNum, baseMad: amountMad }) : null;
   const salePrice = amountMad !== null && serviceFee !== null ? Math.round((amountMad + serviceFee) * 100) / 100 : null;
 
+  const toast = useToast();
+  useActionFeedback(state, null);
   useEffect(() => {
-    if (state.ok === true) router.push(`/admin/reservations/${state.reservationId}?created=1`);
-  }, [state, router]);
+    if (state.ok !== true) return;
+    toast.success(`Dossier ${state.reference} créé`);
+    router.push(`/admin/reservations/${state.reservationId}?created=1`);
+  }, [state, router, toast]);
 
   if (disabled) {
     return (

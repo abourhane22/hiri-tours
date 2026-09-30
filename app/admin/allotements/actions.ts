@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { flashSuccess } from "@/lib/flash";
 import { isAllotmentCommitment, isAllotmentOnExhausted } from "@/lib/allotments";
 
-export type AllotmentActionState = { ok: true; savedAt?: number } | { ok: false; error: string };
+export type AllotmentActionState = { ok: true; savedAt?: number; message?: string } | { ok: false; error: string; field?: string | null };
 
 const fail = (error: string): AllotmentActionState => ({ ok: false, error });
 const str = (fd: FormData, k: string) => ((fd.get(k) as string) || "").trim();
@@ -47,21 +48,21 @@ function dbError(error: { message?: string; code?: string }, fallback: string): 
 function readAllotment(
   fd: FormData,
   withProduct: boolean,
-): { ok: true; data: Record<string, unknown> } | { ok: false; error: string } {
+): { ok: true; data: Record<string, unknown> } | { ok: false; error: string; field?: string | null } {
   const label = str(fd, "label");
-  if (!label) return { ok: false, error: "Le libellé est obligatoire." };
+  if (!label) return { ok: false, error: "Le libellé est obligatoire.", field: "label" };
 
   const startsOn = str(fd, "starts_on");
   const endsOn = str(fd, "ends_on");
-  if (!startsOn || !endsOn) return { ok: false, error: "La période est obligatoire." };
-  if (startsOn > endsOn) return { ok: false, error: "La date de fin doit être postérieure à la date de début." };
+  if (!startsOn || !endsOn) return { ok: false, error: "La période est obligatoire.", field: "starts_on" };
+  if (startsOn > endsOn) return { ok: false, error: "La date de fin doit être postérieure à la date de début.", field: "ends_on" };
 
   const quota = parseInt(str(fd, "quota_per_day"), 10);
-  if (!Number.isInteger(quota) || quota <= 0) return { ok: false, error: "Le quota par jour doit être un entier supérieur à 0." };
+  if (!Number.isInteger(quota) || quota <= 0) return { ok: false, error: "Le quota par jour doit être un entier supérieur à 0.", field: "quota_per_day" };
 
   const releaseDays = parseInt(str(fd, "release_days") || "0", 10);
   if (!Number.isInteger(releaseDays) || releaseDays < 0) {
-    return { ok: false, error: "Le préavis de release doit être un entier positif ou nul (0 = pas de release)." };
+    return { ok: false, error: "Le préavis de release doit être un entier positif ou nul (0 = pas de release).", field: "release_days" };
   }
 
   // Jours de la semaine : cases wd_0 … wd_6 (dow). Toutes cochées ⇒ NULL.
@@ -75,17 +76,17 @@ function readAllotment(
   let contractId: string | null = null;
   if (origin === "contract") {
     contractId = str(fd, "contract_id") || null;
-    if (!contractId) return { ok: false, error: "Choisissez le contrat fournisseur, ou passez en capacité propre." };
+    if (!contractId) return { ok: false, error: "Choisissez le contrat fournisseur, ou passez en capacité propre.", field: "contract_id" };
   } else if (origin !== "own") {
-    return { ok: false, error: "Origine invalide." };
+    return { ok: false, error: "Origine invalide.", field: "origin" };
   }
 
   // Une capacité propre est nécessairement garantie (miroir de la contrainte SQL).
   const commitmentRaw = contractId ? str(fd, "commitment") : "guaranteed";
-  if (!isAllotmentCommitment(commitmentRaw)) return { ok: false, error: "Type d'engagement invalide." };
+  if (!isAllotmentCommitment(commitmentRaw)) return { ok: false, error: "Type d'engagement invalide.", field: "commitment" };
 
   const onExhausted = str(fd, "on_exhausted") || "request";
-  if (!isAllotmentOnExhausted(onExhausted)) return { ok: false, error: "Comportement à épuisement invalide." };
+  if (!isAllotmentOnExhausted(onExhausted)) return { ok: false, error: "Comportement à épuisement invalide.", field: "on_exhausted" };
 
   const data: Record<string, unknown> = {
     contract_id: contractId,
@@ -103,7 +104,7 @@ function readAllotment(
 
   if (withProduct) {
     const productId = str(fd, "product_id");
-    if (!productId) return { ok: false, error: "Le produit est obligatoire." };
+    if (!productId) return { ok: false, error: "Le produit est obligatoire.", field: "product_id" };
     data.product_id = productId;
   }
 
@@ -129,6 +130,7 @@ export async function createAllotment(_prev: AllotmentActionState, fd: FormData)
   }
 
   revalidatePath("/admin/allotements");
+  await flashSuccess("Allotement créé");
   redirect(`/admin/allotements/${(data as any).id}?created=1`);
 }
 
@@ -147,7 +149,7 @@ export async function updateAllotment(id: string, _prev: AllotmentActionState, f
 
   revalidatePath("/admin/allotements");
   revalidatePath(`/admin/allotements/${id}`);
-  return { ok: true, savedAt: Date.now() };
+  return { ok: true, savedAt: Date.now(), message: "Allotement mis à jour — compteurs resynchronisés" };
 }
 
 /**
@@ -179,5 +181,6 @@ export async function deleteAllotment(id: string): Promise<AllotmentActionState>
   }
 
   revalidatePath("/admin/allotements");
+  await flashSuccess("Allotement supprimé");
   redirect("/admin/allotements");
 }

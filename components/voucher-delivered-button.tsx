@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PackageCheck, Loader2 } from "lucide-react";
 import { markVoucherDeliveredAction } from "@/app/admin/reservations/[id]/email-actions";
+import { useToast } from "@/components/ui/toaster";
 
 const CHANNELS: { value: string; label: string }[] = [
   { value: "comptoir", label: "Remis au comptoir (imprimé)" },
@@ -26,12 +27,18 @@ export function VoucherDeliveredButton({
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
 
   function mark(channel: string) {
     setError(null);
     startTransition(async () => {
       const res = await markVoucherDeliveredAction(reservationId, channel);
-      if (!res.ok) return setError(res.error);
+      if (!res.ok) {
+        setError(res.error);
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`Voucher ${CHANNELS.find((c) => c.value === channel)?.label.toLowerCase() ?? "remis"}`);
       setOpen(false);
       router.refresh();
     });

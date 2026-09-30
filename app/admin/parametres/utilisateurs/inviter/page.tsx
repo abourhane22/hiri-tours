@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Card, CardBody } from "@/components/ui/card";
@@ -53,10 +54,10 @@ export default function InviterPage() {
               <Link href="/admin/parametres/utilisateurs">
                 <Button variant="secondary" type="button">Annuler</Button>
               </Link>
-              <Button type="submit">
+              <SubmitButton pendingLabel="Envoi de l'invitation…">
                 <Mail className="size-4" />
                 Envoyer l&apos;invitation
-              </Button>
+              </SubmitButton>
             </div>
           </form>
         </CardBody>

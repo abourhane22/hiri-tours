@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -28,10 +29,10 @@ export default async function ClientDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string; updated?: string; error?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { id } = await params;
-  const { created, updated, error } = await searchParams;
+  const { error } = await searchParams;
   const supabase = await createClient();
 
   const { data: customer } = await supabase
@@ -89,11 +90,6 @@ export default async function ClientDetailPage({
         </div>
       </div>
 
-      {(created || updated) && (
-        <div className="mb-6 p-3 rounded-md bg-emerald-50 border border-emerald-200 text-sm text-emerald-900">
-          {created ? "Client créé avec succès." : "Fiche client mise à jour."}
-        </div>
-      )}
       {error && (
         <div className="mb-6 p-3 rounded-md bg-red-50 border border-red-200 text-sm text-red-800">
           {decodeURIComponent(error)}
@@ -276,14 +272,9 @@ export default async function ClientDetailPage({
                 associées ne seront pas supprimées.
               </p>
               <form action={deleteCustomerBound}>
-                <Button
-                  type="submit"
-                  variant="danger"
-                  size="sm"
-                  className="w-full"
-                >
+                <SubmitButton variant="danger" size="sm" className="w-full" pendingLabel="Suppression…">
                   Supprimer ce client
-                </Button>
+                </SubmitButton>
               </form>
             </CardBody>
           </Card>

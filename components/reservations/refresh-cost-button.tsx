@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/toaster";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Loader2 } from "lucide-react";
 import { refreshExpectedCost } from "@/app/admin/reservations/[id]/margin-actions";
@@ -9,14 +10,20 @@ export function RefreshCostButton({ reservationId, hasSnapshot }: { reservationI
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   function run() {
     if (hasSnapshot && !confirm("Recalculer le coût prévisionnel avec les tarifs d'achat actuels ?\n\nL'ancien coût est conservé dans l'historique du dossier.")) return;
     setError(null);
     startTransition(async () => {
       const res = await refreshExpectedCost(reservationId);
-      if (res.ok) router.refresh();
-      else setError(res.error);
+      if (res.ok) {
+        toast.success("Coût prévisionnel recalculé");
+        router.refresh();
+      } else {
+        setError(res.error);
+        toast.error(res.error);
+      }
     });
   }
 

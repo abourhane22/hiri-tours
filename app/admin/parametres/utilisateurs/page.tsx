@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
@@ -9,12 +10,7 @@ import { ROLE_LABELS, BACKOFFICE_ROLES, PERMISSIONS_MATRIX, userCan } from "@/li
 import { updateUserRole, toggleUserActive } from "./actions";
 import { DeleteUserButton } from "./delete-user-button";
 
-export default async function UtilisateursPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ invited?: string; resent?: string }>;
-}) {
-  const { invited, resent } = await searchParams;
+export default async function UtilisateursPage() {
   const supabase = await createClient();
   const adminClient = createAdminClient();
 
@@ -48,13 +44,6 @@ export default async function UtilisateursPage({
         </Link>
       </div>
 
-      {invited && (
-        <div className="mb-6 p-4 rounded-md bg-emerald-50 border border-emerald-200 text-sm text-emerald-900">
-          ✅ {resent
-            ? "Cet utilisateur existait déjà. Un email de réinitialisation lui a été renvoyé pour qu'il puisse (re)définir son mot de passe. Le rôle a été mis à jour."
-            : "Invitation envoyée. L'utilisateur recevra un email pour définir son mot de passe."}
-        </div>
-      )}
 
       <div className="bg-white border border-sand-200 rounded-lg overflow-hidden mb-8">
         <table className="w-full text-sm">
@@ -86,7 +75,7 @@ export default async function UtilisateursPage({
                           <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                         ))}
                       </Select>
-                      <Button type="submit" variant="secondary" size="sm">OK</Button>
+                      <SubmitButton variant="secondary" size="sm" pendingLabel="…">OK</SubmitButton>
                     </form>
                   </td>
                   <td className="px-5 py-3">
@@ -98,13 +87,13 @@ export default async function UtilisateursPage({
                     {!isCurrentUser && (
                       <div className="flex items-center gap-2 justify-end">
                         <form action={toggleBound}>
-                          <Button type="submit" variant="secondary" size="sm">
+                          <SubmitButton variant="secondary" size="sm" pendingLabel="Enregistrement…">
                             {isActive ? (
                               <><XCircle className="size-3.5" />Désactiver</>
                             ) : (
                               <><CheckCircle2 className="size-3.5" />Activer</>
                             )}
-                          </Button>
+                          </SubmitButton>
                         </form>
                         <DeleteUserButton userId={u.id} userName={u.profile?.full_name || u.email} />
                       </div>

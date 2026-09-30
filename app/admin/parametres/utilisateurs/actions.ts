@@ -1,10 +1,10 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { type UserRole, BACKOFFICE_ROLES } from "@/lib/permissions";
+import { ActionError, formAction } from "@/lib/flash";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -16,14 +16,16 @@ async function requireAdmin() {
 }
 
 export async function inviteUser(formData: FormData) {
-  const { supabase: callerSupabase } = await requireAdmin();
+  let wasResentOuter = false;
+  return formAction(() => (wasResentOuter ? "Utilisateur existant : lien de connexion renvoyé, rôle mis à jour" : "Invitation envoyée"), async () => {
+  await requireAdmin();
   const email = ((formData.get("email") as string) || "").trim().toLowerCase();
   const fullName = ((formData.get("full_name") as string) || "").trim();
   const role = (formData.get("role") as string) as UserRole;
 
-  if (!email) throw new Error("L'email est obligatoire");
-  if (!fullName) throw new Error("Le nom complet est obligatoire");
-  if (!BACKOFFICE_ROLES.includes(role)) throw new Error("Rôle invalide");
+  if (!fullName) throw new ActionError("Le nom complet est obligatoire.", "full_name");
+  if (!email) throw new ActionError("L'email est obligatoire.", "email");
+  if (!BACKOFFICE_ROLES.includes(role)) throw new ActionError("Rôle invalide.", "role");
 
   const admin = createAdminClient();
   const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "https://hiri-tours.vercel.app"}/auth/callback?type=invite`;
@@ -66,16 +68,20 @@ export async function inviteUser(formData: FormData) {
   if (profileErr) throw new Error(`Profil non mis à jour : ${profileErr.message}`);
 
   revalidatePath("/admin/parametres/utilisateurs");
-  redirect(`/admin/parametres/utilisateurs?invited=1${wasResent ? "&resent=1" : ""}`);
+  wasResentOuter = wasResent;
+  return "/admin/parametres/utilisateurs";
+  });
 }
 
 export async function updateUserRole(userId: string, formData: FormData) {
-  const { supabase } = await requireAdmin();
-  const role = formData.get("role") as UserRole;
-  if (!role) throw new Error("Rôle invalide");
-  const { error } = await supabase.from("profiles").update({ role }).eq("id", userId);
-  if (error) throw new Error(error.message);
-  revalidatePath("/admin/parametres/utilisateurs");
+  return formAction("Rôle mis à jour", async () => {
+    const { supabase } = await requireAdmin();
+    const role = formData.get("role") as UserRole;
+    if (!BACKOFFICE_ROLES.includes(role)) throw new ActionError("Rôle invalide.", "role");
+    const { error } = await supabase.from("profiles").update({ role }).eq("id", userId);
+    if (error) throw new Error(`Rôle non mis à jour : ${error.message}`);
+    revalidatePath("/admin/parametres/utilisateurs");
+  });
 }
 
 export async function deleteUser(userId: string): Promise<{ ok: boolean; error?: string }> {
@@ -109,6 +115,7 @@ export async function deleteUser(userId: string): Promise<{ ok: boolean; error?:
 }
 
 export async function toggleUserActive(userId: string, isActive: boolean) {
+  return formAction(isActive ? "Utilisateur désactivé" : "Utilisateur activé", async () => {
   const { supabase, user: caller } = await requireAdmin();
   if (caller.id === userId) throw new Error("Vous ne pouvez pas modifier votre propre statut.");
 
@@ -127,4 +134,5 @@ export async function toggleUserActive(userId: string, isActive: boolean) {
   const { error } = await supabase.from("profiles").update({ is_active: !isActive }).eq("id", userId);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/parametres/utilisateurs");
+  });
 }

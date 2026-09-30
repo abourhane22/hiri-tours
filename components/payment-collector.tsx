@@ -7,6 +7,7 @@ import { Input, Label } from "@/components/ui/input";
 import { formatMAD } from "@/lib/utils";
 import { addPayment } from "@/app/admin/reservations/[id]/actions";
 import { applyCreditNote } from "@/app/admin/avoirs/actions";
+import { useToast } from "@/components/ui/toaster";
 import {
   PaymentLinkPanel,
   type ActiveLink,
@@ -58,6 +59,7 @@ export function PaymentCollector({
   const [warning, setWarning] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const refInput = useRef<HTMLInputElement>(null);
+  const toast = useToast();
 
   // Avoir sélectionné : le montant est borné par min(solde de l'avoir, reste à payer).
   const [creditNoteId, setCreditNoteId] = useState(creditNotes[0]?.id ?? "");
@@ -86,8 +88,13 @@ export function PaymentCollector({
     formData.set("amount_mad", creditAmount);
     startTransition(async () => {
       const result = await applyCreditNote(reservationId, { ok: true }, formData);
-      if (result.ok) router.refresh();
-      else setError(result.error);
+      if (result.ok) {
+        toast.success(`Avoir ${selectedNote.number} imputé : ${Number(creditAmount).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} MAD`);
+        router.refresh();
+      } else {
+        setError(result.error);
+        toast.error(result.error);
+      }
     });
   }
 
@@ -140,11 +147,14 @@ export function PaymentCollector({
       const result = await addPayment(reservationId, null, formData);
       if (result.ok) {
         setExternalRef("");
+        toast.success(`Encaissement de ${Number(amount).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} MAD enregistré`);
         if ("warning" in result && result.warning) setWarning(result.warning);
         // Revalide la fiche → nouveau `balance` → l'effet resynchronise le champ.
         router.refresh();
       } else {
         setError(result.error);
+        toast.error(result.error);
+        if (result.field === "external_ref") refInput.current?.focus();
       }
     });
   }

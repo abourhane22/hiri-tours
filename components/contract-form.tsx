@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useActionFeedback } from "@/components/ui/toaster";
 import Link from "next/link";
 import { Check, Plus, Trash2, Info } from "lucide-react";
 import { AlertBanner } from "@/components/ui/alert-banner";
@@ -44,6 +45,7 @@ export function ContractForm({
   cancelHref: string;
 }) {
   const [state, formAction, isPending] = useActionState<AchatActionState, FormData>(action, { ok: true });
+  useActionFeedback(state, null);
   const [remuneration, setRemuneration] = useState<RemunerationMode>(defaults.remunerationMode);
   const [cancellation, setCancellation] = useState<CancellationStep[]>(defaults.cancellationPolicy ?? []);
   const [schedule, setSchedule] = useState<PaymentStep[]>(defaults.paymentSchedule ?? []);
@@ -54,7 +56,6 @@ export function ContractForm({
   return (
     <form action={formAction} className="space-y-4">
       {state.ok === false && <AlertBanner tone="error" message={state.error} />}
-      {state.ok && state.savedAt && <AlertBanner tone="success" message="Contrat enregistré." />}
 
       <input type="hidden" name="cancellation_policy" value={JSON.stringify(cancellation)} />
       <input type="hidden" name="payment_schedule" value={JSON.stringify(schedule)} />

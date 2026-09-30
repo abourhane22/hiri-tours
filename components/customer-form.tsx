@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, AlertTriangle } from "lucide-react";
 import { AlertBanner } from "@/components/ui/alert-banner";
+import { useActionFeedback } from "@/components/ui/toaster";
 import { CountrySelect } from "@/components/country-select";
 import { formatDateShort } from "@/lib/utils";
 import {
@@ -70,6 +71,9 @@ export function CustomerForm({
     action,
     { ok: true },
   );
+
+  // Erreur → toast + champ en évidence ; succès → flash après redirection (« Client créé »).
+  useActionFeedback(state, null);
 
   const detect = mode === "create";
 

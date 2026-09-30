@@ -17,6 +17,7 @@ import {
 } from "@/lib/tasks";
 import { agencyTime } from "@/lib/tz";
 import { fetchNotifications, markInfosRead, snoozeTask, unsnoozeTask } from "@/app/admin/notification-actions";
+import { useToast } from "@/components/ui/toaster";
 import { FamilyIcon, InfoIcon } from "@/components/actions/task-visuals";
 
 type Segment = "todo" | "infos";
@@ -31,10 +32,9 @@ export function NotificationBell({ initial, variant = "dark" }: { initial: Notif
   const [open, setOpen] = useState(false);
   const [segment, setSegment] = useState<Segment>("todo");
   const [family, setFamily] = useState<"all" | TaskFamily>("all");
-  const [toast, setToast] = useState<{ key: string; until: string } | null>(null);
   const [, startTransition] = useTransition();
   const wrapRef = useRef<HTMLDivElement>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toast = useToast();
 
   useEffect(() => setData(initial), [initial]);
 
@@ -56,8 +56,6 @@ export function NotificationBell({ initial, variant = "dark" }: { initial: Notif
     };
   }, [open]);
 
-  useEffect(() => () => void (toastTimer.current && clearTimeout(toastTimer.current)), []);
-
   const now = Date.now();
   const mine = useMemo(() => (data ? data.tasks.filter((t) => isMine(t, data.userId, now)) : []), [data, now]);
   const badge = data ? badgeCount(data, now) : 0;
@@ -73,18 +71,16 @@ export function NotificationBell({ initial, variant = "dark" }: { initial: Notif
   function onSnooze(t: Task) {
     startTransition(async () => {
       const res = await snoozeTask(t.key);
-      if (!res.ok) return;
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
       setData((d) => (d ? { ...d, tasks: d.tasks.map((x) => (x.key === t.key ? { ...x, snoozedUntil: res.until } : x)) } : d));
-      setToast({ key: t.key, until: res.until });
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-      toastTimer.current = setTimeout(() => setToast(null), 6000);
+      toast.show({ type: "success", message: `Reportée à demain ${agencyTime(res.until)}`, action: { label: "Annuler", onClick: () => onUndo(t.key) } });
     });
   }
 
-  function onUndo() {
-    if (!toast) return;
-    const key = toast.key;
-    setToast(null);
+  function onUndo(key: string) {
     setData((d) => (d ? { ...d, tasks: d.tasks.map((x) => (x.key === key ? { ...x, snoozedUntil: null } : x)) } : d));
     startTransition(async () => {
       await unsnoozeTask(key);
@@ -233,16 +229,6 @@ export function NotificationBell({ initial, variant = "dark" }: { initial: Notif
               <InfoList infos={infos} onRead={markRead} onNavigate={() => setOpen(false)} />
             )}
           </div>
-
-          {/* Toast « Plus tard » */}
-          {toast && (
-            <div role="status" className="mx-3 mb-2 flex items-center justify-between gap-3 rounded-lg bg-[#1A1F2E] px-3 py-1 text-[12.5px] text-white">
-              <span>Reportée à demain {agencyTime(toast.until)}</span>
-              <button type="button" onClick={onUndo} className="h-11 px-2 font-medium text-[#F4C38A] hover:underline">
-                Annuler
-              </button>
-            </div>
-          )}
 
           {/* Pied */}
           <div className="flex items-center justify-between gap-3 border-t border-[#EEE9E0] px-4 py-1">

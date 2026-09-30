@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useActionFeedback, useToast } from "@/components/ui/toaster";
 import { useRouter } from "next/navigation";
 import { FileMinus, Check, AlertTriangle, Undo2 } from "lucide-react";
 import { formatMAD } from "@/lib/utils";
@@ -37,15 +38,21 @@ export function IssueCreditNoteForm({
   alreadyCredited: number;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [state, formAction, isPending] = useActionState<CreditNoteActionState, FormData>(
     async (prev, fd) => {
       const res = await issueCreditNote(invoiceId, prev, fd);
-      if (res.ok && res.creditNoteId) router.push(`/admin/avoirs/${res.creditNoteId}`);
+      if (res.ok && res.creditNoteId) {
+        // Toast émis AVANT la navigation : le provider (coque admin) le garde sur la page d'arrivée.
+        toast.success(`Avoir ${res.creditNoteNumber ?? ""} émis`.replace("  ", " "));
+        router.push(`/admin/avoirs/${res.creditNoteId}`);
+      }
       return res;
     },
     { ok: true },
   );
+  useActionFeedback(state, null);
 
   if (maxAmount <= 0.01) {
     return (
@@ -136,10 +143,18 @@ export function IssueCreditNoteForm({
 export function RefundCreditNoteForm({ creditNoteId, remaining }: { creditNoteId: string; remaining: number }) {
   const [open, setOpen] = useState(false);
   const [method, setMethod] = useState<string>("cash");
-  const [state, formAction, isPending] = useActionState<CreditNoteActionState, FormData>(
-    refundCreditNote.bind(null, creditNoteId),
-    { ok: true },
-  );
+  const toast = useToast();
+  // Toast dans l'action : un remboursement qui solde l'avoir remplace ce formulaire au même rendu.
+  const [state, formAction, isPending] = useActionState<CreditNoteActionState, FormData>(async (prev, fd) => {
+    const res = await refundCreditNote(creditNoteId, prev, fd);
+    if (res.ok) {
+      const amount = Number(fd.get("amount_mad"));
+      toast.success(Number.isFinite(amount) && amount > 0 ? `Remboursement de ${formatMAD(amount)} enregistré` : "Remboursement enregistré");
+    } else {
+      toast.error(res.error);
+    }
+    return res;
+  }, { ok: true });
   const needsRef = REFUND_METHODS.find((m) => m.value === method)?.needsRef ?? false;
 
   return (
@@ -238,14 +253,19 @@ export function RefundCreditNoteForm({ creditNoteId, remaining }: { creditNoteId
 /** Dossier annulé encaissé et jamais facturé : facture de régularisation + avoir total. */
 export function RegularizeCancelledForm({ reservationId, paid }: { reservationId: string; paid: number }) {
   const router = useRouter();
+  const toast = useToast();
   const [state, formAction, isPending] = useActionState<CreditNoteActionState, FormData>(
     async (prev, fd) => {
       const res = await regularizeCancelledReservation(reservationId, prev, fd);
-      if (res.ok && res.creditNoteId) router.push(`/admin/avoirs/${res.creditNoteId}`);
+      if (res.ok && res.creditNoteId) {
+        toast.success(`Régularisation faite — avoir ${res.creditNoteNumber ?? ""} émis`);
+        router.push(`/admin/avoirs/${res.creditNoteId}`);
+      }
       return res;
     },
     { ok: true },
   );
+  useActionFeedback(state, null);
 
   return (
     <div className="space-y-2.5">

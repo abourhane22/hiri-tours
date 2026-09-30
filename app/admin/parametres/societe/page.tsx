@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
 import { Card, CardBody } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import { updateCompanySettings } from "../actions";
 import type { CompanySettings } from "@/lib/types";
 
-export default async function SocietePage({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
-  const { saved } = await searchParams;
+// Retour d'enregistrement : toast (lib/flash.ts + SubmitButton), plus de bandeau ?saved=1.
+export default async function SocietePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
@@ -29,12 +29,6 @@ export default async function SocietePage({ searchParams }: { searchParams: Prom
         <h1 className="font-display text-3xl text-ink">Informations société</h1>
         <p className="text-sm text-sand-700 mt-2">Ces informations apparaîtront sur toutes les factures. Capturées au moment de l&apos;émission pour conformité légale.</p>
       </div>
-
-      {saved && (
-        <div className="mb-6 p-4 rounded-md bg-emerald-50 border border-emerald-200 text-sm text-emerald-900">
-          ✅ Informations société enregistrées.
-        </div>
-      )}
 
       <Card>
         <CardBody>
@@ -205,7 +199,7 @@ export default async function SocietePage({ searchParams }: { searchParams: Prom
             </div>
 
             <div className="flex justify-end pt-3 border-t border-sand-200">
-              <Button type="submit">Enregistrer les paramètres</Button>
+              <SubmitButton>Enregistrer les paramètres</SubmitButton>
             </div>
           </form>
         </CardBody>

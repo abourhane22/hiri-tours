@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label, Select } from "@/components/ui/input";
 import { updateAffectation } from "@/app/admin/reservations/[id]/affectation-actions";
 import { AlertTriangle, Truck, User, Edit } from "lucide-react";
+import { useToast } from "@/components/ui/toaster";
 
 type Vehicle = { id: string; registration: string; make: string | null; model: string | null; capacity: number };
 type Staff = { id: string; full_name: string; role: string };
@@ -26,6 +27,7 @@ export function AffectationForm(props: Props) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const showGuide = props.showGuide !== false;
   const guides = props.staff.filter((s) => s.role === "guide" || s.role === "both");
   const drivers = props.staff.filter((s) => s.role === "driver" || s.role === "both");
@@ -34,10 +36,18 @@ export function AffectationForm(props: Props) {
     setPending(true);
     setError(null);
     try {
-      await updateAffectation(props.reservationId, formData);
-      setOpen(false);
-    } catch (e: any) {
-      setError(e?.message || "Erreur lors de la sauvegarde");
+      const res = await updateAffectation(props.reservationId, formData);
+      if (res.ok) {
+        toast.success(res.message ?? "Logistique mise à jour");
+        setOpen(false);
+      } else {
+        setError(res.error);
+        toast.error(res.error, res.field);
+      }
+    } catch {
+      const msg = "Affectation non enregistrée — erreur réseau ou serveur, réessayez.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setPending(false);
     }

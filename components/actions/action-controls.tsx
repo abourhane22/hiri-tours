@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Printer, UserPlus, Loader2 } from "lucide-react";
 import { assignTask, markInfosRead, snoozeTask, unsnoozeTask } from "@/app/admin/notification-actions";
 import { agencyTime } from "@/lib/tz";
+import { useToast } from "@/components/ui/toaster";
 
 export type StaffOption = { id: string; name: string };
 
@@ -23,12 +24,18 @@ export function AssignCell({ taskKey, assignee, staff }: { taskKey: string; assi
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
 
   function onChange(value: string) {
     setError(null);
     startTransition(async () => {
       const res = await assignTask(taskKey, value === "" ? null : value);
-      if (!res.ok) return setError(res.error);
+      if (!res.ok) {
+        setError(res.error);
+        toast.error(res.error);
+        return;
+      }
+      toast.success(value === "" ? "Tâche désassignée" : `Tâche assignée à ${staff.find((s) => s.id === value)?.name ?? "l'équipe"}`);
       setEditing(false);
       router.refresh();
     });
@@ -90,14 +97,15 @@ export function SnoozeButton({ taskKey, snoozedUntil }: { taskKey: string; snooz
   const router = useRouter();
   const [until, setUntil] = useState<string | null>(snoozedUntil && Date.parse(snoozedUntil) > Date.now() ? snoozedUntil : null);
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
 
   function snooze() {
     startTransition(async () => {
       const res = await snoozeTask(taskKey);
-      if (res.ok) {
-        setUntil(res.until);
-        router.refresh();
-      }
+      if (!res.ok) return void toast.error(res.error);
+      setUntil(res.until);
+      toast.show({ type: "success", message: `Reportée à demain ${agencyTime(res.until)}`, action: { label: "Annuler", onClick: undo } });
+      router.refresh();
     });
   }
   function undo() {

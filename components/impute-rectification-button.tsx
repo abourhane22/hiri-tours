@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/toaster";
 import { useRouter } from "next/navigation";
 import { FileCheck2, Loader2 } from "lucide-react";
 import { imputeRectificationAction } from "@/app/admin/avoirs/actions";
@@ -19,6 +20,7 @@ export function ImputeRectificationButton({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [isPending, startTransition] = useTransition();
 
   function onClick() {
@@ -33,7 +35,12 @@ export function ImputeRectificationButton({
     setError(null);
     startTransition(async () => {
       const res = await imputeRectificationAction(creditNoteId);
-      if (!res.ok) return setError(res.error);
+      if (!res.ok) {
+        setError(res.error);
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`Avoir ${creditNoteNumber} imputé sur la facture ${invoiceNumber}`);
       router.refresh();
     });
   }

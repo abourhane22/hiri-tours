@@ -76,6 +76,16 @@ Neutres et états récurrents :
 - **Sidebar** (`components/admin-sidebar.tsx`) : fond navy, groupes en petites capitales `#8B92A5`, entrée active `#2A3142` ;
   structure unique dans **`lib/admin-nav.ts`**. Topbar blanche (`components/admin-topbar.tsx`) avec recherche et cloche.
 - Bandeaux : `components/ui/alert-banner.tsx` ; erreurs de requête : `components/query-error.tsx`.
+- **Retour d'enregistrement — système UNIQUE de toasts** (`components/ui/toaster.tsx`, monté dans la coque admin) :
+  bas à droite, empilables, succès 4 s, erreurs jusqu'à fermeture, `role="status"` / `role="alert"`.
+  - Formulaire serveur (`<form action={…}>`) : action enveloppée dans **`formAction(libellé, fn)`** (`lib/flash.ts`),
+    validations en **`throw new ActionError(message, champ)`**, `fn` renvoie l'URL de redirection ; bouton **`SubmitButton`**
+    (`components/ui/submit-button.tsx` : « Enregistrement… », désactivé pendant l'envoi).
+  - Formulaire client (`useActionState`) : l'action renvoie `{ ok, error, field, message }` et le composant appelle
+    **`useActionFeedback(state, null)`** ; si le formulaire disparaît au succès (carte remplacée), émettre le toast
+    DANS l'action enveloppée, pas dans un effet.
+  - Action qui redirige : **`flashSuccess()`** avant `redirect()` ; navigation client : `toast.success()` avant `router.push()`.
+  - Jamais d'exception levée vers l'utilisateur depuis une server action (Next masque son message en production).
 - Impression : `print:hidden` sur la navigation et les contrôles ; styles globaux `@media print` dans `app/globals.css`.
 
 ### Règles d'interface

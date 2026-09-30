@@ -10,6 +10,7 @@ import { AdminTopbar } from "@/components/admin-topbar";
 import { SETTINGS_ITEM, leafIsActive, childIsActive } from "@/lib/admin-nav";
 import { userCan, ROLE_LABELS, type UserRole } from "@/lib/permissions";
 import type { NotificationsData } from "@/lib/tasks";
+import { ToastProvider } from "@/components/ui/toaster";
 
 const STORAGE_KEY = "hiri.admin.sidebar.collapsed";
 
@@ -65,6 +66,7 @@ export function AdminShell({
   }, [mobileOpen]);
 
   return (
+    <ToastProvider>
     <div className="flex min-h-screen bg-sand-50">
       <AdminSidebar user={user} counts={counts} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
       <div className="flex-1 min-w-0 flex flex-col">
@@ -73,6 +75,7 @@ export function AdminShell({
       </div>
       {mobileOpen && <MobileNav user={user} counts={counts} pathname={pathname} onClose={() => setMobileOpen(false)} />}
     </div>
+    </ToastProvider>
   );
 }
 

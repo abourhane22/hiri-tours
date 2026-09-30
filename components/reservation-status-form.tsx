@@ -6,6 +6,7 @@ import { Label, Select } from "@/components/ui/input";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { Info, Lock } from "lucide-react";
 import { updateStatus, type ActionResult } from "@/app/admin/reservations/[id]/actions";
+import { useToast } from "@/components/ui/toaster";
 
 type Props = {
   reservationId: string;
@@ -49,6 +50,8 @@ export function ReservationStatusForm({
     timerRef.current = setTimeout(() => setFeedback(null), ms);
   }
 
+  const toast = useToast();
+
   function handleSubmit(formData: FormData) {
     if (isPending) return;
     setFeedback(null);
@@ -56,14 +59,13 @@ export function ReservationStatusForm({
       const result: ActionResult<{ status: string; label: string }> =
         await updateStatus(reservationId, null, formData);
       if (result.ok) {
-        setFeedback({
-          tone: "success",
-          message: `Statut mis à jour : ${result.label}`,
-        });
-        scheduleClear(4000);
+        toast.success(`Statut mis à jour : ${result.label}`);
+        setFeedback(null);
       } else {
+        // Erreur : toast persistant + rappel inline près du formulaire.
+        toast.error(result.error);
         setFeedback({ tone: "error", message: result.error });
-        scheduleClear(6000);
+        scheduleClear(8000);
       }
     });
   }

@@ -4,10 +4,11 @@
 // (hébergement). Session staff, dossier non annulé.
 
 import { revalidatePath } from "next/cache";
+import { agencyInstant } from "@/lib/tz";
 import { createClient } from "@/lib/supabase/server";
 import { MEAL_PLAN_LABEL } from "@/lib/dossier-profile";
 
-export type SpecialActionState = { ok: true; savedAt?: number } | { ok: false; error: string };
+export type SpecialActionState = { ok: true; savedAt?: number; message?: string } | { ok: false; error: string; field?: string | null };
 
 async function ctx(reservationId: string) {
   const supabase = await createClient();
@@ -30,17 +31,20 @@ export async function updateArrivalInfo(reservationId: string, _prev: SpecialAct
   const time = ((formData.get("arrival_time") as string) || "").trim();
   let at: string | null = null;
   if (date || time) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return { ok: false, error: "Indiquez la date ET l'heure d'arrivée." };
-    const d = new Date(`${date}T${time}:00`);
-    if (isNaN(d.getTime())) return { ok: false, error: "Heure d'arrivée invalide." };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: "Indiquez la date ET l'heure d'arrivée.", field: "arrival_date" };
+    if (!/^\d{2}:\d{2}$/.test(time)) return { ok: false, error: "Indiquez la date ET l'heure d'arrivée.", field: "arrival_time" };
+    // Heure saisie = heure de Casablanca (le serveur tourne en UTC).
+    const [hh, mm] = time.split(":").map(Number);
+    const d = agencyInstant(date, hh, mm);
+    if (isNaN(d.getTime())) return { ok: false, error: "Heure d'arrivée invalide.", field: "arrival_time" };
     at = d.toISOString();
   }
-  if (flight && !/^[A-Z0-9]{2,3} ?\d{1,4}[A-Z]?$/.test(flight)) return { ok: false, error: "N° de vol invalide (ex. AT 1234, RAM123)." };
+  if (flight && !/^[A-Z0-9]{2,3} ?\d{1,4}[A-Z]?$/.test(flight)) return { ok: false, error: "N° de vol invalide (ex. AT 1234, RAM123).", field: "arrival_flight_number" };
   const { error } = await c.supabase.from("reservations").update({ arrival_flight_number: flight || null, arrival_flight_at: at }).eq("id", reservationId);
   if (error) return { ok: false, error: "Impossible d'enregistrer l'arrivée." };
   revalidatePath(`/admin/reservations/${reservationId}`);
   revalidatePath("/admin/manifestes", "layout");
-  return { ok: true, savedAt: Date.now() };
+  return { ok: true, savedAt: Date.now(), message: "Arrivée enregistrée" };
 }
 
 /** Hébergement : régime. Check-in/out dérivent de la date de départ et des nuits (non modifiables ici). */
@@ -48,9 +52,9 @@ export async function updateStayInfo(reservationId: string, _prev: SpecialAction
   const c = await ctx(reservationId);
   if (!c.ok) return c;
   const meal = ((formData.get("meal_plan") as string) || "").trim();
-  if (meal && !(meal in MEAL_PLAN_LABEL)) return { ok: false, error: "Régime invalide." };
+  if (meal && !(meal in MEAL_PLAN_LABEL)) return { ok: false, error: "Régime invalide.", field: "meal_plan" };
   const { error } = await c.supabase.from("reservations").update({ meal_plan: meal || null }).eq("id", reservationId);
   if (error) return { ok: false, error: "Impossible d'enregistrer le séjour." };
   revalidatePath(`/admin/reservations/${reservationId}`);
-  return { ok: true, savedAt: Date.now() };
+  return { ok: true, savedAt: Date.now(), message: "Séjour enregistré" };
 }

@@ -7,7 +7,7 @@ import type { TravelerType } from "@/lib/types";
 
 // `savedAt` change à chaque succès : le formulaire client s'en sert pour se
 // refermer (useActionState ne signale pas autrement une soumission réussie).
-export type TravelerActionState = { ok: true; savedAt?: number } | { ok: false; error: string };
+export type TravelerActionState = { ok: true; savedAt?: number; message?: string } | { ok: false; error: string; field?: string | null };
 
 /**
  * Contexte commun : session staff + dossier lisible (RLS) + dossier non annulé.
@@ -33,7 +33,7 @@ async function staffContext(reservationId: string) {
   return { ok: true as const, supabase, resa: resa as any };
 }
 
-function readTravelerFields(formData: FormData): { ok: true; data: Record<string, unknown> } | { ok: false; error: string } {
+function readTravelerFields(formData: FormData): { ok: true; data: Record<string, unknown> } | { ok: false; error: string; field?: string | null } {
   const fullName = ((formData.get("full_name") as string) || "").trim();
   const type = ((formData.get("traveler_type") as string) || "adult") as TravelerType;
   const dob = ((formData.get("date_of_birth") as string) || "").trim();
@@ -41,25 +41,25 @@ function readTravelerFields(formData: FormData): { ok: true; data: Record<string
   const passport = ((formData.get("passport_number") as string) || "").trim();
   const notes = ((formData.get("notes") as string) || "").trim();
 
-  if (!fullName) return { ok: false, error: "Le nom du voyageur est obligatoire." };
-  if (type !== "adult" && type !== "child") return { ok: false, error: "Type de voyageur invalide." };
+  if (!fullName) return { ok: false, error: "Le nom du voyageur est obligatoire.", field: "full_name" };
+  if (type !== "adult" && type !== "child") return { ok: false, error: "Type de voyageur invalide.", field: "traveler_type" };
   if (dob) {
     const d = new Date(dob);
-    if (isNaN(d.getTime())) return { ok: false, error: "Date de naissance invalide." };
-    if (d.getTime() > Date.now()) return { ok: false, error: "La date de naissance ne peut pas être dans le futur." };
+    if (isNaN(d.getTime())) return { ok: false, error: "Date de naissance invalide.", field: "date_of_birth" };
+    if (d.getTime() > Date.now()) return { ok: false, error: "La date de naissance ne peut pas être dans le futur.", field: "date_of_birth" };
   }
 
   // Exigés par les distributeurs aériens (Duffel) à l'émission — facultatifs ailleurs.
   const genderRaw = ((formData.get("gender") as string) || "").trim();
-  if (genderRaw && genderRaw !== "m" && genderRaw !== "f") return { ok: false, error: "Genre invalide." };
+  if (genderRaw && genderRaw !== "m" && genderRaw !== "f") return { ok: false, error: "Genre invalide.", field: "gender" };
   const passportExpires = ((formData.get("passport_expires_on") as string) || "").trim();
   if (passportExpires) {
     const d = new Date(passportExpires);
-    if (isNaN(d.getTime())) return { ok: false, error: "Date d'expiration du passeport invalide." };
+    if (isNaN(d.getTime())) return { ok: false, error: "Date d'expiration du passeport invalide.", field: "passport_expires_on" };
   }
   // Type de la pièce (cin | passeport). Champ absent du formulaire (profil sans pièce) ⇒ inchangé.
   const docTypeRaw = formData.has("id_document_type") ? ((formData.get("id_document_type") as string) || "").trim() : undefined;
-  if (docTypeRaw && docTypeRaw !== "cin" && docTypeRaw !== "passeport") return { ok: false, error: "Type de pièce invalide." };
+  if (docTypeRaw && docTypeRaw !== "cin" && docTypeRaw !== "passeport") return { ok: false, error: "Type de pièce invalide.", field: "id_document_type" };
 
   return {
     ok: true,
@@ -101,7 +101,7 @@ export async function addTraveler(
     return { ok: false, error: "Impossible d'enregistrer le voyageur." };
   }
   revalidate(reservationId);
-  return { ok: true, savedAt: Date.now() };
+  return { ok: true, savedAt: Date.now(), message: "Voyageur ajouté" };
 }
 
 export async function updateTraveler(
@@ -126,7 +126,7 @@ export async function updateTraveler(
     return { ok: false, error: "Impossible de modifier le voyageur." };
   }
   revalidate(reservationId);
-  return { ok: true, savedAt: Date.now() };
+  return { ok: true, savedAt: Date.now(), message: "Voyageur mis à jour" };
 }
 
 export async function deleteTraveler(reservationId: string, travelerId: string): Promise<TravelerActionState> {
@@ -143,7 +143,7 @@ export async function deleteTraveler(reservationId: string, travelerId: string):
     return { ok: false, error: "Impossible de supprimer le voyageur." };
   }
   revalidate(reservationId);
-  return { ok: true, savedAt: Date.now() };
+  return { ok: true, savedAt: Date.now(), message: "Voyageur retiré" };
 }
 
 /** Raccourci : le client payeur devient voyageur (adulte), nom + nationalité pré-remplis. */
@@ -176,5 +176,5 @@ export async function addPayerAsTraveler(reservationId: string): Promise<Travele
     return { ok: false, error: "Impossible d'ajouter le client payeur." };
   }
   revalidate(reservationId);
-  return { ok: true, savedAt: Date.now() };
+  return { ok: true, savedAt: Date.now(), message: "Client payeur ajouté aux voyageurs" };
 }

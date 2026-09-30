@@ -3,12 +3,14 @@
 import { useState, useTransition } from "react";
 import { Pencil } from "lucide-react";
 import { updateAnnualRevenueTarget } from "./actions";
+import { useToast } from "@/components/ui/toaster";
 
 export function TargetEditor({ currentTarget }: { currentTarget: number }) {
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(String(currentTarget));
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,8 +19,13 @@ export function TargetEditor({ currentTarget }: { currentTarget: number }) {
     formData.append("target", value);
     startTransition(async () => {
       const result = await updateAnnualRevenueTarget(formData);
-      if (result?.error) setError(result.error);
-      else setIsEditing(false);
+      if (result?.error) {
+        setError(result.error);
+        toast.error(result.error, "target");
+      } else {
+        toast.success("Objectif de chiffre d'affaires enregistré");
+        setIsEditing(false);
+      }
     });
   };
 
@@ -37,7 +44,7 @@ export function TargetEditor({ currentTarget }: { currentTarget: number }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex items-center gap-2">
-      <input
+      <input name="target"
         type="number"
         step="1000"
         min="0"

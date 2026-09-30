@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Trash2, AlertTriangle, EyeOff } from "lucide-react";
 import { deleteCircuit, deactivateCircuit } from "@/app/admin/produits/actions";
+import { useToast } from "@/components/ui/toaster";
 
 export function CircuitDangerZone({
   circuitId,
@@ -18,6 +19,7 @@ export function CircuitDangerZone({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const hasReservations = reservationCount > 0;
 
   function handleDelete() {
@@ -33,7 +35,10 @@ export function CircuitDangerZone({
     startTransition(async () => {
       // Succès ⇒ redirection serveur ; échec ⇒ { ok:false, error }.
       const result = await deleteCircuit(circuitId);
-      if (result?.error) setError(result.error);
+      if (result?.error) {
+        setError(result.error);
+        toast.error(result.error);
+      }
     });
   }
 
@@ -41,7 +46,12 @@ export function CircuitDangerZone({
     if (isPending) return;
     setError(null);
     startTransition(async () => {
-      await deactivateCircuit(circuitId);
+      const res = await deactivateCircuit(circuitId);
+      if (res.ok) toast.success(res.message ?? "Produit désactivé");
+      else {
+        setError(res.error);
+        toast.error(res.error);
+      }
       router.refresh();
     });
   }

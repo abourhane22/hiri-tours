@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useActionFeedback } from "@/components/ui/toaster";
 import Link from "next/link";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { AlertBanner } from "@/components/ui/alert-banner";
@@ -46,6 +47,7 @@ export function SupplierForm({
   cancelHref: string;
 }) {
   const [state, formAction, isPending] = useActionState<AchatActionState, FormData>(action, { ok: true });
+  useActionFeedback(state, null);
   const [contacts, setContacts] = useState<SupplierContact[]>(defaults.contacts ?? []);
 
   function updateContact(i: number, patch: Partial<SupplierContact>) {
@@ -55,7 +57,6 @@ export function SupplierForm({
   return (
     <form action={formAction} className="space-y-4">
       {state.ok === false && <AlertBanner tone="error" message={state.error} />}
-      {state.ok && state.savedAt && <AlertBanner tone="success" message="Fournisseur enregistré." />}
 
       {/* Contacts sérialisés pour la server action */}
       <input type="hidden" name="contacts" value={JSON.stringify(contacts.filter((c) => c.name?.trim()))} />

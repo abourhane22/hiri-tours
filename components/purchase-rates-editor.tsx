@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
+import { useActionFeedback, useToast } from "@/components/ui/toaster";
 import { Plus, Trash2, Check, TrendingUp, TrendingDown } from "lucide-react";
 import { formatMAD, formatDateShort } from "@/lib/utils";
 import { indicativeMargin } from "@/lib/purchasing";
@@ -37,6 +38,8 @@ export function PurchaseRatesEditor({
     { ok: true },
   );
 
+  useActionFeedback(state, null);
+  const toast = useToast();
   const byId = new Map(products.map((p) => [p.id, p]));
   // La priorité ne sert qu'à départager des tarifs qui se chevauchent : colonne masquée tant qu'elle vaut 0 partout.
   const showPriority = rates.some((r) => Number(r.priority) !== 0);
@@ -47,7 +50,10 @@ export function PurchaseRatesEditor({
     setRowError(null);
     startTransition(async () => {
       const res = await deletePurchaseRate(supplierId, contractId, rate.id);
-      if (!res.ok) setRowError(res.error);
+      if (!res.ok) {
+        setRowError(res.error);
+        toast.error(res.error);
+      } else toast.success(res.message ?? "Tarif d'achat supprimé");
     });
   }
 

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Send, Loader2, AlertTriangle, Ban, CircleCheck } from "lucide-react";
 import { issueOrderAction, cancelOrderAction, type OrderActionResult, type CancelOrderResult } from "@/app/admin/billetterie/order-actions";
+import { useToast } from "@/components/ui/toaster";
 
 export function DistributionActions({
   bookingId,
@@ -23,6 +24,7 @@ export function DistributionActions({
   const [isPending, startTransition] = useTransition();
   const [issue, setIssue] = useState<OrderActionResult | null>(null);
   const [cancel, setCancel] = useState<CancelOrderResult | null>(null);
+  const toast = useToast();
 
   function onIssue() {
     if (!confirm("Émettre l'ordre auprès de Duffel avec les voyageurs du dossier ?\n\nEnvironnement de test : aucun billet réel, aucun paiement.")) return;
@@ -30,7 +32,10 @@ export function DistributionActions({
     startTransition(async () => {
       const res = await issueOrderAction(bookingId);
       setIssue(res);
-      if (res.ok) router.refresh();
+      if (res.ok) {
+        toast.success(`Billet émis${res.bookingReference ? ` — réf. ${res.bookingReference}` : ""}`);
+        router.refresh();
+      } else toast.error(res.error);
     });
   }
 
@@ -40,7 +45,10 @@ export function DistributionActions({
     startTransition(async () => {
       const res = await cancelOrderAction(bookingId);
       setCancel(res);
-      if (res.ok) router.refresh();
+      if (res.ok) {
+        toast.success("Ordre annulé");
+        router.refresh();
+      } else toast.error(res.error);
     });
   }
 

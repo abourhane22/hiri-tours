@@ -3,9 +3,11 @@
 import { useTransition } from "react";
 import { Trash2 } from "lucide-react";
 import { deleteUser } from "./actions";
+import { useToast } from "@/components/ui/toaster";
 
 export function DeleteUserButton({ userId, userName }: { userId: string; userName: string }) {
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
 
   function handleClick() {
     if (!confirm(`⚠️ Supprimer définitivement ${userName} ?\n\nCette action est irréversible. Le compte sera retiré et l'utilisateur ne pourra plus se connecter.`)) {
@@ -13,9 +15,8 @@ export function DeleteUserButton({ userId, userName }: { userId: string; userNam
     }
     startTransition(async () => {
       const result = await deleteUser(userId);
-      if (!result.ok) {
-        alert(`Erreur : ${result.error}`);
-      }
+      if (!result.ok) toast.error(result.error ?? "Suppression impossible.");
+      else toast.success(`${userName} supprimé`);
     });
   }
 

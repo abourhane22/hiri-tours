@@ -1,10 +1,17 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { ActionError, formAction } from "@/lib/flash";
 
 export async function updateCompanySettings(id: string, formData: FormData) {
+  return formAction("Paramètres enregistrés", async () => {
+  const tvaRaw = parseFloat((formData.get("tva_default_rate") as string) || "");
+  if (!Number.isFinite(tvaRaw) || tvaRaw < 0 || tvaRaw > 100) throw new ActionError("Taux de TVA invalide (0 à 100 %).", "tva_default_rate");
+  const feePct = ((formData.get("ticketing_fee_pct") as string) || "").trim();
+  if (feePct && !(Number(feePct.replace(",", ".")) >= 0 && Number(feePct.replace(",", ".")) <= 100)) {
+    throw new ActionError("Pourcentage de frais billetterie invalide (0 à 100).", "ticketing_fee_pct");
+  }
   const payload = {
     legal_name: ((formData.get("legal_name") as string) || "").trim() || "Hiri Tours SARL",
     commercial_name: ((formData.get("commercial_name") as string) || "").trim() || "Hiri Tours",
@@ -60,9 +67,9 @@ export async function updateCompanySettings(id: string, formData: FormData) {
 
   const supabase = await createClient();
   const { error } = await supabase.from("company_settings").update(payload).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(`Paramètres non enregistrés : ${error.message}`);
 
   revalidatePath("/admin/parametres");
   revalidatePath("/admin/parametres/societe");
-  redirect("/admin/parametres/societe?saved=1");
+  });
 }

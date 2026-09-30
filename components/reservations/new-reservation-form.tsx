@@ -48,6 +48,7 @@ import type { Customer, CircuitCategory, SaleUnit } from "@/lib/types";
 import { MEAL_PLANS, stayDates } from "@/lib/dossier-profile";
 import { AvailabilityCalendar, dayInfo, type CalendarSeason } from "@/components/reservations/availability-calendar";
 import { createReservation } from "@/app/admin/reservations/new/actions";
+import { useToast } from "@/components/ui/toaster";
 import { loadCustomerSummary, checkDuplicateDossier, type CustomerSummary, type DuplicateDossier, type MonthAvailability } from "@/app/admin/reservations/new/data-actions";
 import { sendBookingConfirmationAction } from "@/app/admin/reservations/[id]/email-actions";
 
@@ -176,6 +177,7 @@ export function NewReservationForm({ products }: { products: BookingProduct[] })
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   // --- Effets de chargement (à l'action de l'utilisateur uniquement)
   useEffect(() => {
@@ -306,6 +308,7 @@ export function NewReservationForm({ products }: { products: BookingProduct[] })
     });
     if (!res.ok) {
       setError(res.error);
+      toast.error(res.error);
       setSubmitting(false);
       return;
     }
@@ -314,6 +317,7 @@ export function NewReservationForm({ products }: { products: BookingProduct[] })
     try {
       sessionStorage.setItem(`hiri.created.${res.id}`, JSON.stringify({ followups: res.followups, linkUrl: res.linkUrl, onRequest: res.onRequest }));
     } catch {}
+    toast.success(`Dossier ${res.reference} créé`);
     router.push(`/admin/reservations/${res.id}?created=1`);
   }
 
