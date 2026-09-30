@@ -6,14 +6,14 @@ import { useEffect, useRef } from "react";
 import { Menu, Search, ChevronRight } from "lucide-react";
 import { NotificationBell } from "@/components/notification-bell";
 import { breadcrumbFor, detailLabel } from "@/lib/admin-nav";
-import type { AppNotification } from "@/lib/notifications";
+import type { NotificationsData } from "@/lib/tasks";
 
 /**
  * Bandeau supérieur blanc, sticky : fil d'Ariane, recherche globale
  * (→ liste des dossiers ?q=, Ctrl/⌘+K), cloche de notifications.
  * Aucun lien de navigation ici — c'est le rôle de la sidebar.
  */
-export function AdminTopbar({ notifications, onOpenMenu }: { notifications: AppNotification[]; onOpenMenu: () => void }) {
+export function AdminTopbar({ notifications, onOpenMenu }: { notifications: NotificationsData | null; onOpenMenu: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);

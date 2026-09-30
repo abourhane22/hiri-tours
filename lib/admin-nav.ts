@@ -21,6 +21,7 @@ import {
   Wallet,
   BarChart3,
   Settings,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 import type { Permission } from "@/lib/permissions";
@@ -81,6 +82,7 @@ export const ADMIN_NAV: NavGroup[] = [
   {
     label: "Exploitation",
     items: [
+      { href: "/admin/actions", label: "Centre d'actions", icon: ListChecks, permission: "viewActions" },
       { href: "/admin/calendrier", label: "Calendrier", icon: Calendar, permission: "viewCalendrier" },
       { href: "/admin/manifestes", label: "Manifestes", icon: FileText, permission: "viewManifestes" },
       { href: "/admin/logistique", label: "Logistique", icon: Truck, permission: "viewLogistique" },

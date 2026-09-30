@@ -21,6 +21,7 @@ export type Permission =
   | "viewReservations"
   | "viewCalendrier"
   | "viewManifestes"
+  | "viewActions"
   | "viewClients"
   | "viewCircuits"
   | "viewLogistique"
@@ -36,6 +37,8 @@ const PERMISSIONS: Record<Permission, UserRole[]> = {
   viewReservations:["admin", "commercial"],
   viewCalendrier:  ["admin", "commercial"],
   viewManifestes:  ["admin", "commercial", "guide"],
+  // Centre d'actions : l'équipe (mêmes rôles que public.is_staff()).
+  viewActions:     ["admin", "commercial", "comptable"],
   viewClients:     ["admin", "commercial"],
   viewCircuits:    ["admin", "commercial"],
   viewLogistique:  ["admin"],
@@ -66,6 +69,7 @@ export const ROUTE_PERMISSIONS: { prefix: string; permission: Permission }[] = [
   { prefix: "/admin/reservations", permission: "viewReservations" },
   { prefix: "/admin/calendrier", permission: "viewCalendrier" },
   { prefix: "/admin/manifestes", permission: "viewManifestes" },
+  { prefix: "/admin/actions",    permission: "viewActions" },
 ];
 
 export const PERMISSIONS_MATRIX: { permission: Permission; label: string }[] = [
@@ -73,6 +77,7 @@ export const PERMISSIONS_MATRIX: { permission: Permission; label: string }[] = [
   { permission: "viewReservations", label: "Réservations" },
   { permission: "viewCalendrier",   label: "Calendrier" },
   { permission: "viewManifestes",   label: "Manifestes" },
+  { permission: "viewActions",      label: "Centre d'actions" },
   { permission: "viewClients",      label: "Clients" },
   { permission: "viewCircuits",     label: "Catalogue produits" },
   { permission: "viewLogistique",   label: "Logistique" },

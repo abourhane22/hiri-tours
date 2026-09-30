@@ -751,7 +751,7 @@ export default async function ReservationDetailPage({
 
           {/* b'''. CARTE SPÉCIALE DU PROFIL — Arrivée (transfert) / Séjour (hébergement) */}
           {profile.extraCard === "arrival" && (
-            <InfoCard icon={Plane} label="Arrivée">
+            <InfoCard icon={Plane} label="Arrivée" anchor="arrivee">
               <ArrivalCard
                 reservationId={id}
                 departureDate={r.departure_date}
@@ -857,6 +857,7 @@ export default async function ReservationDetailPage({
           <InfoCard
             icon={Banknote}
             label="Paiements"
+            anchor="paiements"
             headerRight={
               isSettled ? (
                 <span
@@ -1100,7 +1101,7 @@ export default async function ReservationDetailPage({
 
           {/* e. LOGISTIQUE — masquée quand le profil n'attend aucune ressource (hébergement, billetterie) */}
           {(profile.logistics.vehicle || profile.logistics.driver || profile.logistics.guide) && (
-          <InfoCard icon={Truck} label="Logistique">
+          <InfoCard icon={Truck} label="Logistique" anchor="logistique">
             {isCancelled ? (
               <div className="space-y-1.5">
                 <p className="text-[12px] text-[#968F84]">
@@ -1154,7 +1155,7 @@ export default async function ReservationDetailPage({
           )}
 
           {/* f. STATUT */}
-          <InfoCard icon={RefreshCw} label="Statut du dossier">
+          <InfoCard icon={RefreshCw} label="Statut du dossier" anchor="statut">
             <ReservationStatusForm
               reservationId={id}
               currentStatus={status}
@@ -1198,15 +1199,18 @@ function InfoCard({
   icon: Icon,
   label,
   headerRight,
+  anchor,
   children,
 }: {
   icon: typeof Clock;
   label: string;
   headerRight?: React.ReactNode;
+  /** Ancre de la carte (liens directs du centre d'actions : #logistique, #arrivee, #paiements, #statut). */
+  anchor?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white border border-[#E5E0D7] rounded-xl p-4">
+    <div id={anchor} className="bg-white border border-[#E5E0D7] rounded-xl p-4 scroll-mt-20">
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-1.5">
           <Icon className="size-[13px] text-[#968F84]" />

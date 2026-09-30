@@ -9,7 +9,7 @@ import { AdminSidebar, Monogram, initials, visibleNav, type SidebarUser, type Na
 import { AdminTopbar } from "@/components/admin-topbar";
 import { SETTINGS_ITEM, leafIsActive, childIsActive } from "@/lib/admin-nav";
 import { userCan, ROLE_LABELS, type UserRole } from "@/lib/permissions";
-import type { AppNotification } from "@/lib/notifications";
+import type { NotificationsData } from "@/lib/tasks";
 
 const STORAGE_KEY = "hiri.admin.sidebar.collapsed";
 
@@ -26,7 +26,7 @@ export function AdminShell({
 }: {
   user: SidebarUser;
   counts: NavCounts;
-  notifications: AppNotification[];
+  notifications: NotificationsData | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();

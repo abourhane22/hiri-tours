@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { AdminShell } from "@/components/admin-shell";
 import { IdleWarning } from "@/components/idle-warning";
-import { computeNotifications, type AppNotification } from "@/lib/notifications";
+import { getNotificationsForRequest } from "@/lib/notifications";
+import type { NotificationsData } from "@/lib/tasks";
 
 export default async function AdminLayout({
   children,
@@ -18,14 +19,15 @@ export default async function AdminLayout({
     : { data: null };
 
   // Notifications calculées à la volée au chargement du layout (source serveur).
-  let notifications: AppNotification[] = [];
+  let notifications: NotificationsData | null = null;
   // Pastille « à traiter » de l'entrée Réservations : dossiers en attente.
   let pending = 0;
   if (user) {
     try {
-      notifications = await computeNotifications(supabase, user.id);
-    } catch {
-      notifications = [];
+      notifications = await getNotificationsForRequest(user.id, (profile as any)?.role ?? null);
+    } catch (e) {
+      console.error("[layout] centre d'actions :", e);
+      notifications = null;
     }
     const { count } = await supabase.from("reservations").select("id", { count: "exact", head: true }).eq("status", "pending");
     pending = count ?? 0;

@@ -1,68 +1,47 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Bell, Truck, Banknote, Calendar, Boxes, X, ChevronRight } from "lucide-react";
-import type { AppNotification, NotifFamily, NotifPriority } from "@/lib/notifications";
-import { fetchNotifications, markNotificationsRead } from "@/app/admin/notification-actions";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
+import { Bell, X, ChevronDown, CircleCheck, Printer } from "lucide-react";
+import {
+  FAMILIES,
+  FAMILY_META,
+  PRIORITY_META,
+  badgeCount,
+  isMine,
+  isUrgent,
+  type InfoItem,
+  type NotificationsData,
+  type Task,
+  type TaskFamily,
+} from "@/lib/tasks";
+import { agencyTime } from "@/lib/tz";
+import { fetchNotifications, markInfosRead, snoozeTask, unsnoozeTask } from "@/app/admin/notification-actions";
+import { FamilyIcon, InfoIcon } from "@/components/actions/task-visuals";
 
-const PRIORITY_STYLE: Record<NotifPriority, { border: string; iconBg: string; icon: string }> = {
-  terracotta: { border: "#C84B31", iconBg: "#FBEBE6", icon: "#C84B31" },
-  amber: { border: "#D98324", iconBg: "#FAEEDA", icon: "#B25F0B" },
-  info: { border: "#0C447C", iconBg: "#E6F1FB", icon: "#0C447C" },
-  success: { border: "#0F6E56", iconBg: "#E1F5EE", icon: "#0F6E56" },
-};
+type Segment = "todo" | "infos";
 
-const FAMILY_ICON: Record<NotifFamily, typeof Truck> = {
-  logistique: Truck,
-  paiements: Banknote,
-  reservations: Calendar,
-  stock: Boxes,
-};
-
-const TABS: { key: "all" | NotifFamily; label: string }[] = [
-  { key: "all", label: "Toutes" },
-  { key: "logistique", label: "Logistique" },
-  { key: "paiements", label: "Paiements" },
-  { key: "reservations", label: "Réservations" },
-  { key: "stock", label: "Stock" },
-];
-
-function isActionable(n: AppNotification) {
-  return n.priority === "terracotta" || n.priority === "amber";
-}
-
-const rtf = new Intl.RelativeTimeFormat("fr", { numeric: "auto" });
-function relative(iso: string): string {
-  const diff = new Date(iso).getTime() - Date.now();
-  const abs = Math.abs(diff);
-  const units: [Intl.RelativeTimeFormatUnit, number][] = [
-    ["day", 86_400_000],
-    ["hour", 3_600_000],
-    ["minute", 60_000],
-  ];
-  for (const [unit, ms] of units) {
-    if (abs >= ms || unit === "minute") return rtf.format(Math.round(diff / ms), unit);
-  }
-  return "";
-}
-
-export function NotificationBell({ initial, variant = "dark" }: { initial: AppNotification[]; variant?: "dark" | "light" }) {
-  const router = useRouter();
-  const [notifs, setNotifs] = useState<AppNotification[]>(initial);
+/**
+ * Cloche du bandeau : des TÂCHES À RÉSOUDRE, pas des messages à lire.
+ * La pastille compte les tâches ouvertes non reportées, non assignées ou
+ * assignées à moi. Les informations se marquent comme lues et ne comptent pas.
+ */
+export function NotificationBell({ initial, variant = "dark" }: { initial: NotificationsData | null; variant?: "dark" | "light" }) {
+  const [data, setData] = useState<NotificationsData | null>(initial);
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"all" | NotifFamily>("all");
+  const [segment, setSegment] = useState<Segment>("todo");
+  const [family, setFamily] = useState<"all" | TaskFamily>("all");
+  const [toast, setToast] = useState<{ key: string; until: string } | null>(null);
+  const [, startTransition] = useTransition();
   const wrapRef = useRef<HTMLDivElement>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const badge = notifs.filter((n) => isActionable(n) && !n.read).length;
-
-  const familyCount = (key: "all" | NotifFamily) =>
-    key === "all" ? notifs.length : notifs.filter((n) => n.family === key).length;
+  useEffect(() => setData(initial), [initial]);
 
   useEffect(() => {
     if (!open) return;
-    // Recalcul à chaque ouverture (source de vérité serveur).
-    fetchNotifications().then(setNotifs).catch(() => {});
+    // Un calcul serveur par ouverture du panneau (source de vérité).
+    fetchNotifications().then((d) => d && setData(d)).catch(() => {});
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
@@ -77,127 +56,204 @@ export function NotificationBell({ initial, variant = "dark" }: { initial: AppNo
     };
   }, [open]);
 
-  const visible = useMemo(
-    () => (tab === "all" ? notifs : notifs.filter((n) => n.family === tab)),
-    [notifs, tab],
-  );
-  const actionRequired = visible.filter(isActionable);
-  const recent = visible.filter((n) => !isActionable(n));
+  useEffect(() => () => void (toastTimer.current && clearTimeout(toastTimer.current)), []);
 
-  function markReadLocal(keys: string[]) {
-    setNotifs((prev) => prev.map((n) => (keys.includes(n.key) ? { ...n, read: true } : n)));
-    markNotificationsRead(keys).catch(() => {});
+  const now = Date.now();
+  const mine = useMemo(() => (data ? data.tasks.filter((t) => isMine(t, data.userId, now)) : []), [data, now]);
+  const badge = data ? badgeCount(data, now) : 0;
+  const urgent = mine.filter(isUrgent).length;
+  const infos = data?.infos ?? [];
+  const unreadInfos = infos.filter((i) => !i.read).length;
+  const filtered = family === "all" ? mine : mine.filter((t) => t.family === family);
+  const groups = [
+    { key: "today" as const, label: "Aujourd'hui", items: filtered.filter((t) => t.group === "today") },
+    { key: "week" as const, label: "Cette semaine", items: filtered.filter((t) => t.group === "week") },
+  ].filter((g) => g.items.length > 0);
+
+  function onSnooze(t: Task) {
+    startTransition(async () => {
+      const res = await snoozeTask(t.key);
+      if (!res.ok) return;
+      setData((d) => (d ? { ...d, tasks: d.tasks.map((x) => (x.key === t.key ? { ...x, snoozedUntil: res.until } : x)) } : d));
+      setToast({ key: t.key, until: res.until });
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => setToast(null), 6000);
+    });
   }
 
-  function openNotif(n: AppNotification) {
-    if (!n.read) markReadLocal([n.key]);
-    setOpen(false);
-    router.push(n.href);
+  function onUndo() {
+    if (!toast) return;
+    const key = toast.key;
+    setToast(null);
+    setData((d) => (d ? { ...d, tasks: d.tasks.map((x) => (x.key === key ? { ...x, snoozedUntil: null } : x)) } : d));
+    startTransition(async () => {
+      await unsnoozeTask(key);
+    });
   }
 
-  function markAll() {
-    const keys = notifs.filter((n) => !n.read).map((n) => n.key);
-    if (keys.length) markReadLocal(keys);
+  function markRead(keys: string[]) {
+    if (keys.length === 0) return;
+    setData((d) => (d ? { ...d, infos: d.infos.map((i) => (keys.includes(i.key) ? { ...i, read: true } : i)) } : d));
+    markInfosRead(keys).catch(() => {});
   }
+
+  const bellCls =
+    variant === "light"
+      ? "text-[#1A1F2E] hover:bg-[#FBF9F5] border border-[#E0DACF]"
+      : "text-white/80 hover:text-white hover:bg-white/10";
 
   return (
-    <div className="relative" ref={wrapRef}>
+    <div ref={wrapRef} className="relative">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        aria-label="Notifications"
-        className={`relative rounded-md border flex items-center justify-center transition-colors ${
-          variant === "light"
-            ? "size-9 border-[#E0DACF] text-[#1A1F2E] hover:bg-[#FBF9F5]"
-            : "size-8 border-navy-400/50 text-navy-100 hover:bg-navy-600"
-        }`}
+        aria-label={badge > 0 ? `Notifications — ${badge} action${badge > 1 ? "s" : ""} à traiter` : "Notifications"}
+        aria-expanded={open}
+        className={`relative inline-flex size-11 items-center justify-center rounded-md transition-colors ${bellCls}`}
       >
-        <Bell className="size-4" />
+        <Bell className="size-[18px]" />
         {badge > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-terracotta-600 text-white text-[10.5px] font-semibold flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-[#C84B31] text-white text-[11px] font-semibold leading-5 text-center tabular-nums">
             {badge > 99 ? "99+" : badge}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 bg-black/30 sm:bg-transparent sm:inset-auto sm:absolute sm:right-0 sm:top-full sm:mt-2">
-          <div className="fixed inset-x-0 bottom-0 top-0 sm:static sm:w-[420px] bg-white sm:rounded-xl border border-sand-200 shadow-xl flex flex-col max-h-screen sm:max-h-[75vh] overflow-hidden text-ink">
-            {/* En-tête */}
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-sand-200">
-              <div className="flex items-center gap-2">
-                <h2 className="font-display text-base text-ink">Notifications</h2>
-                {badge > 0 && (
-                  <span className="text-[11px] font-medium text-terracotta-700 bg-terracotta-50 rounded-full px-2 py-0.5">
-                    {badge} à traiter
-                  </span>
-                )}
+        <div
+          role="dialog"
+          aria-label="Notifications"
+          className="fixed inset-0 z-50 flex flex-col bg-white sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[460px] sm:max-h-[min(80vh,720px)] sm:rounded-xl sm:border sm:border-[#E5E0D7] sm:shadow-xl overflow-hidden"
+        >
+          {/* En-tête */}
+          <div className="px-4 pt-4 pb-3 border-b border-[#EEE9E0]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="font-display text-[20px] leading-tight tracking-[-0.02em] text-[#1A1F2E] m-0">Notifications</h2>
+                <p className="text-[12px] text-[#6B6862] mt-0.5">
+                  {mine.length === 0
+                    ? "Aucune action en attente"
+                    : `${mine.length} action${mine.length > 1 ? "s" : ""}${urgent > 0 ? ` · dont ${urgent} urgente${urgent > 1 ? "s" : ""}` : ""}`}
+                </p>
               </div>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={markAll}
-                  className="text-[12px] text-sand-700 hover:text-ink px-2 py-1 rounded hover:bg-sand-50"
+              <div className="flex items-center gap-1 shrink-0">
+                <Link
+                  href="/admin/actions"
+                  onClick={() => setOpen(false)}
+                  className="inline-flex h-11 items-center rounded-md px-3 text-[12.5px] font-medium text-[#0C6B8A] hover:bg-[#F2F8FA]"
                 >
-                  Tout marquer comme lu
-                </button>
+                  Tout voir
+                </Link>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="sm:hidden size-8 rounded-md flex items-center justify-center text-sand-700 hover:bg-sand-50"
                   aria-label="Fermer"
+                  className="inline-flex size-11 items-center justify-center rounded-md text-[#6B6862] hover:bg-[#FBF9F5]"
                 >
                   <X className="size-4" />
                 </button>
               </div>
             </div>
 
-            {/* Onglets */}
-            <div className="flex gap-1 px-3 py-2 border-b border-sand-200 overflow-x-auto">
-              {TABS.map((t) => {
-                const active = tab === t.key;
-                const count = familyCount(t.key);
-                return (
-                  <button
-                    key={t.key}
-                    type="button"
-                    onClick={() => setTab(t.key)}
-                    className={`shrink-0 rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors ${
-                      active ? "bg-navy-700 text-white" : "text-sand-700 hover:bg-sand-100"
-                    }`}
-                  >
-                    {t.label}
-                    {count > 0 && <span className={active ? "opacity-80" : "text-sand-500"}> · {count}</span>}
-                  </button>
-                );
-              })}
+            {/* Contrôle segmenté */}
+            <div role="tablist" className="mt-3 grid grid-cols-2 rounded-lg bg-[#F1EFE8] p-1">
+              {(
+                [
+                  { key: "todo", label: `À faire · ${mine.length}` },
+                  { key: "infos", label: `Informations · ${infos.length}` },
+                ] as const
+              ).map((s) => (
+                <button
+                  key={s.key}
+                  role="tab"
+                  aria-selected={segment === s.key}
+                  type="button"
+                  onClick={() => setSegment(s.key)}
+                  className={`h-10 rounded-md text-[13px] font-medium transition-colors ${
+                    segment === s.key ? "bg-white text-[#1A1F2E] shadow-sm" : "text-[#6B6862] hover:text-[#1A1F2E]"
+                  }`}
+                >
+                  {s.label}
+                  {s.key === "infos" && unreadInfos > 0 && segment !== "infos" && (
+                    <span className="ml-1.5 inline-block size-1.5 rounded-full bg-[#0C6B8A] align-middle" aria-label={`${unreadInfos} non lues`} />
+                  )}
+                </button>
+              ))}
             </div>
+          </div>
 
-            {/* Liste */}
-            <div className="flex-1 overflow-y-auto">
-              {visible.length === 0 ? (
-                <p className="text-sm text-sand-600 text-center py-12 px-4">
-                  Rien à signaler pour l&apos;instant.
-                </p>
-              ) : (
-                <>
-                  {actionRequired.length > 0 && (
-                    <Group title="Action requise">
-                      {actionRequired.map((n) => (
-                        <NotifRow key={n.key} n={n} onOpen={openNotif} />
-                      ))}
-                    </Group>
-                  )}
-                  {recent.length > 0 && (
-                    <Group title="Activité récente">
-                      {recent.map((n) => (
-                        <NotifRow key={n.key} n={n} onOpen={openNotif} />
-                      ))}
-                    </Group>
-                  )}
-                </>
-              )}
+          {/* Corps */}
+          <div className="flex-1 overflow-y-auto">
+            {segment === "todo" ? (
+              <>
+                <div className="flex gap-1.5 overflow-x-auto px-4 py-2.5 border-b border-[#F1EDE5]">
+                  {(["all", ...FAMILIES] as const).map((f) => {
+                    const n = f === "all" ? mine.length : mine.filter((t) => t.family === f).length;
+                    const active = family === f;
+                    return (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setFamily(f)}
+                        aria-pressed={active}
+                        className={`inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-medium transition-colors ${
+                          active ? "border-[#1A1F2E] bg-[#1A1F2E] text-white" : "border-[#E0DACF] bg-white text-[#58524A] hover:border-[#C9C4BA]"
+                        }`}
+                      >
+                        {f === "all" ? "Tout" : FAMILY_META[f].label}
+                        <span className={`tabular-nums ${active ? "text-white/80" : "text-[#968F84]"}`}>{n}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {groups.length === 0 ? (
+                  <div className="px-6 py-12 text-center">
+                    <CircleCheck className="mx-auto size-8 text-[#0F6E56]" />
+                    <p className="mt-2 text-[13.5px] text-[#1A1F2E] font-medium">Rien à traiter</p>
+                    <p className="text-[12.5px] text-[#6B6862]">Toutes les actions de la journée sont faites.</p>
+                  </div>
+                ) : (
+                  groups.map((g) => (
+                    <section key={g.key}>
+                      <h3 className="sticky top-0 z-10 flex items-center justify-between bg-[#FBF9F5] px-4 py-1.5 text-[10.5px] font-medium uppercase tracking-[1.4px] text-[#968F84] border-b border-[#F1EDE5]">
+                        {g.label}
+                        <span className="tabular-nums">{g.items.length}</span>
+                      </h3>
+                      <ul className="divide-y divide-[#F1EDE5]">
+                        {g.items.map((t) => (
+                          <TaskItem key={t.key} task={t} onSnooze={() => onSnooze(t)} onNavigate={() => setOpen(false)} />
+                        ))}
+                      </ul>
+                    </section>
+                  ))
+                )}
+              </>
+            ) : (
+              <InfoList infos={infos} onRead={markRead} onNavigate={() => setOpen(false)} />
+            )}
+          </div>
+
+          {/* Toast « Plus tard » */}
+          {toast && (
+            <div role="status" className="mx-3 mb-2 flex items-center justify-between gap-3 rounded-lg bg-[#1A1F2E] px-3 py-1 text-[12.5px] text-white">
+              <span>Reportée à demain {agencyTime(toast.until)}</span>
+              <button type="button" onClick={onUndo} className="h-11 px-2 font-medium text-[#F4C38A] hover:underline">
+                Annuler
+              </button>
             </div>
+          )}
+
+          {/* Pied */}
+          <div className="flex items-center justify-between gap-3 border-t border-[#EEE9E0] px-4 py-1">
+            <Link
+              href="/admin/actions"
+              onClick={() => setOpen(false)}
+              className="inline-flex h-11 items-center text-[12.5px] font-medium text-[#1A1F2E] hover:text-[#C84B31]"
+            >
+              Ouvrir le centre d&apos;actions
+            </Link>
+            {data && <span className="text-[11px] text-[#968F84] tabular-nums">Mis à jour à {agencyTime(data.computedAt)}</span>}
           </div>
         </div>
       )}
@@ -205,45 +261,122 @@ export function NotificationBell({ initial, variant = "dark" }: { initial: AppNo
   );
 }
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
+function TaskItem({ task: t, onSnooze, onNavigate }: { task: Task; onSnooze: () => void; onNavigate: () => void }) {
+  const fam = FAMILY_META[t.family];
+  const pr = PRIORITY_META[t.priority];
+  const meta = [t.product, t.pax ? `${t.pax} pax` : null, t.client].filter(Boolean).join(" · ");
   return (
-    <div>
-      <div className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-sand-500">
-        {title}
+    <li className="px-4 py-3">
+      <div className="flex gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: fam.tint, color: fam.color }} aria-hidden>
+          <FamilyIcon family={t.family} className="size-[17px]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13.5px] font-medium leading-snug text-[#1A1F2E]">{t.title}</p>
+          <p className="mt-0.5 truncate text-[12px] text-[#6B6862]">
+            {t.reference && <span className="font-mono text-[11.5px] text-[#1A1F2E]">{t.reference}</span>}
+            {t.reference && meta && " · "}
+            {meta}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] font-medium" style={{ backgroundColor: pr.bg, color: pr.color }}>
+              <span className="sr-only">{pr.label} — </span>
+              {t.dueLabel}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={onSnooze}
+                className="inline-flex h-11 items-center rounded-lg px-3 text-[12.5px] font-medium text-[#58524A] hover:bg-[#F1EFE8]"
+              >
+                Plus tard
+              </button>
+              <Link
+                href={t.action.href}
+                onClick={onNavigate}
+                className="inline-flex h-11 items-center rounded-lg bg-[#1A1F2E] px-4 text-[12.5px] font-medium text-white hover:bg-[#2A3142]"
+              >
+                {t.action.label}
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
-      <div>{children}</div>
-    </div>
+    </li>
   );
 }
 
-function NotifRow({ n, onOpen }: { n: AppNotification; onOpen: (n: AppNotification) => void }) {
-  const style = PRIORITY_STYLE[n.priority];
-  const Icon = FAMILY_ICON[n.family];
+function InfoList({ infos, onRead, onNavigate }: { infos: InfoItem[]; onRead: (keys: string[]) => void; onNavigate: () => void }) {
+  const unread = infos.filter((i) => !i.read);
+  if (infos.length === 0) {
+    return <p className="px-6 py-12 text-center text-[13px] text-[#6B6862]">Aucune information pour le moment.</p>;
+  }
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(n)}
-      className="w-full text-left flex gap-3 px-4 py-3 hover:bg-sand-50 transition-colors border-b border-sand-100"
-      style={{ borderLeft: `3px solid ${n.read ? "transparent" : style.border}` }}
-    >
-      <span
-        className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-lg"
-        style={{ backgroundColor: style.iconBg, color: style.icon }}
-      >
-        <Icon className="size-4" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-start justify-between gap-2">
-          <span className={`text-[13px] leading-snug ${n.read ? "text-sand-700" : "text-ink font-medium"}`}>
-            {n.title}
-          </span>
-          <span className="text-[10.5px] text-sand-500 shrink-0 whitespace-nowrap">{relative(n.at)}</span>
-        </span>
-        <span className="block text-[12px] text-sand-600 mt-0.5 leading-snug">{n.description}</span>
-        <span className="mt-1.5 inline-flex items-center gap-0.5 text-[12px] font-medium text-terracotta-700">
-          Ouvrir le dossier <ChevronRight className="size-3.5" />
-        </span>
-      </span>
-    </button>
+    <div>
+      <div className="flex justify-end border-b border-[#F1EDE5] px-3 py-0.5">
+        <button
+          type="button"
+          onClick={() => onRead(unread.map((i) => i.key))}
+          disabled={unread.length === 0}
+          className="h-11 px-2 text-[12.5px] font-medium text-[#0C6B8A] hover:underline disabled:text-[#B4AEA3] disabled:no-underline"
+        >
+          Tout marquer comme lu
+        </button>
+      </div>
+      <ul className="divide-y divide-[#F1EDE5]">
+        {infos.map((i) => (
+          <li key={i.key} className="px-4 py-3">
+            <div className="flex gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#F1EFE8] text-[#58524A]" aria-hidden>
+                <InfoIcon kind={i.kind} className="size-[17px]" />
+              </span>
+              <div className="min-w-0 flex-1">
+                {i.lines ? (
+                  <details onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && !i.read && onRead([i.key])}>
+                    <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2">
+                      <span className={`text-[13.5px] leading-snug ${i.read ? "text-[#58524A]" : "font-medium text-[#1A1F2E]"}`}>
+                        {!i.read && <span className="mr-1.5 inline-block size-1.5 rounded-full bg-[#0C6B8A] align-middle" aria-label="Non lue" />}
+                        {i.title}
+                      </span>
+                      <ChevronDown className="size-4 shrink-0 text-[#968F84]" />
+                    </summary>
+                    <ul className="mt-1 space-y-0.5">
+                      {i.lines.map((l, n) => (
+                        <li key={n}>
+                          <Link href={l.href} onClick={onNavigate} className="flex min-h-[44px] items-center justify-between gap-3 rounded-md px-2 text-[12.5px] hover:bg-[#FBF9F5]">
+                            <span className="text-[#1A1F2E]">{l.label}</span>
+                            <span className="shrink-0 text-[#6B6862] tabular-nums">{l.detail}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                    {i.hrefLabel && (
+                      <Link href={i.href} onClick={onNavigate} className="mt-1 inline-flex h-11 items-center gap-1.5 text-[12.5px] font-medium text-[#0C6B8A] hover:underline">
+                        <Printer className="size-3.5" /> {i.hrefLabel}
+                      </Link>
+                    )}
+                  </details>
+                ) : (
+                  <Link
+                    href={i.href}
+                    onClick={() => {
+                      if (!i.read) onRead([i.key]);
+                      onNavigate();
+                    }}
+                    className="block min-h-[44px]"
+                  >
+                    <span className={`block text-[13.5px] leading-snug ${i.read ? "text-[#58524A]" : "font-medium text-[#1A1F2E]"}`}>
+                      {!i.read && <span className="mr-1.5 inline-block size-1.5 rounded-full bg-[#0C6B8A] align-middle" aria-label="Non lue" />}
+                      {i.title}
+                    </span>
+                    <span className="mt-0.5 block text-[12px] text-[#6B6862]">{i.description}</span>
+                  </Link>
+                )}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
