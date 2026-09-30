@@ -2,6 +2,7 @@ import Link from "next/link";
 import "flag-icons/css/flag-icons.min.css";
 import { Globe, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { QueryErrorPanel } from "@/components/query-error";
 import { formatMAD, formatDateShort, foldAccents } from "@/lib/utils";
 import { countryCode } from "@/lib/countries";
 import {
@@ -38,10 +39,14 @@ export default async function AvoirsPage({
   const { data, error } = await supabase
     .from("credit_notes")
     .select(
-      "id, credit_note_number, created_at, amount_mad, remaining_mad, status, reason, snapshot, invoice:invoices(id, invoice_number)",
+      "id, credit_note_number, created_at, amount_mad, remaining_mad, status, reason, snapshot, invoice:invoices!invoice_id(id, invoice_number)",
     )
     .order("created_at", { ascending: false });
-  if (error) console.error("[avoirs] chargement :", error);
+  // Embed nommé par colonne : deux clés étrangères relient credit_notes et invoices (PGRST201 sinon).
+  if (error) {
+    console.error("[avoirs] chargement :", error);
+    return <QueryErrorPanel title="Impossible de charger le registre des avoirs" error={error} />;
+  }
   const all = (data ?? []) as unknown as Row[];
 
   const years = Array.from(new Set(all.map((c) => new Date(c.created_at).getFullYear()))).sort((a, b) => b - a);

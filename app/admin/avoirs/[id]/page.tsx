@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { QueryErrorPanel, isNoRowError } from "@/components/query-error";
 import { VoucherPrintButton } from "@/components/voucher-print-button";
 import { RefundCreditNoteForm } from "@/components/credit-note-forms";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
@@ -19,11 +20,18 @@ export default async function CreditNoteDetailPage({ params }: { params: Promise
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: noteRow } = await supabase
+  // Deux clés étrangères relient credit_notes et invoices (credit_notes.invoice_id et
+  // invoices.cancelled_by_credit_note_id) : l'embed DOIT nommer la colonne, sinon
+  // PostgREST répond PGRST201 (relation ambiguë).
+  const { data: noteRow, error } = await supabase
     .from("credit_notes")
-    .select("*, invoice:invoices(id, invoice_number), reservation:reservations(id, reference)")
+    .select("*, invoice:invoices!invoice_id(id, invoice_number), reservation:reservations(id, reference)")
     .eq("id", id)
-    .single();
+    .maybeSingle();
+  if (error && !isNoRowError(error)) {
+    console.error(`[avoir ${id}] chargement :`, error);
+    return <QueryErrorPanel title="Impossible de charger l'avoir" error={error} />;
+  }
   if (!noteRow) notFound();
 
   const note = noteRow as unknown as CreditNote & {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { QueryErrorPanel, isNoRowError } from "@/components/query-error";
 import { VoucherPrintButton } from "@/components/voucher-print-button";
 import { IssueCreditNoteForm } from "@/components/credit-note-forms";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
@@ -15,17 +16,26 @@ import type { CreditNote, Invoice } from "@/lib/types";
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const { data: invoice } = await supabase.from("invoices").select("*").eq("id", id).single();
+  const { data: invoice, error } = await supabase.from("invoices").select("*").eq("id", id).maybeSingle();
+  if (error && !isNoRowError(error)) {
+    console.error(`[facture ${id}] chargement :`, error);
+    return <QueryErrorPanel title="Impossible de charger la facture" error={error} />;
+  }
   if (!invoice) notFound();
 
   const inv = invoice as Invoice;
 
   // Avoirs émis sur cette facture (lien visible dans les deux sens).
-  const { data: creditNotesRows } = await supabase
+  const { data: creditNotesRows, error: creditNotesError } = await supabase
     .from("credit_notes")
     .select("id, credit_note_number, created_at, amount_mad, remaining_mad, status, reason, reason_details")
     .eq("invoice_id", id)
     .order("created_at", { ascending: true });
+  if (creditNotesError) {
+    // Sans cette liste, le plafond créditable serait faux : on n'affiche pas une facture « sans avoir » par erreur.
+    console.error(`[facture ${id}] avoirs liés :`, creditNotesError);
+    return <QueryErrorPanel title="Impossible de charger les avoirs de cette facture" error={creditNotesError} />;
+  }
   const creditNotes = (creditNotesRows ?? []) as unknown as Pick<
     CreditNote,
     "id" | "credit_note_number" | "created_at" | "amount_mad" | "remaining_mad" | "status" | "reason" | "reason_details"

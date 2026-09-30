@@ -2,6 +2,7 @@ import Link from "next/link";
 import "flag-icons/css/flag-icons.min.css";
 import { ArrowDown, ArrowUp, Globe, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { QueryErrorPanel } from "@/components/query-error";
 import { formatMAD, formatDateShort, foldAccents } from "@/lib/utils";
 import { countryCode } from "@/lib/countries";
 import { invoiceStatusLabel } from "@/lib/invoices";
@@ -49,7 +50,10 @@ export default async function FacturesPage({
       "id, invoice_number, issued_at, status, paid_at, customer_snapshot, total_ht_mad, tva_amount_mad, total_ttc_mad, reservation:reservations(id, reference)",
     )
     .order("issued_at", { ascending: sort === "asc" });
-  if (error) console.error("[factures] chargement :", error);
+  if (error) {
+    console.error("[factures] chargement :", error);
+    return <QueryErrorPanel title="Impossible de charger le registre des factures" error={error} />;
+  }
   const all = (data ?? []) as unknown as Row[];
 
   const years = Array.from(new Set(all.map((i) => new Date(i.issued_at).getFullYear()))).sort((a, b) => b - a);
