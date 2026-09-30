@@ -254,6 +254,13 @@ export type CompanySettings = {
 
 export type InvoiceIssueMode = "on_confirmation" | "on_full_payment";
 
+export type InvoiceRectificationSnapshot = {
+  invoice_id: string;
+  invoice_number: string;
+  credit_note_id: string;
+  credit_note_number: string;
+};
+
 export type InvoiceLine = {
   description: string;
   details?: string;
@@ -304,6 +311,8 @@ export type Invoice = {
   status: "issued" | "paid" | "cancelled";
   /** Date du solde du dossier (trigger reservations_sync_invoice_paid) — n'altère pas le document figé. */
   paid_at: string | null;
+  /** Facture rectificative : facture annulée par avoir qu'elle remplace. Figé à l'émission. */
+  rectification_snapshot: InvoiceRectificationSnapshot | null;
   cancelled_at: string | null;
   cancellation_reason: string | null;
   company_snapshot: CompanySettings;
@@ -361,9 +370,12 @@ export type CreditNote = {
 export type CreditNoteMovement = {
   id: string;
   credit_note_id: string;
-  kind: "use" | "refund";
+  /** use = paiement créé sur un dossier ; refund = remboursement ; rectification = imputé sur la facture rectificative, SANS paiement. */
+  kind: "use" | "refund" | "rectification";
   amount_mad: number;
   target_reservation_id: string | null;
+  /** kind = rectification : facture rectificative visée. */
+  target_invoice_id: string | null;
   payment_id: string | null;
   method: string | null;
   reference: string | null;

@@ -40,6 +40,22 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     CreditNote,
     "id" | "credit_note_number" | "created_at" | "amount_mad" | "remaining_mad" | "status" | "reason" | "reason_details"
   >[];
+  // Rectificative : mention figée (snapshot) ; à défaut (rectificatives antérieures à
+  // la fonctionnalité, imputées au rattrapage), bandeau backoffice déduit du mouvement.
+  const rect = inv.rectification_snapshot;
+  let imputedFrom: { id: string; credit_note_number: string; amount_mad: number } | null = null;
+  if (!rect) {
+    const { data: mv } = await supabase
+      .from("credit_note_movements")
+      .select("amount_mad, credit_note:credit_notes(id, credit_note_number)")
+      .eq("kind", "rectification")
+      .eq("target_invoice_id", id)
+      .limit(1)
+      .maybeSingle();
+    const m = mv as { amount_mad: number; credit_note: { id: string; credit_note_number: string } | { id: string; credit_note_number: string }[] | null } | null;
+    const cn = m ? (Array.isArray(m.credit_note) ? m.credit_note[0] : m.credit_note) : null;
+    if (m && cn) imputedFrom = { id: cn.id, credit_note_number: cn.credit_note_number, amount_mad: Number(m.amount_mad) };
+  }
   const creditedTotal = creditNotes.reduce((s, c) => s + Number(c.amount_mad), 0);
   const creditableMax = Math.max(0, Number(inv.total_ttc_mad) - creditedTotal);
   const company = inv.company_snapshot ?? ({} as Invoice["company_snapshot"]);
@@ -150,6 +166,29 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               </div>
             )}
           </div>
+
+          {/* Mention de rectification — figée à l'émission */}
+          {rect && (
+            <p className="mb-4 rounded-lg px-3 py-2 text-[12.5px] text-[#58524A]" style={{ backgroundColor: "#FBF9F5", border: "1px solid #EEE9E0" }}>
+              Facture rectificative — rectifie la facture{" "}
+              <Link href={`/admin/factures/${rect.invoice_id}`} className="font-mono text-[#1A1F2E] hover:text-[#C84B31] print:no-underline">
+                {rect.invoice_number}
+              </Link>{" "}
+              annulée par l&apos;avoir{" "}
+              <Link href={`/admin/avoirs/${rect.credit_note_id}`} className="font-mono text-[#1A1F2E] hover:text-[#C84B31] print:no-underline">
+                {rect.credit_note_number}
+              </Link>
+              .
+            </p>
+          )}
+          {imputedFrom && (
+            <p className="mb-4 rounded-lg px-3 py-2 text-[12px] print:hidden" style={{ backgroundColor: "#FFF4E0", border: "1px solid #EF9F27", color: "#7A4B00" }}>
+              Backoffice : l&apos;avoir{" "}
+              <Link href={`/admin/avoirs/${imputedFrom.id}`} className="font-mono underline">{imputedFrom.credit_note_number}</Link>{" "}
+              ({formatMAD(imputedFrom.amount_mad)}) a été imputé sur cette facture en rectification. Mention absente du document,
+              émis avant la fonctionnalité — le document n&apos;est pas modifié.
+            </p>
+          )}
 
           {/* Lignes */}
           <table className="w-full text-[13px] border border-[#E5E0D7] mb-5">

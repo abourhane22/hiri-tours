@@ -18,10 +18,18 @@ export function InvoiceGenerateForm({
   reservationId,
   defaultTvaRate,
   missingLegal,
+  rectification,
 }: {
   reservationId: string;
   defaultTvaRate: number;
   missingLegal: string[];
+  /** Facture précédente annulée par avoir : la nouvelle est une rectificative. */
+  rectification?: {
+    cancelledInvoiceNumber: string;
+    creditNoteNumber: string;
+    /** Avoir encore ouvert, imputable sur la rectificative (sinon null). */
+    openRemaining: number | null;
+  } | null;
 }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, isPending] = useActionState<InvoiceActionState, FormData>(
@@ -85,6 +93,28 @@ export function InvoiceGenerateForm({
               <input id="invoice_notes" name="notes" type="text" placeholder="Optionnel" className={fieldCls} />
             </div>
           </div>
+          {rectification && (
+            <div className="rounded-lg px-3 py-2.5 text-[12px] space-y-1.5" style={{ backgroundColor: "#FBF9F5", border: "1px solid #EEE9E0" }}>
+              <p className="text-[#58524A]">
+                Facture rectificative : elle rectifie la facture <span className="font-mono">{rectification.cancelledInvoiceNumber}</span>{" "}
+                annulée par l&apos;avoir <span className="font-mono">{rectification.creditNoteNumber}</span>.
+              </p>
+              {rectification.openRemaining !== null && (
+                <label className="flex items-start gap-2 text-[#1A1F2E]">
+                  <input type="checkbox" name="impute_credit_note" defaultChecked className="mt-0.5 size-4 rounded border-sand-300" />
+                  <span>
+                    Imputer l&apos;avoir <span className="font-mono">{rectification.creditNoteNumber}</span> (
+                    {rectification.openRemaining.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MAD) sur
+                    cette facture rectificative
+                    <span className="block text-[11px] text-[#968F84]">
+                      Sans encaissement : les règlements du dossier couvrent la nouvelle facture. L&apos;avoir est soldé et
+                      n&apos;apparaît plus comme crédit du client. Décochez si le client a été remboursé ou garde son crédit.
+                    </span>
+                  </span>
+                </label>
+              )}
+            </div>
+          )}
           <p className="text-[11px] text-[#968F84] leading-snug">
             Le numéro est attribué à l&apos;émission (séquence continue par année). Le document est figé : les
             modifications ultérieures du dossier ou de la société ne l&apos;affecteront pas.

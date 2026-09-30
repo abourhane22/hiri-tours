@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isCreditNoteReason, isRefundMethod } from "@/lib/credit-notes";
+import { imputableRectificative, imputeRectification } from "@/lib/rectification";
 import type { CompanySettings, CreditNoteSnapshot, Invoice } from "@/lib/types";
 
 export type CreditNoteActionState =
@@ -323,4 +324,41 @@ export async function refundCreditNote(
 
   revalidateAll([`/admin/avoirs/${creditNoteId}`, "/admin/avoirs"]);
   return { ok: true, savedAt: Date.now() };
+}
+
+/**
+ * Imputation d'un avoir ouvert sur la facture rectificative de son dossier (sans
+ * paiement). La cible est recalculée côté serveur ; la fonction plpgsql
+ * re-vérifie tout sous verrou. Sert aussi au rattrapage des rectifications
+ * antérieures à cette fonctionnalité.
+ */
+export async function imputeRectificationAction(creditNoteId: string): Promise<CreditNoteActionState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return fail("Session expirée — reconnectez-vous.");
+
+  const { data: noteRow } = await supabase
+    .from("credit_notes")
+    .select("id, credit_note_number, invoice_id, reservation_id, customer_id, created_at, status, remaining_mad")
+    .eq("id", creditNoteId)
+    .maybeSingle();
+  if (!noteRow) return fail("Avoir introuvable.");
+  const note = noteRow as { id: string; credit_note_number: string; invoice_id: string; reservation_id: string; customer_id: string | null; created_at: string; status: string; remaining_mad: number };
+
+  const target = await imputableRectificative(supabase, note);
+  if (!target) return fail("Aucune facture rectificative imputable pour cet avoir.");
+
+  const res = await imputeRectification(supabase, note.id, target.id);
+  if (!res.ok) return fail(res.error);
+
+  revalidateAll([
+    `/admin/avoirs/${note.id}`,
+    "/admin/avoirs",
+    `/admin/factures/${target.id}`,
+    `/admin/reservations/${note.reservation_id}`,
+    note.customer_id ? `/admin/clients/${note.customer_id}` : "/admin/clients",
+  ]);
+  return { ok: true, creditNoteId: note.id, creditNoteNumber: note.credit_note_number, savedAt: Date.now() };
 }

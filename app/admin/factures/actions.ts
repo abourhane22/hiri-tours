@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { missingLegalMentions } from "@/lib/invoices";
+import { imputeRectification, rectificationContext } from "@/lib/rectification";
 import { DISCOUNT_REASON_LABEL } from "@/lib/booking";
 import type {
   CompanySettings,
@@ -62,6 +63,11 @@ export async function generateInvoice(
   const { data: companyRow } = await supabase.from("company_settings").select("*").limit(1).single();
   if (!companyRow) return fail("Paramètres société non configurés (Paramètres › Société).");
   const company = companyRow as CompanySettings;
+
+  // Facture rectificative : la précédente facture du dossier a été annulée par un avoir.
+  // La mention est figée dans tous les cas ; l'imputation de l'avoir ouvert est au choix de l'agent.
+  const rectification = await rectificationContext(supabase, reservationId);
+  const imputeRequested = formData.get("impute_credit_note") === "on";
 
   // Réglage « Émission des factures » : uniquement une fois le dossier soldé.
   if (company.invoice_issue_mode === "on_full_payment") {
@@ -220,6 +226,7 @@ export async function generateInvoice(
       tva_amount_mad: tvaAmount,
       total_ttc_mad: totalTtc,
       notes: ((formData.get("notes") as string) || "").trim() || null,
+      rectification_snapshot: rectification?.snapshot ?? null,
       created_by: user.id,
     })
     .select("id, invoice_number")
@@ -233,6 +240,22 @@ export async function generateInvoice(
     return fail("Impossible d'émettre la facture.");
   }
 
+  // Imputation de l'avoir sur la rectificative (sans paiement). Hors transaction de
+  // l'insert : en cas d'échec la facture reste émise, l'erreur est dite et l'imputation
+  // se relance depuis la page de l'avoir.
+  const warnings = missingLegalMentions(company);
+  if (rectification?.openCreditNote && imputeRequested) {
+    const res = await imputeRectification(supabase, rectification.openCreditNote.id, (invoice as any).id);
+    if (!res.ok) {
+      warnings.push(
+        `Facture émise, mais l'avoir ${rectification.openCreditNote.number} n'a pas été imputé (${res.error}). Relancez depuis la page de l'avoir.`,
+      );
+    }
+    revalidatePath(`/admin/avoirs/${rectification.openCreditNote.id}`);
+    revalidatePath("/admin/avoirs");
+    revalidatePath("/admin/clients");
+  }
+
   revalidatePath(`/admin/reservations/${reservationId}`);
   revalidatePath("/admin/factures");
   revalidatePath("/admin");
@@ -241,6 +264,6 @@ export async function generateInvoice(
     ok: true,
     invoiceId: (invoice as any).id,
     invoiceNumber: (invoice as any).invoice_number,
-    warnings: missingLegalMentions(company),
+    warnings,
   };
 }

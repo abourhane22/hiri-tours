@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { QueryErrorPanel, isNoRowError } from "@/components/query-error";
+import { ImputeRectificationButton } from "@/components/impute-rectification-button";
+import { imputableRectificative } from "@/lib/rectification";
 import { VoucherPrintButton } from "@/components/voucher-print-button";
 import { RefundCreditNoteForm } from "@/components/credit-note-forms";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
@@ -12,7 +14,7 @@ import {
   CREDIT_NOTE_STATUS_STYLE,
   REFUND_METHOD_LABEL,
 } from "@/lib/credit-notes";
-import { ArrowLeft, FileText, ArrowRight, Undo2 } from "lucide-react";
+import { ArrowLeft, FileText, ArrowRight, Undo2, FileCheck2 } from "lucide-react";
 import type { CreditNote, CreditNoteMovement, RefundMethod } from "@/lib/types";
 
 // Rendu exclusivement depuis le snapshot figé, comme la facture.
@@ -44,12 +46,16 @@ export default async function CreditNoteDetailPage({ params }: { params: Promise
 
   const { data: movementsRows } = await supabase
     .from("credit_note_movements")
-    .select("*, target:reservations(id, reference)")
+    .select("*, target:reservations(id, reference), target_invoice:invoices!target_invoice_id(id, invoice_number)")
     .eq("credit_note_id", id)
     .order("created_at", { ascending: true });
   const movements = (movementsRows ?? []) as unknown as (CreditNoteMovement & {
     target: { id: string; reference: string } | { id: string; reference: string }[] | null;
+    target_invoice: { id: string; invoice_number: string } | { id: string; invoice_number: string }[] | null;
   })[];
+
+  // Rectificative émise après cet avoir sur le même dossier : imputation proposée (rattrapage compris).
+  const rectificative = await imputableRectificative(supabase, note);
 
   const snap = note.snapshot;
   const company = snap?.company ?? ({} as NonNullable<typeof snap>["company"]);
@@ -221,6 +227,16 @@ export default async function CreditNoteDetailPage({ params }: { params: Promise
               )}
             </div>
 
+            {rectificative && (
+              <div className="mb-3">
+                <ImputeRectificationButton
+                  creditNoteId={note.id}
+                  creditNoteNumber={note.credit_note_number}
+                  invoiceNumber={rectificative.invoice_number}
+                  remaining={formatMAD(remaining)}
+                />
+              </div>
+            )}
             {remaining > 0 ? (
               <RefundCreditNoteForm creditNoteId={note.id} remaining={remaining} />
             ) : (
@@ -263,7 +279,33 @@ export default async function CreditNoteDetailPage({ params }: { params: Promise
                   <tbody className="divide-y divide-[#F1EDE5]">
                     {movements.map((m) => {
                       const target = one(m.target);
+                      const targetInvoice = one(m.target_invoice);
                       const isUse = m.kind === "use";
+                      if (m.kind === "rectification") {
+                        return (
+                          <tr key={m.id}>
+                            <td className="px-3 py-2.5 tabular-nums text-[#6B6862]">{formatDateShort(m.created_at)}</td>
+                            <td className="px-3 py-2.5">
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ backgroundColor: "#F1EFE8", color: "#58524A" }}>
+                                <FileCheck2 className="size-3" /> Rectification
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5">
+                              Imputé sur la facture{" "}
+                              {targetInvoice ? (
+                                <Link href={`/admin/factures/${targetInvoice.id}`} className="font-mono text-[12px] text-[#1A1F2E] hover:text-[#C84B31]">
+                                  {targetInvoice.invoice_number}
+                                </Link>
+                              ) : (
+                                "—"
+                              )}{" "}
+                              <span className="text-[#968F84]">(rectificative)</span>
+                            </td>
+                            <td className="px-3 py-2.5 text-[11px] italic text-[#6B6862]">{m.notes ?? "—"}</td>
+                            <td className="px-3 py-2.5 text-right tabular-nums font-medium">− {formatMAD(m.amount_mad)}</td>
+                          </tr>
+                        );
+                      }
                       return (
                         <tr key={m.id}>
                           <td className="px-3 py-2.5 tabular-nums text-[#6B6862]">{formatDateShort(m.created_at)}</td>

@@ -34,6 +34,7 @@ import { updateNotes, cancelReservation } from "./actions";
 import { InvoiceGenerateForm } from "@/components/invoice-generate-form";
 import { RegularizeCancelledForm } from "@/components/credit-note-forms";
 import { missingLegalMentions } from "@/lib/invoices";
+import { rectificationContext } from "@/lib/rectification";
 import { CREDIT_NOTE_REASON_LABEL, CREDIT_NOTE_STATUS_LABEL, CREDIT_NOTE_STATUS_STYLE } from "@/lib/credit-notes";
 import type { AvailableCreditNote } from "@/components/payment-collector";
 import type { CompanySettings, CreditNote } from "@/lib/types";
@@ -169,6 +170,8 @@ export default async function ReservationDetailPage({
     .limit(1)
     .maybeSingle();
   const missingLegal = missingLegalMentions(companySettings as CompanySettings | null);
+  // Facture précédente annulée par avoir → prochaine facture = rectificative (proposition d'imputation).
+  const rectification = await rectificationContext(supabase, id);
 
   const [vehiclesResult, staffResult, conflictsResult] = await Promise.all([
     supabase.from("vehicles").select("id, registration, make, model, capacity").eq("is_active", true).order("registration"),
@@ -1017,6 +1020,15 @@ export default async function ReservationDetailPage({
                 >
                   <Printer className="size-4" /> Voir / Imprimer
                 </Link>
+                {rectification?.openCreditNote && (
+                  <p className="rounded-lg px-3 py-2 text-[12px]" style={{ backgroundColor: "#FFF4E0", border: "1px solid #EF9F27", color: "#7A4B00" }}>
+                    L&apos;avoir {rectification.openCreditNote.number} ({formatMAD(rectification.openCreditNote.remaining)}) de la
+                    facture annulée {rectification.snapshot.invoice_number} est toujours ouvert.{" "}
+                    <Link href={`/admin/avoirs/${rectification.openCreditNote.id}`} className="underline hover:no-underline">
+                      L&apos;imputer sur cette facture ou le laisser au client
+                    </Link>
+                  </p>
+                )}
                 <CreditNotesList notes={dossierCreditNotes} />
               </div>
             ) : isCancelled ? (
@@ -1041,6 +1053,15 @@ export default async function ReservationDetailPage({
                 reservationId={id}
                 defaultTvaRate={Number((companySettings as any)?.tva_default_rate ?? 0.2)}
                 missingLegal={missingLegal}
+                rectification={
+                  rectification
+                    ? {
+                        cancelledInvoiceNumber: rectification.snapshot.invoice_number,
+                        creditNoteNumber: rectification.snapshot.credit_note_number,
+                        openRemaining: rectification.openCreditNote?.remaining ?? null,
+                      }
+                    : null
+                }
               />
             )}
           </InfoCard>

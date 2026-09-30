@@ -52,9 +52,15 @@ export function isRefundMethod(v: string): v is RefundMethod {
 }
 
 /**
- * Avoirs émis, indexés par dossier d'origine. Sert à retrancher les avoirs du
- * CA sur la période analysée (le périmètre temporel est celui des dossiers,
- * puisque c'est leur `departure_date` qui porte le CA).
+ * Avoirs émis, indexés par dossier d'origine, NETS des imputations de
+ * rectification. Sert à retrancher les avoirs du CA sur la période analysée (le
+ * périmètre temporel est celui des dossiers, puisque c'est leur `departure_date`
+ * qui porte le CA).
+ *
+ * Un avoir imputé sur la facture rectificative du même dossier (mouvement
+ * `rectification`) ne réduit plus le CA : le dossier est refacturé et encaissé.
+ * Sans cette neutralisation, un dossier rectifié par un avoir total afficherait
+ * un CA net de 0. Autorité unique — dashboard, Rapports et lib/finance passent ici.
  */
 export async function creditNotesByReservation(
   supabase: SupabaseClient,
@@ -64,10 +70,25 @@ export async function creditNotesByReservation(
   if (reservationIds.length === 0) return out;
   const { data } = await supabase
     .from("credit_notes")
-    .select("reservation_id, amount_mad")
+    .select("id, reservation_id, amount_mad")
     .in("reservation_id", reservationIds);
-  for (const row of (data ?? []) as { reservation_id: string; amount_mad: number | string }[]) {
-    out.set(row.reservation_id, (out.get(row.reservation_id) ?? 0) + Number(row.amount_mad));
+  const notes = (data ?? []) as { id: string; reservation_id: string; amount_mad: number | string }[];
+  if (notes.length === 0) return out;
+
+  const { data: rectRows, error } = await supabase
+    .from("credit_note_movements")
+    .select("credit_note_id, amount_mad")
+    .eq("kind", "rectification")
+    .in("credit_note_id", notes.map((n) => n.id));
+  if (error) console.error("[creditNotesByReservation] imputations de rectification :", error);
+  const rectified = new Map<string, number>();
+  for (const m of (rectRows ?? []) as { credit_note_id: string; amount_mad: number | string }[]) {
+    rectified.set(m.credit_note_id, (rectified.get(m.credit_note_id) ?? 0) + Number(m.amount_mad));
+  }
+
+  for (const n of notes) {
+    const net = Math.max(0, Number(n.amount_mad) - (rectified.get(n.id) ?? 0));
+    if (net > 0) out.set(n.reservation_id, (out.get(n.reservation_id) ?? 0) + net);
   }
   return out;
 }
