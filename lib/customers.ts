@@ -64,3 +64,23 @@ export function maskPhone(normalized: string | null | undefined): string | null 
   const last2 = d.slice(-2);
   return `•• ••• ••${last2}`;
 }
+
+/**
+ * Traduit une violation d'index unique de `customers` (Postgres 23505) en message
+ * métier. Noms réels des index (constat du 30/09/2026) :
+ *   - customers_phone_normalized_unique (partiel, sur phone_normalized)
+ *   - customers_email_unique (sur lower(email))
+ * Repli sur le détail de l'erreur (« Key (phone_normalized)=… »).
+ */
+export function customerDuplicateMessage(error: { code?: string; message?: string; details?: string | null } | null | undefined): string | null {
+  if (!error || error.code !== "23505") return null;
+  const msg = (error.message ?? "").toLowerCase();
+  const details = (error.details ?? "").toLowerCase();
+  if (msg.includes("customers_phone_normalized_unique") || details.includes("phone_normalized")) {
+    return "Un client existe déjà avec ce numéro de téléphone.";
+  }
+  if (msg.includes("customers_email_unique") || details.includes("email")) {
+    return "Un client existe déjà avec cet email.";
+  }
+  return "Un client identique existe déjà.";
+}

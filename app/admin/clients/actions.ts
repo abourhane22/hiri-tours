@@ -4,29 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizePhone, normalizeEmail, maskPhone } from "@/lib/customers";
+import { normalizePhone, normalizeEmail, maskPhone, customerDuplicateMessage } from "@/lib/customers";
 import { computeLoyaltyPoints, getLoyaltyTier } from "@/lib/loyalty";
 import type { CustomerLanguage, CustomerSource } from "@/lib/types";
 
 export type CustomerActionState = { ok: true } | { ok: false; error: string };
-
-/**
- * Traduit une violation d'index unique (Postgres 23505) en message métier.
- * L'index touché est déduit du texte de l'erreur : nom de contrainte dans
- * `message`, expression/colonne dans `details`
- * (ex. « Key (lower(btrim(email)))=(…) already exists »).
- */
-function duplicateMessage(error: {
-  code?: string;
-  message?: string;
-  details?: string | null;
-}): string | null {
-  if (error.code !== "23505") return null;
-  const hay = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
-  if (hay.includes("phone")) return "Un client existe déjà avec ce numéro de téléphone.";
-  if (hay.includes("email")) return "Un client existe déjà avec cet email.";
-  return "Un client identique existe déjà.";
-}
 
 /** Lit + valide les champs communs. Renvoie soit les données, soit une erreur. */
 function readCustomerFields(
@@ -82,7 +64,7 @@ export async function createCustomer(
     .single();
 
   if (error) {
-    return { ok: false, error: duplicateMessage(error) ?? error.message };
+    return { ok: false, error: customerDuplicateMessage(error) ?? error.message };
   }
 
   revalidatePath("/admin/clients");
@@ -101,7 +83,7 @@ export async function updateCustomer(
   const { error } = await supabase.from("customers").update(fields.data).eq("id", id);
 
   if (error) {
-    return { ok: false, error: duplicateMessage(error) ?? error.message };
+    return { ok: false, error: customerDuplicateMessage(error) ?? error.message };
   }
 
   revalidatePath("/admin/clients");
@@ -201,8 +183,14 @@ export async function findPotentialDuplicates(input: {
   email?: string;
   name?: string;
 }): Promise<DuplicateResult> {
-  const admin = createAdminClient();
   const result: DuplicateResult = { phoneMatch: null, emailMatch: null, nameMatches: [] };
+  // Server action appelable depuis le client : réservée à une session backoffice.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return result;
+  const admin = createAdminClient();
 
   const normPhone = normalizePhone(input.phone);
   const normEmail = normalizeEmail(input.email);

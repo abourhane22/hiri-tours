@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Globe, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatMAD, formatDateShort, foldAccents } from "@/lib/utils";
 import { countryCode } from "@/lib/countries";
-import { INVOICE_STATUS_LABEL } from "@/lib/invoices";
+import { invoiceStatusLabel } from "@/lib/invoices";
 import { KpiCard } from "@/components/kpi-card";
 import { DocumentTabs } from "@/components/document-tabs";
 
@@ -13,6 +13,7 @@ type Row = {
   invoice_number: string;
   issued_at: string;
   status: "issued" | "paid" | "cancelled";
+  paid_at: string | null;
   customer_snapshot: { full_name?: string; country?: string | null } | null;
   total_ht_mad: number;
   tva_amount_mad: number;
@@ -45,7 +46,7 @@ export default async function FacturesPage({
   const { data, error } = await supabase
     .from("invoices")
     .select(
-      "id, invoice_number, issued_at, status, customer_snapshot, total_ht_mad, tva_amount_mad, total_ttc_mad, reservation:reservations(id, reference)",
+      "id, invoice_number, issued_at, status, paid_at, customer_snapshot, total_ht_mad, tva_amount_mad, total_ttc_mad, reservation:reservations(id, reference)",
     )
     .order("issued_at", { ascending: sort === "asc" });
   if (error) console.error("[factures] chargement :", error);
@@ -136,7 +137,10 @@ export default async function FacturesPage({
           Tous statuts
         </Link>
         <Link href={href({ status: "issued" })} className={chip(statusFilter === "issued")}>
-          Émises
+          Non soldées
+        </Link>
+        <Link href={href({ status: "paid" })} className={chip(statusFilter === "paid")}>
+          Payées
         </Link>
         <Link href={href({ status: "cancelled" })} className={chip(statusFilter === "cancelled")}>
           Annulées
@@ -235,7 +239,7 @@ export default async function FacturesPage({
                       </td>
                       <td className="px-3 py-2.5">
                         <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ backgroundColor: st.bg, color: st.color }}>
-                          {INVOICE_STATUS_LABEL[inv.status] ?? inv.status}
+                          {invoiceStatusLabel(inv)}
                         </span>
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums">{formatMAD(inv.total_ht_mad)}</td>

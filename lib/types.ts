@@ -242,8 +242,17 @@ export type CompanySettings = {
   travel_license: string | null; // licence agence de voyages
   /** Taux de change par défaut, MAD pour 1 unité de devise : {"EUR": 10.9}. */
   fx_rates: Record<string, number> | null;
+  /** Billetterie : frais de service par défaut (MAD fixes par passager + % optionnel du tarif converti). */
+  ticketing_fee_per_pax_mad: number;
+  ticketing_fee_pct: number | null;
+  /** Billetterie : dossier soldé exigé avant l'émission de l'ordre (contrôle serveur). */
+  ticketing_require_full_payment: boolean;
+  /** Facturation : à la confirmation du dossier (défaut) ou uniquement une fois soldé. */
+  invoice_issue_mode: InvoiceIssueMode;
   updated_at: string;
 };
+
+export type InvoiceIssueMode = "on_confirmation" | "on_full_payment";
 
 export type InvoiceLine = {
   description: string;
@@ -293,6 +302,8 @@ export type Invoice = {
   customer_id: string;
   issued_at: string;
   status: "issued" | "paid" | "cancelled";
+  /** Date du solde du dossier (trigger reservations_sync_invoice_paid) — n'altère pas le document figé. */
+  paid_at: string | null;
   cancelled_at: string | null;
   cancellation_reason: string | null;
   company_snapshot: CompanySettings;
@@ -508,6 +519,15 @@ export type AllotmentOutcome = "no_allotment" | "consumed" | "on_request" | "blo
 // ---------------------------------------------------------------------------
 
 export type DistributionStatus = "draft" | "ordered" | "cancelled" | "failed";
+
+/** Détail figé du calcul des frais de service billetterie. */
+export type ServiceFeeDetail = {
+  per_pax_mad: number;
+  pax: number;
+  pct: number | null;
+  base_mad: number;
+  from_defaults: boolean;
+};
 export type FxSource = "parametres" | "saisi";
 
 /**
@@ -531,6 +551,9 @@ export type DistributionBooking = {
   fx_rate: number;
   fx_source: FxSource;
   amount_mad: number;
+  /** Frais de service agence figés à la création. Prix de vente = amount_mad + service_fee_mad ; coût = amount_mad. */
+  service_fee_mad: number;
+  service_fee_detail: ServiceFeeDetail | null;
   order_id: string | null;
   booking_reference: string | null;
   order_snapshot: unknown;

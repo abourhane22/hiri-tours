@@ -44,6 +44,18 @@ export async function updateCompanySettings(id: string, formData: FormData) {
       }
       return out;
     })(),
+    // Billetterie : frais de service par défaut et paiement avant émission.
+    ticketing_fee_per_pax_mad: (() => {
+      const n = parseFloat(((formData.get("ticketing_fee_per_pax_mad") as string) || "").replace(",", "."));
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    })(),
+    ticketing_fee_pct: (() => {
+      const n = parseFloat(((formData.get("ticketing_fee_pct") as string) || "").replace(",", "."));
+      return Number.isFinite(n) && n > 0 && n <= 100 ? n : null;
+    })(),
+    ticketing_require_full_payment: formData.get("ticketing_require_full_payment") === "on",
+    // Facturation : moment d'émission autorisé.
+    invoice_issue_mode: formData.get("invoice_issue_mode") === "on_full_payment" ? "on_full_payment" : "on_confirmation",
   };
 
   const supabase = await createClient();

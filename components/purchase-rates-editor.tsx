@@ -38,6 +38,8 @@ export function PurchaseRatesEditor({
   );
 
   const byId = new Map(products.map((p) => [p.id, p]));
+  // La priorité ne sert qu'à départager des tarifs qui se chevauchent : colonne masquée tant qu'elle vaut 0 partout.
+  const showPriority = rates.some((r) => Number(r.priority) !== 0);
 
   function onDelete(rate: PurchaseRate) {
     const label = byId.get(rate.product_id ?? "")?.title ?? "tarif générique";
@@ -73,7 +75,7 @@ export function PurchaseRatesEditor({
                 <th className={`${th} text-right`}>Coût unitaire</th>
                 <th className={`${th} text-right`}>Coût enfant</th>
                 <th className={`${th} text-right`}>Marge indicative</th>
-                <th className={`${th} text-center`}>Prio.</th>
+                {showPriority && <th className={`${th} text-center`}>Prio.</th>}
                 <th className={`${th}`} />
               </tr>
             </thead>
@@ -121,7 +123,7 @@ export function PurchaseRatesEditor({
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 text-center tabular-nums text-[#6B6862]">{r.priority}</td>
+                    {showPriority && <td className="px-3 py-2.5 text-center tabular-nums text-[#6B6862]">{r.priority}</td>}
                     <td className="px-3 py-2.5 text-right">
                       <button
                         type="button"
@@ -187,10 +189,6 @@ export function PurchaseRatesEditor({
               <input id="child_cost_mad" name="child_cost_mad" type="number" step="0.01" min="0" className={fieldCls} placeholder="= adulte" />
             </div>
             <div>
-              <label htmlFor="priority" className={labelCls}>Priorité</label>
-              <input id="priority" name="priority" type="number" step="1" defaultValue="0" className={fieldCls} />
-            </div>
-            <div>
               <label htmlFor="min_pax" className={labelCls}>Pax min.</label>
               <input id="min_pax" name="min_pax" type="number" min="1" step="1" className={fieldCls} placeholder="—" />
             </div>
@@ -207,10 +205,24 @@ export function PurchaseRatesEditor({
               />
             </div>
           </div>
-          <p className="text-[11px] text-[#968F84] leading-snug">
-            Les chevauchements sont autorisés : un tarif propre au produit l&apos;emporte sur un tarif générique, puis la
-            priorité la plus haute, puis le palier de pax le plus étroit.
-          </p>
+          <details className="group rounded-lg border border-[#EEE9E0] bg-[#FBF9F5] px-3 py-2">
+            <summary className="cursor-pointer select-none text-[11.5px] font-medium text-[#58524A] marker:text-[#968F84]">
+              Options avancées
+            </summary>
+            <div className="grid sm:grid-cols-3 gap-2.5 mt-2.5">
+              <div>
+                <label htmlFor="priority" className={labelCls}>Priorité</label>
+                <input id="priority" name="priority" type="number" step="1" defaultValue="0" className={fieldCls} />
+              </div>
+              <p className="sm:col-span-2 self-end pb-2 text-[11px] text-[#968F84] leading-snug">
+                Utile seulement si deux tarifs se chevauchent. Laissez 0 dans les autres cas.
+              </p>
+            </div>
+            <p className="mt-2 text-[11px] text-[#968F84] leading-snug">
+              Les chevauchements sont autorisés : un tarif propre au produit l&apos;emporte sur un tarif générique, puis la
+              priorité la plus haute, puis le palier de pax le plus étroit.
+            </p>
+          </details>
           <div className="flex items-center gap-2">
             <button
               type="submit" disabled={isSubmitting} aria-busy={isSubmitting}

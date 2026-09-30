@@ -2,6 +2,7 @@ import { Plane, ShieldOff, FlaskConical, Lock, HelpCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { duffelConfigured, duffelTokenMode, DUFFEL_ENV_VAR, type DuffelMode } from "@/lib/duffel";
 import { FlightSearch } from "@/components/billetterie/flight-search";
+import type { TicketingFeeDefaults } from "@/lib/distribution";
 
 // Aucun appel Duffel au chargement : la page inspecte la configuration et
 // lit les taux de change ; les appels Duffel partent des server actions, à
@@ -13,10 +14,22 @@ export default async function BilletteriePage() {
 
   // Taux de change par défaut (Paramètres › Société › Devises), pré-remplis à la création d'un dossier.
   let fxRates: Record<string, number> = {};
+  let feeDefaults: TicketingFeeDefaults = { perPaxMad: 0, pct: null };
   if (configured) {
     const supabase = await createClient();
-    const { data } = await supabase.from("company_settings").select("fx_rates").limit(1).maybeSingle();
-    const raw = (data as { fx_rates?: unknown } | null)?.fx_rates;
+    const { data } = await supabase
+      .from("company_settings")
+      .select("fx_rates, ticketing_fee_per_pax_mad, ticketing_fee_pct")
+      .limit(1)
+      .maybeSingle();
+    const settings = data as { fx_rates?: unknown; ticketing_fee_per_pax_mad?: unknown; ticketing_fee_pct?: unknown } | null;
+    const perPax = Number(settings?.ticketing_fee_per_pax_mad);
+    const pct = settings?.ticketing_fee_pct === null || settings?.ticketing_fee_pct === undefined ? null : Number(settings.ticketing_fee_pct);
+    feeDefaults = {
+      perPaxMad: Number.isFinite(perPax) && perPax > 0 ? perPax : 0,
+      pct: pct !== null && Number.isFinite(pct) && pct > 0 ? pct : null,
+    };
+    const raw = settings?.fx_rates;
     if (raw && typeof raw === "object") {
       for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
         const n = Number(v);
@@ -39,7 +52,7 @@ export default async function BilletteriePage() {
       {!configured ? <NotConfigured /> : (
         <>
           <ModeBanner mode={mode} />
-          <FlightSearch mode={mode} fxRates={fxRates} />
+          <FlightSearch mode={mode} fxRates={fxRates} feeDefaults={feeDefaults} />
         </>
       )}
     </div>

@@ -4,9 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { VoucherPrintButton } from "@/components/voucher-print-button";
 import { IssueCreditNoteForm } from "@/components/credit-note-forms";
 import { formatMAD, formatDate, formatDateShort } from "@/lib/utils";
-import { legalFormLine, legalIdentifiers, PAYMENT_METHOD_LABEL } from "@/lib/invoices";
+import { invoiceStatusLabel, legalFormLine, legalIdentifiers, PAYMENT_METHOD_LABEL } from "@/lib/invoices";
 import { CREDIT_NOTE_REASON_LABEL, CREDIT_NOTE_STATUS_LABEL, CREDIT_NOTE_STATUS_STYLE } from "@/lib/credit-notes";
-import { ArrowLeft, FileMinus } from "lucide-react";
+import { ArrowLeft, FileMinus, CircleCheck } from "lucide-react";
 import type { CreditNote, Invoice } from "@/lib/types";
 
 // La facture est rendue EXCLUSIVEMENT depuis ses snapshots : aucune jointure
@@ -62,7 +62,15 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           <Link href="/admin/factures" className="inline-flex items-center gap-1 text-sm text-[#6B6862] hover:text-[#1A1F2E]">
             <ArrowLeft className="size-4" /> Registre des factures
           </Link>
-          <VoucherPrintButton className="bg-white text-[#1A1F2E] border border-[#E0DACF] hover:bg-[#FBF9F5] rounded-full px-3 text-[11px]" />
+          <div className="flex items-center gap-2">
+            {/* Statut backoffice uniquement : le document ci-dessous reste figé à son émission. */}
+            {inv.status === "paid" && (
+              <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-medium" style={{ backgroundColor: "#E1F5EE", color: "#085041" }}>
+                <CircleCheck className="size-3.5" /> {invoiceStatusLabel(inv)}
+              </span>
+            )}
+            <VoucherPrintButton className="bg-white text-[#1A1F2E] border border-[#E0DACF] hover:bg-[#FBF9F5] rounded-full px-3 text-[11px]" />
+          </div>
         </div>
 
         <div className="relative bg-white border border-[#E5E0D7] rounded-xl p-10 print:border-0 print:p-0 print:rounded-none">
@@ -176,10 +184,12 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             </div>
           </div>
 
-          {/* Encaissements à la date d'émission (factures émises depuis le circuit figé) */}
+          {/* Situation des règlements à la date d'émission (factures émises depuis le circuit figé) */}
           {resa && (
             <div className="mb-6 print:break-inside-avoid">
-              <p className={sectionLabel}>Encaissements à la date d&apos;émission</p>
+              <p className={sectionLabel}>
+                Situation des règlements au {new Date(inv.issued_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
+              </p>
               {payments.length > 0 ? (
                 <table className="w-full text-[12.5px] border border-[#E5E0D7]">
                   <thead style={{ backgroundColor: "#FBF9F5" }} className="border-b border-[#E5E0D7]">

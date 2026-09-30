@@ -39,7 +39,7 @@ export async function generateInvoice(
   const { data: reservation } = await supabase
     .from("reservations")
     .select(
-      "id, reference, status, departure_date, adults, children, total_amount_mad, customer_id, discount_mad, discount_reason, " +
+      "id, reference, status, departure_date, adults, children, total_amount_mad, paid_amount_mad, customer_id, discount_mad, discount_reason, " +
         "circuits(title, category, duration_days, duration_hours), " +
         "customers(id, full_name, email, phone, address_line, city, country)",
     )
@@ -62,6 +62,16 @@ export async function generateInvoice(
   const { data: companyRow } = await supabase.from("company_settings").select("*").limit(1).single();
   if (!companyRow) return fail("Paramètres société non configurés (Paramètres › Société).");
   const company = companyRow as CompanySettings;
+
+  // Réglage « Émission des factures » : uniquement une fois le dossier soldé.
+  if (company.invoice_issue_mode === "on_full_payment") {
+    const due = Number(r.total_amount_mad) - Number(r.paid_amount_mad ?? 0);
+    if (due > 0.01) {
+      return fail(
+        `Réglage « Émission des factures : uniquement une fois soldé » — reste ${due.toFixed(2)} MAD à encaisser sur ce dossier.`,
+      );
+    }
+  }
 
   const { data: paymentsRows } = await supabase
     .from("payments")
@@ -100,7 +110,7 @@ export async function generateInvoice(
   // montant MAD (devise, taux figé, référence) — honnêteté de la conversion.
   const { data: distRow } = await supabase
     .from("distribution_bookings")
-    .select("currency, amount, fx_rate, fx_source, booking_reference")
+    .select("currency, amount, fx_rate, fx_source, booking_reference, amount_mad, service_fee_mad")
     .eq("reservation_id", reservationId)
     .neq("status", "failed")
     .order("created_at", { ascending: false })
@@ -118,16 +128,45 @@ export async function generateInvoice(
   const grossTtc = +(totalTtc + discount).toFixed(2);
   const grossHt = +(grossTtc / (1 + tvaRate)).toFixed(2);
   const discountHt = +(grossHt - totalHt).toFixed(2);
-  const lines: InvoiceLine[] = [
-    {
+  const details = `Départ le ${new Date(r.departure_date).toLocaleDateString("fr-FR")} — ${paxLabel} — dossier ${r.reference}`;
+
+  // Billetterie avec frais de service : deux lignes (tarif compagnie, frais agence).
+  // Même taux de TVA unique sur les deux lignes — règle inchangée (question débours
+  // soumise à l'expert-comptable). La ligne des frais absorbe l'arrondi : la somme
+  // des lignes reste exactement le brut TTC/HT.
+  const serviceFee = distRow ? Number((distRow as any).service_fee_mad) || 0 : 0;
+  const fareMad = distRow ? Number((distRow as any).amount_mad) || 0 : 0;
+  const lines: InvoiceLine[] = [];
+  if (distRow && serviceFee > 0 && Math.abs(fareMad + serviceFee - grossTtc) <= 0.01) {
+    const fareHt = +(fareMad / (1 + tvaRate)).toFixed(2);
+    lines.push(
+      {
+        description: "Transport aérien — tarif compagnie",
+        details: `${circuit?.title ? `${circuit.title} — ` : ""}${details}${fxNote}`,
+        quantity: 1,
+        unit_price_ht_mad: fareHt,
+        total_ht_mad: fareHt,
+        total_ttc_mad: fareMad,
+      },
+      {
+        description: "Frais de service agence",
+        details: `Émission et gestion du dossier ${r.reference}`,
+        quantity: 1,
+        unit_price_ht_mad: +(grossHt - fareHt).toFixed(2),
+        total_ht_mad: +(grossHt - fareHt).toFixed(2),
+        total_ttc_mad: +(grossTtc - fareMad).toFixed(2),
+      },
+    );
+  } else {
+    lines.push({
       description: circuit?.title || "Prestation touristique",
-      details: `Départ le ${new Date(r.departure_date).toLocaleDateString("fr-FR")} — ${paxLabel} — dossier ${r.reference}${fxNote}`,
+      details: `${details}${fxNote}`,
       quantity: 1,
       unit_price_ht_mad: discount > 0 ? grossHt : totalHt,
       total_ht_mad: discount > 0 ? grossHt : totalHt,
       total_ttc_mad: discount > 0 ? grossTtc : totalTtc,
-    },
-  ];
+    });
+  }
   if (discount > 0) {
     lines.push({
       description: `Remise · ${DISCOUNT_REASON_LABEL[r.discount_reason ?? ""] ?? r.discount_reason ?? "geste commercial"}`,

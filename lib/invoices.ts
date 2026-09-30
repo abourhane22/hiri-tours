@@ -32,6 +32,7 @@ export const PAYMENT_METHOD_LABEL: Record<string, string> = {
   cash: "Espèces",
   card_tpe: "Carte (TPE agence)",
   transfer: "Virement",
+  credit_note: "Avoir",
 };
 
 export const INVOICE_STATUS_LABEL: Record<string, string> = {
@@ -39,6 +40,20 @@ export const INVOICE_STATUS_LABEL: Record<string, string> = {
   paid: "Payée",
   cancelled: "Annulée",
 };
+
+/**
+ * Libellé de statut du backoffice (registre, page facture, fiche dossier) :
+ * « Payée — soldée le JJ/MM ». Le document imprimé reste figé et n'affiche pas ce statut.
+ */
+export function invoiceStatusLabel(inv: { status: string; paid_at?: string | null }): string {
+  if (inv.status === "paid" && inv.paid_at) {
+    const d = new Date(inv.paid_at);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `Payée — soldée le ${dd}/${mm}`;
+  }
+  return INVOICE_STATUS_LABEL[inv.status] ?? inv.status;
+}
 
 const fmtMoney = (n: number) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n);
 

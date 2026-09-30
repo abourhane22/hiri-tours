@@ -4,6 +4,8 @@ import { formatMoney, offerIsExpired, type DuffelDocument, type DuffelOrder } fr
 import { DISTRIBUTION_STATUS_LABEL, DISTRIBUTION_STATUS_STYLE, FX_SOURCE_LABEL, offerFromSnapshot } from "@/lib/distribution";
 import { SliceRow, AirlineBadge, ConditionChips } from "@/components/billetterie/offer-card";
 import { DistributionActions } from "@/components/distribution-actions";
+import { TicketingStepper } from "@/components/billetterie/ticketing-stepper";
+import type { TicketingStep } from "@/lib/distribution";
 import type { DistributionBooking } from "@/lib/types";
 
 /** Contenu de la carte « Détail du vol » sur la fiche dossier. Serveur ; lu depuis les snapshots. */
@@ -11,10 +13,15 @@ export function DistributionCard({
   booking,
   tokenMode,
   reservationCancelled,
+  steps,
+  paymentDue,
 }: {
   booking: DistributionBooking;
   tokenMode: "test" | "live" | "unknown";
   reservationCancelled: boolean;
+  steps: TicketingStep[];
+  /** Reste à encaisser si le réglage « paiement complet avant émission » s'applique, sinon null. */
+  paymentDue: number | null;
 }) {
   const offer = offerFromSnapshot(booking.offer_snapshot);
   const order = (booking.order_snapshot ?? null) as DuffelOrder | null;
@@ -23,7 +30,8 @@ export function DistributionCard({
   const expired = offer ? offerIsExpired(offer) : booking.offer_expires_at ? Date.parse(booking.offer_expires_at) <= Date.now() : false;
 
   const liveBlocked = booking.live_mode || tokenMode === "live";
-  const canIssue = booking.status === "draft" && !liveBlocked && !reservationCancelled && !expired;
+  const paymentBlocked = paymentDue !== null && paymentDue > 0.01;
+  const canIssue = booking.status === "draft" && !liveBlocked && !reservationCancelled && !expired && !paymentBlocked;
   const canCancel = booking.status === "ordered" && !liveBlocked;
   const blockedReason = liveBlocked
     ? "Identifiant ou offre LIVE : ce démonstrateur n'émet ni n'annule de vrais billets."
@@ -31,13 +39,22 @@ export function DistributionCard({
       ? "L'offre a expiré : ce dossier ne peut plus être émis. Relancez une recherche et créez un nouveau dossier."
       : booking.status === "draft" && reservationCancelled
         ? "Dossier annulé — aucune émission possible."
-        : null;
+        : booking.status === "draft" && paymentBlocked
+          ? `Paiement complet exigé avant l'émission : reste ${formatMAD(paymentDue ?? 0)} à encaisser (Paramètres › Société › Billetterie).`
+          : null;
   // Dernier refus persistant — affiché par le composant client uniquement
   // tant qu'aucune nouvelle tentative n'a produit son propre message.
   const lastFailure = booking.status === "draft" && booking.failure_message ? booking.failure_message : null;
 
   return (
     <div className="space-y-3">
+      <div className="pb-3 border-b border-[#EEE9E0]">
+        <TicketingStepper
+          steps={steps}
+          expiresAt={booking.status === "draft" && !reservationCancelled ? offer?.expires_at ?? booking.offer_expires_at : null}
+        />
+      </div>
+
       {/* Mode + statut */}
       <div className="flex flex-wrap items-center gap-2">
         <span
@@ -100,12 +117,24 @@ export function DistributionCard({
       {/* Prix : devise + MAD + taux figé */}
       <div className="rounded-lg p-3" style={{ backgroundColor: "#FBF9F5", border: "1px solid #EEE9E0" }}>
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-[11px] uppercase tracking-wide text-[#968F84]">Prix de l&apos;offre</span>
+          <span className="text-[11px] uppercase tracking-wide text-[#968F84]">Tarif compagnie</span>
           <span className="font-display text-[20px] text-[#1A1F2E] tabular-nums">{formatMAD(booking.amount_mad)}</span>
         </div>
         <div className="text-[11.5px] text-[#6B6862] mt-0.5 tabular-nums">
           {formatMoney(booking.amount, booking.currency)} × {Number(booking.fx_rate)} MAD · {FX_SOURCE_LABEL[booking.fx_source]}
         </div>
+        {Number(booking.service_fee_mad) > 0 && (
+          <div className="mt-2 pt-2 border-t border-[#EEE9E0] space-y-0.5 text-[12px] tabular-nums">
+            <div className="flex justify-between text-[#58524A]">
+              <span>+ Frais de service agence</span>
+              <span>{formatMAD(booking.service_fee_mad)}</span>
+            </div>
+            <div className="flex justify-between font-medium text-[#1A1F2E]">
+              <span>= Prix de vente</span>
+              <span>{formatMAD(Number(booking.amount_mad) + Number(booking.service_fee_mad))}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Compagnie + segments + conditions (depuis le snapshot) */}

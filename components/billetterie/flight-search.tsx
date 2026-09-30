@@ -8,6 +8,7 @@ import { CABIN_CLASSES, formatMoney, offerTotalMinutes, amountNumber, formatMinu
 import { PlaceInput } from "@/components/billetterie/place-input";
 import { OfferCard, SliceRow, ConditionChips, AirlineBadge, countdownLabel } from "@/components/billetterie/offer-card";
 import { CreateDossierPanel } from "@/components/billetterie/create-dossier-panel";
+import type { TicketingFeeDefaults } from "@/lib/distribution";
 
 const labelCls = "block text-[12px] font-medium text-[#58524A] mb-1.5";
 const fieldCls =
@@ -15,7 +16,15 @@ const fieldCls =
 
 type Sort = "price" | "duration";
 
-export function FlightSearch({ mode, fxRates }: { mode: DuffelMode; fxRates: Record<string, number> }) {
+export function FlightSearch({
+  mode,
+  fxRates,
+  feeDefaults,
+}: {
+  mode: DuffelMode;
+  fxRates: Record<string, number>;
+  feeDefaults: TicketingFeeDefaults;
+}) {
   const [state, formAction, isPending] = useActionState<SearchState, FormData>(searchOffersAction, { ok: null });
   const [withReturn, setWithReturn] = useState(false);
   const [children, setChildren] = useState(0);
@@ -261,6 +270,7 @@ export function FlightSearch({ mode, fxRates }: { mode: DuffelMode; fxRates: Rec
                 now={now}
                 mode={mode}
                 fxRates={fxRates}
+                feeDefaults={feeDefaults}
                 offerRequestId={state.ok === true ? state.result.offerRequestId : null}
               />
             )}
@@ -276,12 +286,14 @@ function OfferDetail({
   now,
   mode,
   fxRates,
+  feeDefaults,
   offerRequestId,
 }: {
   detail: Extract<OfferDetailResult, { ok: true }>;
   now: number;
   mode: DuffelMode;
   fxRates: Record<string, number>;
+  feeDefaults: TicketingFeeDefaults;
   offerRequestId: string | null;
 }) {
   const { offer, expired, priceChanged } = detail;
@@ -364,6 +376,7 @@ function OfferDetail({
         offer={offer}
         offerRequestId={offerRequestId}
         fxRates={fxRates}
+        feeDefaults={feeDefaults}
         disabled={nowExpired || liveOffer || mode === "live"}
         disabledReason={
           nowExpired

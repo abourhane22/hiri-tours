@@ -120,6 +120,80 @@ export default async function SocietePage({ searchParams }: { searchParams: Prom
             </div>
 
             <div className="pt-3 border-t border-sand-200 space-y-4">
+              <p className="text-xs text-sand-600 uppercase tracking-wide font-medium">Billetterie — frais de service et émission</p>
+              <p className="text-xs text-sand-600 -mt-2">
+                Pré-remplis à la création d&apos;un dossier depuis une offre, modifiables dossier par dossier. Prix de vente = tarif
+                compagnie converti + frais ; la marge du dossier est égale aux frais.
+              </p>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="ticketing_fee_per_pax_mad">Frais fixes par passager</Label>
+                  <div className="relative">
+                    <Input
+                      id="ticketing_fee_per_pax_mad"
+                      name="ticketing_fee_per_pax_mad"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      defaultValue={String(Number(s.ticketing_fee_per_pax_mad ?? 0))}
+                      className="pr-14"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sand-600 text-sm pointer-events-none">MAD</span>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="ticketing_fee_pct">+ % du tarif compagnie (optionnel)</Label>
+                  <div className="relative">
+                    <Input
+                      id="ticketing_fee_pct"
+                      name="ticketing_fee_pct"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      defaultValue={s.ticketing_fee_pct !== null && s.ticketing_fee_pct !== undefined ? String(Number(s.ticketing_fee_pct)) : ""}
+                      placeholder="—"
+                      className="pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sand-600 text-sm pointer-events-none">%</span>
+                  </div>
+                </div>
+              </div>
+              <label className="flex items-start gap-2.5 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  name="ticketing_require_full_payment"
+                  defaultChecked={s.ticketing_require_full_payment !== false}
+                  className="mt-0.5 size-4 rounded border-sand-300"
+                />
+                <span>
+                  Paiement complet exigé avant émission
+                  <span className="block text-xs text-sand-600">Le billet ne peut être émis que sur un dossier soldé (contrôle côté serveur).</span>
+                </span>
+              </label>
+            </div>
+
+            <div className="pt-3 border-t border-sand-200 space-y-4">
+              <p className="text-xs text-sand-600 uppercase tracking-wide font-medium">Facturation — émission des factures</p>
+              <div className="space-y-2">
+                <label className="flex items-start gap-2.5 text-sm text-ink">
+                  <input type="radio" name="invoice_issue_mode" value="on_confirmation" defaultChecked={s.invoice_issue_mode !== "on_full_payment"} className="mt-0.5 size-4" />
+                  <span>
+                    À la confirmation du dossier
+                    <span className="block text-xs text-sand-600">La facture reprend les règlements encaissés à sa date d&apos;émission et passe « Payée » au solde.</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2.5 text-sm text-ink">
+                  <input type="radio" name="invoice_issue_mode" value="on_full_payment" defaultChecked={s.invoice_issue_mode === "on_full_payment"} className="mt-0.5 size-4" />
+                  <span>
+                    Uniquement une fois le dossier soldé
+                    <span className="block text-xs text-sand-600">La facture ne peut être émise que lorsque le reste à payer est nul.</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-sand-200 space-y-4">
               <p className="text-xs text-sand-600 uppercase tracking-wide font-medium">Coordonnées bancaires (optionnel, pour facture)</p>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div><Label htmlFor="bank_name">Banque</Label><Input id="bank_name" name="bank_name" defaultValue={s.bank_name ?? ""} /></div>

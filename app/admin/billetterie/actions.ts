@@ -19,7 +19,7 @@ import {
   type DuffelPlace,
   type OfferSearchResult,
 } from "@/lib/duffel";
-import { buildProductFromOffer, fxConvert, offerPax } from "@/lib/distribution";
+import { buildProductFromOffer, computeServiceFee, fxConvert, offerPax } from "@/lib/distribution";
 import { storeDistributionCost } from "@/lib/cost-snapshot";
 import { createReservation } from "@/app/admin/reservations/new/actions";
 
@@ -183,6 +183,15 @@ export async function createDossierFromOfferAction(_prev: CreateDossierState, fd
   if (!customerId) return { ok: false, error: "Sélectionnez ou créez le client payeur." };
   if (!Number.isFinite(fxRate) || fxRate <= 0) return { ok: false, error: "Saisissez le taux de change (MAD pour 1 unité de devise)." };
 
+  // Frais de service agence : fixe par passager + % optionnel (champ vide = aucun %).
+  const feePerPax = parseFloat(((fd.get("service_fee_per_pax") as string) || "0").replace(",", "."));
+  const feePctRaw = ((fd.get("service_fee_pct") as string) || "").trim();
+  const feePct = feePctRaw === "" ? null : parseFloat(feePctRaw.replace(",", "."));
+  if (!Number.isFinite(feePerPax) || feePerPax < 0) return { ok: false, error: "Frais de service par passager invalides." };
+  if (feePct !== null && (!Number.isFinite(feePct) || feePct < 0 || feePct > 100)) {
+    return { ok: false, error: "Pourcentage de frais invalide (0 à 100)." };
+  }
+
   // 1) Re-lecture : prix et expiration À JOUR. Jamais d'engagement sur la liste.
   let offer: DuffelOffer;
   try {
@@ -201,9 +210,22 @@ export async function createDossierFromOfferAction(_prev: CreateDossierState, fd
   const amount = amountNumber(offer.total_amount);
   const amountMad = fxConvert(amount, fxRate);
   const pax = offerPax(offer);
+  const paxCount = offer.passengers.length;
+  const serviceFee = computeServiceFee({ perPaxMad: feePerPax, pax: paxCount, pct: feePct, baseMad: amountMad });
+  // Prix de vente = tarif converti + frais ; le coût prévisionnel reste le tarif converti → marge = frais.
+  const saleMad = Math.round((amountMad + serviceFee) * 100) / 100;
+  const { data: feeSettings } = await supabase
+    .from("company_settings")
+    .select("ticketing_fee_per_pax_mad, ticketing_fee_pct")
+    .limit(1)
+    .maybeSingle();
+  const fs = feeSettings as { ticketing_fee_per_pax_mad: number | null; ticketing_fee_pct: number | null } | null;
+  const fromDefaults =
+    Number(fs?.ticketing_fee_per_pax_mad ?? 0) === feePerPax &&
+    (fs?.ticketing_fee_pct === null || fs?.ticketing_fee_pct === undefined ? null : Number(fs.ticketing_fee_pct)) === (feePct && feePct > 0 ? feePct : null);
   const product = buildProductFromOffer(offer, Math.random().toString(36).slice(2, 8));
 
-  // 2) Produit billetterie — inactif, au forfait : le total du dossier est EXACTEMENT le total converti.
+  // 2) Produit billetterie — inactif, au forfait : le total du dossier est EXACTEMENT tarif converti + frais.
   const { data: created, error: prodErr } = await supabase
     .from("circuits")
     .insert({
@@ -214,7 +236,7 @@ export async function createDossierFromOfferAction(_prev: CreateDossierState, fd
       description: null,
       duration_days: 1,
       duration_hours: null,
-      base_price_mad: amountMad,
+      base_price_mad: saleMad,
       child_price_mad: null,
       max_participants: pax.adults + pax.children,
       meeting_point: product.category_fields.origin as string,
@@ -238,9 +260,9 @@ export async function createDossierFromOfferAction(_prev: CreateDossierState, fd
     departure_date: product.departure_date,
     adults: pax.adults,
     children: pax.children,
-    total_amount_mad: amountMad,
+    total_amount_mad: saleMad,
     status: "pending",
-    notes: `Dossier billetterie · distribution aérienne (Duffel${offer.live_mode ? "" : " — test"}) · offre ${offer.id} · ${offer.total_amount} ${offer.total_currency} × ${fxRate} = ${amountMad} MAD (${fxSource === "parametres" ? "taux paramétré" : "taux saisi"}).`,
+    notes: `Dossier billetterie · distribution aérienne (Duffel${offer.live_mode ? "" : " — test"}) · offre ${offer.id} · ${offer.total_amount} ${offer.total_currency} × ${fxRate} = ${amountMad} MAD (${fxSource === "parametres" ? "taux paramétré" : "taux saisi"}) + frais de service ${serviceFee} MAD = ${saleMad} MAD.`,
   });
   if (!resa.ok) {
     await supabase.from("circuits").delete().eq("id", productId); // compensation
@@ -279,6 +301,8 @@ export async function createDossierFromOfferAction(_prev: CreateDossierState, fd
     fx_rate: fxRate,
     fx_source: fxSource,
     amount_mad: amountMad,
+    service_fee_mad: serviceFee,
+    service_fee_detail: { per_pax_mad: feePerPax, pax: paxCount, pct: feePct && feePct > 0 ? feePct : null, base_mad: amountMad, from_defaults: fromDefaults },
     status: "draft",
     created_by: user.id,
   });

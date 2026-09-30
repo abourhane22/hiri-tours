@@ -88,6 +88,20 @@ export function fxConvert(amount: number, rate: number): number {
   return Math.round(amount * rate * 100) / 100;
 }
 
+/** Frais de service par défaut (Paramètres › Société › Billetterie), pré-remplis à la création du dossier. */
+export type TicketingFeeDefaults = { perPaxMad: number; pct: number | null };
+
+/**
+ * Frais de service agence billetterie : fixe par passager + % optionnel du tarif
+ * compagnie converti, au centime. Autorité unique — panneau de création (récap)
+ * et server action (montant figé) appellent la même fonction.
+ */
+export function computeServiceFee(input: { perPaxMad: number; pax: number; pct: number | null; baseMad: number }): number {
+  const fixed = Math.max(0, input.perPaxMad) * Math.max(0, input.pax);
+  const variable = input.pct !== null && input.pct > 0 ? (input.baseMad * input.pct) / 100 : 0;
+  return Math.round((fixed + variable) * 100) / 100;
+}
+
 const ymd = (iso: string) => iso.slice(0, 10);
 
 function slugify(s: string): string {
@@ -320,4 +334,96 @@ export function offerFromSnapshot(snapshot: unknown): DuffelOffer | null {
   const o = snapshot as Partial<DuffelOffer>;
   if (!o.id || !Array.isArray(o.slices) || !Array.isArray(o.passengers)) return null;
   return o as DuffelOffer;
+}
+
+// ---------------------------------------------------------------------------
+// Stepper billetterie (fiche dossier)
+// ---------------------------------------------------------------------------
+
+export type TicketingStepState = "done" | "partial" | "current" | "locked" | "blocked";
+
+export type TicketingStep = {
+  key: "created" | "travelers" | "payment" | "issue" | "invoice" | "voucher";
+  label: string;
+  state: TicketingStepState;
+  hint?: string | null;
+};
+
+export const VOUCHER_CHANNEL_LABEL: Record<string, string> = {
+  email: "envoyé par email",
+  comptoir: "remis au comptoir",
+  whatsapp: "envoyé par WhatsApp",
+  autre: "remis",
+};
+
+/**
+ * Dossier créé → Voyageurs complets → Paiement reçu → Émission → Facture → Voucher.
+ * Une étape non faite grise toutes les suivantes. Exception : un acompte
+ * (paiement partiel) quand le paiement complet n'est PAS exigé — étape orange,
+ * non bloquante.
+ */
+export function ticketingSteps(input: {
+  bookingStatus: DistributionStatus;
+  travelersOk: boolean;
+  travelersMissing: number;
+  total: number;
+  paid: number;
+  requireFullPayment: boolean;
+  invoiceAt: string | null;
+  voucherAt: string | null;
+  voucherChannel: string | null;
+  fmt: (iso: string) => string;
+}): TicketingStep[] {
+  const issued = input.bookingStatus === "ordered";
+  const due = Math.max(0, input.total - input.paid);
+  const settled = input.total > 0 && due <= 0.01;
+  const partial = !settled && input.paid > 0;
+
+  type Raw = { key: TicketingStep["key"]; label: string; done: boolean; partial?: boolean; blocked?: boolean; hint?: string | null };
+  const raw: Raw[] = [
+    { key: "created", label: "Dossier créé", done: true },
+    {
+      key: "travelers",
+      label: "Voyageurs complets",
+      done: issued || input.travelersOk,
+      hint: issued || input.travelersOk ? null : `${input.travelersMissing} point${input.travelersMissing > 1 ? "s" : ""} à compléter`,
+    },
+    {
+      key: "payment",
+      label: settled ? "Paiement reçu" : partial ? "Acompte reçu" : "Paiement reçu",
+      done: settled,
+      partial: partial && !input.requireFullPayment,
+      hint: settled ? null : `reste ${Math.round(due)} MAD`,
+    },
+    {
+      key: "issue",
+      label: "Émission",
+      done: issued,
+      blocked: input.bookingStatus === "failed" || input.bookingStatus === "cancelled",
+      hint: input.bookingStatus === "failed" ? "impossible" : input.bookingStatus === "cancelled" ? "ordre annulé" : null,
+    },
+    { key: "invoice", label: "Facture", done: Boolean(input.invoiceAt), hint: input.invoiceAt ? input.fmt(input.invoiceAt) : null },
+    {
+      key: "voucher",
+      label: "Voucher",
+      done: Boolean(input.voucherAt),
+      hint: input.voucherAt
+        ? `${VOUCHER_CHANNEL_LABEL[input.voucherChannel ?? ""] ?? "remis"} le ${input.fmt(input.voucherAt)}`
+        : null,
+    },
+  ];
+
+  // Première étape non faite = « current » (ou bloquée / acompte) ; toutes les suivantes sont grisées,
+  // sauf après un acompte non bloquant qui laisse la main à l'étape suivante.
+  let open = true;
+  return raw.map((s) => {
+    let state: TicketingStepState;
+    if (s.done) state = "done";
+    else if (!open) state = "locked";
+    else if (s.blocked) state = "blocked";
+    else if (s.partial) state = "partial";
+    else state = "current";
+    if (state === "current" || state === "blocked") open = false;
+    return { key: s.key, label: s.label, state, hint: state === "locked" ? null : s.hint ?? null };
+  });
 }

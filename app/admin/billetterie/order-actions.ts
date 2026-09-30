@@ -37,12 +37,12 @@ export async function issueOrderAction(bookingId: string): Promise<OrderActionRe
 
   const { data: row } = await supabase
     .from("distribution_bookings")
-    .select("*, reservations(id, reference, status, customers(email, phone, full_name))")
+    .select("*, reservations(id, reference, status, total_amount_mad, paid_amount_mad, customers(email, phone, full_name))")
     .eq("id", bookingId)
     .single();
   if (!row) return fail("Dossier de distribution introuvable.");
   const booking = row as unknown as DistributionBooking & {
-    reservations: { id: string; reference: string; status: string; customers: { email: string | null; phone: string | null; full_name: string } | null } | null;
+    reservations: { id: string; reference: string; status: string; total_amount_mad: number; paid_amount_mad: number; customers: { email: string | null; phone: string | null; full_name: string } | null } | null;
   };
   const reservation = Array.isArray(booking.reservations) ? booking.reservations[0] : booking.reservations;
   if (!reservation) return fail("Dossier introuvable.");
@@ -55,6 +55,19 @@ export async function issueOrderAction(bookingId: string): Promise<OrderActionRe
   // Verrou live 1 et 2 : token et snapshot.
   if (duffelTokenMode() === "live") return fail("Identifiant LIVE détecté : ce démonstrateur n'émet pas de vrais billets.");
   if (booking.live_mode) return fail("Cette offre est LIVE : émission refusée depuis le démonstrateur.");
+
+  // Réglage « paiement complet exigé avant émission » (défaut : oui) — contrôlé ici,
+  // avant tout appel Duffel ; l'interface ne fait que le refléter.
+  const { data: settings } = await supabase
+    .from("company_settings")
+    .select("ticketing_require_full_payment")
+    .limit(1)
+    .maybeSingle();
+  const requireFull = (settings as { ticketing_require_full_payment?: boolean | null } | null)?.ticketing_require_full_payment !== false;
+  const due = Number(reservation.total_amount_mad) - Number(reservation.paid_amount_mad ?? 0);
+  if (requireFull && due > 0.01) {
+    return fail(`Paiement complet exigé avant l'émission : reste ${due.toFixed(2)} MAD à encaisser sur ce dossier.`);
+  }
 
   // Re-lecture : prix et expiration à jour.
   let offer;

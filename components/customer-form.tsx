@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Check, AlertTriangle } from "lucide-react";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { CountrySelect } from "@/components/country-select";
@@ -75,8 +76,6 @@ export function CustomerForm({
   const [phoneMatch, setPhoneMatch] = useState<DuplicateMatch | null>(null);
   const [emailMatch, setEmailMatch] = useState<DuplicateMatch | null>(null);
   const [nameMatches, setNameMatches] = useState<DuplicateMatch[]>([]);
-  const [dismissedPhone, setDismissedPhone] = useState(false);
-  const [dismissedEmail, setDismissedEmail] = useState(false);
 
   const [lastPhone, setLastPhone] = useState<string | null>(null);
   const [lastEmail, setLastEmail] = useState<string | null>(null);
@@ -87,7 +86,6 @@ export function CustomerForm({
     const v = e.target.value.trim();
     if (v === lastPhone) return;
     setLastPhone(v);
-    setDismissedPhone(false);
     if (!v) return setPhoneMatch(null);
     const res = await findPotentialDuplicates({ phone: v });
     setPhoneMatch(res.phoneMatch);
@@ -98,7 +96,6 @@ export function CustomerForm({
     const v = e.target.value.trim();
     if (v === lastEmail) return;
     setLastEmail(v);
-    setDismissedEmail(false);
     if (!v) return setEmailMatch(null);
     const res = await findPotentialDuplicates({ email: v });
     setEmailMatch(res.emailMatch);
@@ -116,8 +113,10 @@ export function CustomerForm({
     setNameMatches(res.nameMatches);
   }
 
-  const showPhoneAlert = phoneMatch && !dismissedPhone;
-  const showEmailAlert = emailMatch && !dismissedEmail;
+  // Correspondance EXACTE téléphone/email : l'index unique refuserait la création —
+  // on propose d'utiliser la fiche existante au lieu d'un bouton sans effet.
+  const exactMatch = detect ? phoneMatch ?? emailMatch : null;
+  const showEmailAlert = emailMatch && emailMatch.id !== phoneMatch?.id;
 
   return (
     <form action={formAction} className="space-y-4">
@@ -230,20 +229,8 @@ export function CustomerForm({
         </div>
 
         {/* Encarts doublon (haute confiance) */}
-        {detect && showPhoneAlert && (
-          <DuplicateAlert
-            kind="téléphone"
-            match={phoneMatch}
-            onDismiss={() => setDismissedPhone(true)}
-          />
-        )}
-        {detect && showEmailAlert && (
-          <DuplicateAlert
-            kind="email"
-            match={emailMatch}
-            onDismiss={() => setDismissedEmail(true)}
-          />
-        )}
+        {detect && phoneMatch && <DuplicateAlert kind="téléphone" match={phoneMatch} />}
+        {detect && showEmailAlert && emailMatch && <DuplicateAlert kind="email" match={emailMatch} />}
       </section>
 
       {/* Section 3 — Acquisition & notes */}
@@ -312,9 +299,14 @@ export function CustomerForm({
         >
           Annuler
         </Link>
+        {exactMatch && (
+          <p className="self-center text-[12px] text-[#7A4B00]">
+            Utilisez la fiche existante ou corrigez le téléphone / l&apos;email.
+          </p>
+        )}
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || Boolean(exactMatch)}
           aria-busy={isPending}
           className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-[#1A1F2E] px-4 text-sm font-medium text-white transition-colors hover:bg-[#2A3142] disabled:opacity-60 disabled:pointer-events-none"
         >
@@ -346,12 +338,11 @@ function SectionHeader({ n, title }: { n: number; title: string }) {
 function DuplicateAlert({
   kind,
   match,
-  onDismiss,
 }: {
   kind: "téléphone" | "email";
   match: DuplicateMatch;
-  onDismiss: () => void;
 }) {
+  const router = useRouter();
   const bits = [
     match.country,
     match.tier && `Fidélité ${match.tier}`,
@@ -370,20 +361,20 @@ function DuplicateAlert({
         </span>
       </p>
       <div className="flex flex-wrap gap-2 mt-2.5 pl-6">
+        <button
+          type="button"
+          onClick={() => router.push(`/admin/clients/${match.id}`)}
+          className="inline-flex h-8 items-center rounded-md bg-[#1A1F2E] px-3 text-[12.5px] font-medium text-white hover:bg-[#2A3142] transition-colors"
+        >
+          Utiliser ce client
+        </button>
         <Link
           href={`/admin/clients/${match.id}`}
           target="_blank"
-          className="inline-flex h-8 items-center rounded-md bg-[#1A1F2E] px-3 text-[12.5px] font-medium text-white hover:bg-[#2A3142] transition-colors"
+          className="inline-flex h-8 items-center rounded-md border border-[#E0DACF] bg-white px-3 text-[12.5px] font-medium text-[#1A1F2E] hover:bg-sand-50 transition-colors"
         >
           Ouvrir sa fiche
         </Link>
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-medium text-[#7A4B00] hover:underline"
-        >
-          Créer quand même
-        </button>
       </div>
     </div>
   );

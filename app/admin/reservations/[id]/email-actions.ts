@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { sendVoucherEmail, sendBookingConfirmation } from "@/lib/email";
+import { createClient } from "@/lib/supabase/server";
+import { isVoucherChannel, recordVoucherDelivery } from "@/lib/voucher-delivery";
 
 export type EmailActionResult =
   | { ok: true; id?: string }
@@ -21,6 +23,11 @@ export async function sendVoucherEmailAction(
       );
       return { ok: false, error: reason };
     }
+
+    // Étape « Voucher » : un envoi réussi vaut remise (non bloquant si l'écriture échoue).
+    const supabase = await createClient();
+    const rec = await recordVoucherDelivery(supabase, reservationId, "email");
+    if (!rec.ok) console.error(`[sendVoucherEmailAction] remise non enregistrée pour ${reservationId}:`, rec.error);
 
     revalidatePath(`/admin/reservations/${reservationId}`);
     return { ok: true, id: result.id };
@@ -42,4 +49,23 @@ export async function sendBookingConfirmationAction(reservationId: string) {
     console.warn("Email de confirmation non envoyé :", result.error || result.skipped);
   }
   return result;
+}
+
+/** Bouton « Marquer comme remis » : remise hors email (comptoir, WhatsApp, autre). */
+export async function markVoucherDeliveredAction(reservationId: string, channel: string): Promise<EmailActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Session expirée — reconnectez-vous." };
+  if (!isVoucherChannel(channel) || channel === "email") return { ok: false, error: "Canal de remise invalide." };
+
+  const { data: resa } = await supabase.from("reservations").select("id, status").eq("id", reservationId).maybeSingle();
+  if (!resa) return { ok: false, error: "Dossier introuvable." };
+  if ((resa as { status: string }).status === "cancelled") return { ok: false, error: "Dossier annulé — aucun voucher à remettre." };
+
+  const rec = await recordVoucherDelivery(supabase, reservationId, channel);
+  if (!rec.ok) return { ok: false, error: "Impossible d'enregistrer la remise du voucher." };
+  revalidatePath(`/admin/reservations/${reservationId}`);
+  return { ok: true };
 }

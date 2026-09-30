@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, Check, X, Mail, Phone } from "lucide-react";
+import { Search, Plus, Check, X, Mail, Phone, AlertTriangle } from "lucide-react";
+import { customerDuplicateMessage, normalizePhone } from "@/lib/customers";
+import { findPotentialDuplicates, type DuplicateMatch } from "@/app/admin/clients/actions";
 import type { Customer } from "@/lib/types";
 
 type Props = { selectedCustomer: Customer | null; onSelect: (c: Customer | null) => void };
@@ -20,6 +22,12 @@ export function CustomerPicker({ selectedCustomer, onSelect }: Props) {
   const [newPhone, setNewPhone] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Anti-doublons : correspondance EXACTE téléphone/email (création impossible, index unique)
+  // et ressemblances de nom (création libre conservée).
+  const [phoneMatch, setPhoneMatch] = useState<DuplicateMatch | null>(null);
+  const [emailMatch, setEmailMatch] = useState<DuplicateMatch | null>(null);
+  const [nameMatches, setNameMatches] = useState<DuplicateMatch[]>([]);
+  const [using, setUsing] = useState(false);
 
   useEffect(() => {
     if (selectedCustomer || mode === "create") return;
@@ -35,16 +43,54 @@ export function CustomerPicker({ selectedCustomer, onSelect }: Props) {
     return () => clearTimeout(timer);
   }, [query, mode, selectedCustomer]);
 
-  async function handleCreate() {
-    if (!newName.trim()) return;
-    setCreating(true); setError(null);
-    const { data, error: insertError } = await supabase.from("customers")
-      .insert({ full_name: newName.trim(), email: newEmail.trim() || null, phone: newPhone.trim() || null })
-      .select("*").single();
-    if (insertError) { setError(insertError.message); setCreating(false); return; }
-    onSelect(data as Customer);
-    setCreating(false); setMode("search");
+  function resetCreate() {
+    setMode("search");
     setNewName(""); setNewEmail(""); setNewPhone("");
+    setPhoneMatch(null); setEmailMatch(null); setNameMatches([]); setError(null);
+  }
+
+  async function checkPhone() {
+    const v = newPhone.trim();
+    setPhoneMatch(v ? (await findPotentialDuplicates({ phone: v })).phoneMatch : null);
+  }
+  async function checkEmail() {
+    const v = newEmail.trim();
+    setEmailMatch(v ? (await findPotentialDuplicates({ email: v })).emailMatch : null);
+  }
+  async function checkName() {
+    const v = newName.trim();
+    setNameMatches(v.length >= 2 ? (await findPotentialDuplicates({ name: v })).nameMatches : []);
+  }
+
+  /** « Utiliser ce client » : sélectionne la fiche existante et revient au formulaire appelant. */
+  async function selectExisting(id: string) {
+    setUsing(true); setError(null);
+    const { data, error: readError } = await supabase.from("customers").select("*").eq("id", id).single();
+    setUsing(false);
+    if (readError || !data) { setError("Impossible de charger ce client."); return; }
+    onSelect(data as Customer);
+    resetCreate();
+  }
+
+  const exactMatch = phoneMatch ?? emailMatch;
+
+  async function handleCreate() {
+    if (!newName.trim() || exactMatch) return;
+    setCreating(true); setError(null);
+    const phone = newPhone.trim() || null;
+    const { data, error: insertError } = await supabase.from("customers")
+      .insert({ full_name: newName.trim(), email: newEmail.trim() || null, phone, phone_normalized: normalizePhone(phone) })
+      .select("*").single();
+    if (insertError) {
+      setError(customerDuplicateMessage(insertError) ?? insertError.message);
+      setCreating(false);
+      // Course : créé entre-temps → on relance la détection pour proposer « Utiliser ce client ».
+      if (insertError.code === "23505") await Promise.all([checkPhone(), checkEmail()]);
+      return;
+    }
+    onSelect(data as Customer);
+    setCreating(false);
+    resetCreate();
   }
 
   if (selectedCustomer) {
@@ -70,18 +116,65 @@ export function CustomerPicker({ selectedCustomer, onSelect }: Props) {
       <div className="space-y-3 p-4 rounded-md bg-sand-100 border border-sand-200">
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium text-ink">Nouveau client</p>
-          <button type="button" onClick={() => setMode("search")} className="text-xs text-sand-700 hover:text-ink flex items-center gap-1">
+          <button type="button" onClick={resetCreate} className="text-xs text-sand-700 hover:text-ink flex items-center gap-1">
             <X className="size-3" /> Annuler
           </button>
         </div>
         {error && <div className="p-2 text-xs text-red-800 bg-red-50 border border-red-200 rounded">{error}</div>}
-        <div><Label htmlFor="new-name">Nom complet *</Label><Input id="new-name" value={newName} onChange={(e) => setNewName(e.target.value)} required /></div>
+        <div><Label htmlFor="new-name">Nom complet *</Label><Input id="new-name" value={newName} onChange={(e) => setNewName(e.target.value)} onBlur={checkName} required /></div>
+        {nameMatches.length > 0 && !exactMatch && (
+          <div className="text-xs text-sand-700 -mt-1 space-y-1">
+            <p>Client{nameMatches.length > 1 ? "s" : ""} au nom proche — création libre si ce n&apos;est pas la même personne :</p>
+            <ul className="space-y-1">
+              {nameMatches.map((m) => (
+                <li key={m.id} className="flex items-center justify-between gap-2">
+                  <span className="truncate">
+                    <span className="font-medium text-ink">{m.fullName}</span>
+                    {m.maskedPhone && <> · {m.maskedPhone}</>} · {m.reservationCount} rés.
+                  </span>
+                  <button type="button" onClick={() => selectExisting(m.id)} disabled={using} className="shrink-0 text-terracotta-600 hover:underline disabled:opacity-50">
+                    Utiliser
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
-          <div><Label htmlFor="new-email">Email</Label><Input id="new-email" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} /></div>
-          <div><Label htmlFor="new-phone">Téléphone</Label><Input id="new-phone" type="tel" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} /></div>
+          <div><Label htmlFor="new-email">Email</Label><Input id="new-email" type="email" value={newEmail} onChange={(e) => { setNewEmail(e.target.value); setEmailMatch(null); }} onBlur={checkEmail} /></div>
+          <div><Label htmlFor="new-phone">Téléphone</Label><Input id="new-phone" type="tel" value={newPhone} onChange={(e) => { setNewPhone(e.target.value); setPhoneMatch(null); }} onBlur={checkPhone} /></div>
         </div>
+        {exactMatch && (
+          <div className="rounded-md p-3" style={{ backgroundColor: "#FFF4E0", border: "1px solid #EF9F27" }}>
+            <p className="flex items-start gap-2 text-[12.5px] text-[#7A4B00]">
+              <AlertTriangle className="size-4 shrink-0 mt-px" />
+              <span>
+                Un client existe avec ce {phoneMatch ? "téléphone" : "email"} : <span className="font-medium">{exactMatch.fullName}</span>
+                {exactMatch.maskedPhone && <> · {exactMatch.maskedPhone}</>} · {exactMatch.reservationCount} réservation{exactMatch.reservationCount > 1 ? "s" : ""}
+              </span>
+            </p>
+            <div className="flex flex-wrap gap-2 mt-2 pl-6">
+              <button
+                type="button"
+                onClick={() => selectExisting(exactMatch.id)}
+                disabled={using}
+                className="inline-flex h-8 items-center rounded-md bg-[#1A1F2E] px-3 text-[12.5px] font-medium text-white hover:bg-[#2A3142] disabled:opacity-60 transition-colors"
+              >
+                {using ? "Chargement…" : "Utiliser ce client"}
+              </button>
+              <a
+                href={`/admin/clients/${exactMatch.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-8 items-center rounded-md border border-[#E0DACF] bg-white px-3 text-[12.5px] font-medium text-[#1A1F2E] hover:bg-sand-50 transition-colors"
+              >
+                Ouvrir sa fiche
+              </a>
+            </div>
+          </div>
+        )}
         <p className="text-xs text-sand-600">Vous pourrez compléter le profil plus tard depuis la fiche client.</p>
-        <Button type="button" size="sm" onClick={handleCreate} disabled={!newName.trim() || creating}>
+        <Button type="button" size="sm" onClick={handleCreate} disabled={!newName.trim() || creating || Boolean(exactMatch)}>
           {creating ? "Création..." : "Créer ce client"}
         </Button>
       </div>

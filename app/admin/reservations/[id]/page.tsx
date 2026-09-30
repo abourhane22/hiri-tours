@@ -28,6 +28,7 @@ import {
   Info,
   Loader,
   Calendar,
+  BadgeCheck,
 } from "lucide-react";
 import { updateNotes, cancelReservation } from "./actions";
 import { InvoiceGenerateForm } from "@/components/invoice-generate-form";
@@ -53,7 +54,16 @@ import { TrendingUp } from "lucide-react";
 import type { ReservationTraveler, DistributionBooking } from "@/lib/types";
 import { DistributionCard } from "@/components/distribution-card";
 import { duffelTokenMode } from "@/lib/duffel";
-import { DISTRIBUTION_STATUS_LABEL, DISTRIBUTION_STATUS_STYLE, expectedProfiles, offerFromSnapshot } from "@/lib/distribution";
+import {
+  DISTRIBUTION_STATUS_LABEL,
+  DISTRIBUTION_STATUS_STYLE,
+  buildOrderPassengers,
+  expectedProfiles,
+  offerFromSnapshot,
+  ticketingSteps,
+  VOUCHER_CHANNEL_LABEL,
+} from "@/lib/distribution";
+import { VoucherDeliveredButton } from "@/components/voucher-delivered-button";
 import { Plane, BedDouble } from "lucide-react";
 import { CreatedBanner } from "@/components/reservations/created-banner";
 import { BOOKING_CHANNEL_LABEL, DISCOUNT_REASON_LABEL, GROUP_LANGUAGE_LABEL, quantityLabel } from "@/lib/booking";
@@ -148,7 +158,7 @@ export default async function ReservationDetailPage({
   // Facture active du dossier (une seule possible — index unique partiel).
   const { data: existingInvoice } = await supabase
     .from("invoices")
-    .select("id, invoice_number, issued_at")
+    .select("id, invoice_number, issued_at, status, paid_at")
     .eq("reservation_id", id)
     .neq("status", "cancelled")
     .maybeSingle();
@@ -293,6 +303,39 @@ export default async function ReservationDetailPage({
   const currentStepIndex = STEPS.findIndex((s) => s.key === status);
   // Émission possible dès la confirmation ; jamais sur un dossier annulé.
   const canInvoice = !isCancelled && status !== "pending";
+  const settings = (companySettings ?? null) as CompanySettings | null;
+  const settled = totalAmount > 0 && balance <= 0.01;
+  // Réglage « Émission des factures : uniquement une fois soldé » (contrôle serveur dans generateInvoice).
+  const invoiceWaitsForPayment = settings?.invoice_issue_mode === "on_full_payment" && !settled;
+  const inv = existingInvoice as { id: string; invoice_number: string; issued_at: string; status: string; paid_at: string | null } | null;
+  const voucherAt: string | null = r.voucher_sent_at ?? null;
+  const voucherChannel: string | null = r.voucher_delivery_channel ?? null;
+
+  // Stepper billetterie (carte « Détail du vol »).
+  const requireFullPayment = settings?.ticketing_require_full_payment !== false;
+  const ticketing = distribution
+    ? (() => {
+        const offer = offerFromSnapshot(distribution.offer_snapshot);
+        const built = offer
+          ? buildOrderPassengers(offer, travelers, { email: r.customers?.email ?? null, phone: r.customers?.phone ?? null })
+          : null;
+        return {
+          steps: ticketingSteps({
+            bookingStatus: distribution.status,
+            travelersOk: built?.ok === true,
+            travelersMissing: built && !built.ok ? built.missing.length : 0,
+            total: totalAmount,
+            paid: totalPaid,
+            requireFullPayment,
+            invoiceAt: inv?.issued_at ?? null,
+            voucherAt,
+            voucherChannel,
+            fmt: formatDateShort,
+          }),
+          paymentDue: requireFullPayment ? Math.max(0, balance) : null,
+        };
+      })()
+    : null;
 
   const customer = r.customers;
   const circuit = r.circuits;
@@ -446,7 +489,18 @@ export default async function ReservationDetailPage({
               <Link href={`/admin/reservations/${id}/voucher`} target="_blank" className={actionBtn}>
                 <Printer className="size-4" /> Imprimer
               </Link>
+              <VoucherDeliveredButton
+                reservationId={id}
+                deliveredLabel={
+                  voucherAt ? `Voucher ${VOUCHER_CHANNEL_LABEL[voucherChannel ?? ""] ?? "remis"} le ${formatDateShort(voucherAt)}` : null
+                }
+              />
             </>
+          )}
+          {settled && (
+            <Link href={`/admin/reservations/${id}/attestation`} target="_blank" className={actionBtn}>
+              <BadgeCheck className="size-4" /> Attestation de paiement
+            </Link>
           )}
           {suiviLink && <SuiviLinkButton url={suiviLink} />}
           <WhatsAppButton phone={customer?.phone ?? null} message={waMessage} label={waLabel} />
@@ -734,7 +788,13 @@ export default async function ReservationDetailPage({
                 </span>
               }
             >
-              <DistributionCard booking={distribution} tokenMode={duffelTokenMode()} reservationCancelled={isCancelled} />
+              <DistributionCard
+                booking={distribution}
+                tokenMode={duffelTokenMode()}
+                reservationCancelled={isCancelled}
+                steps={ticketing?.steps ?? []}
+                paymentDue={ticketing?.paymentDue ?? null}
+              />
             </InfoCard>
           )}
 
@@ -915,12 +975,20 @@ export default async function ReservationDetailPage({
             icon={Receipt}
             label="Facturation"
             headerRight={
-              existingInvoice ? (
+              inv ? (
                 <span
                   className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-medium"
                   style={{ backgroundColor: "#E1F5EE", color: "#085041" }}
                 >
-                  <CircleCheck className="size-3.5" /> Facture émise
+                  <CircleCheck className="size-3.5" />{" "}
+                  {inv.status === "paid" ? `Payée${inv.paid_at ? ` — soldée le ${formatDateShort(inv.paid_at)}` : ""}` : "Facture émise"}
+                </span>
+              ) : canInvoice && invoiceWaitsForPayment ? (
+                <span
+                  className="inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] font-medium"
+                  style={{ backgroundColor: "#F1EFE8", color: "#58524A" }}
+                >
+                  Au solde
                 </span>
               ) : canInvoice ? (
                 <span
@@ -962,6 +1030,11 @@ export default async function ReservationDetailPage({
             ) : status === "pending" ? (
               <p className="text-[12px] text-[#968F84]">
                 Confirmez le dossier pour pouvoir émettre la facture.
+              </p>
+            ) : invoiceWaitsForPayment ? (
+              <p className="text-[12px] text-[#968F84]">
+                Réglage « Émission des factures : uniquement une fois soldé » — la facture pourra être émise quand le
+                reste à payer ({formatMAD(Math.max(0, balance))}) sera encaissé.
               </p>
             ) : (
               <InvoiceGenerateForm

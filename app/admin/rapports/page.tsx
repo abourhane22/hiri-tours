@@ -32,7 +32,7 @@ export default async function RapportsPage() {
       .gte("departure_date", iso(start24)),
     supabase.from("circuits").select("id, title, max_participants").eq("is_active", true),
     supabase.from("staff_members").select("id, full_name, role").eq("is_active", true),
-    supabase.from("invoices").select("id, issued_at").eq("status", "issued"),
+    supabase.from("invoices").select("id, issued_at").in("status", ["issued", "paid"]),
   ]);
 
   const all = (reservationsRes.data || []) as any[]; // 24 mois

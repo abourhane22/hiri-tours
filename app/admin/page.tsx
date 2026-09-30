@@ -89,7 +89,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     supabase
       .from("invoices")
       .select("id, issued_at, total_ttc_mad")
-      .eq("status", "issued"),
+      .in("status", ["issued", "paid"]),
     supabase
       .from("reservations")
       .select(`

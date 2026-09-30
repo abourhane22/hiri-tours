@@ -6,7 +6,7 @@ import { Check, Loader2, Info, Lock } from "lucide-react";
 import { CustomerPicker } from "@/components/customer-picker";
 import { formatMAD } from "@/lib/utils";
 import { amountNumber, formatMoney, type DuffelOffer } from "@/lib/duffel-types";
-import { fxConvert } from "@/lib/distribution";
+import { computeServiceFee, fxConvert, type TicketingFeeDefaults } from "@/lib/distribution";
 import { createDossierFromOfferAction, type CreateDossierState } from "@/app/admin/billetterie/actions";
 import type { Customer } from "@/lib/types";
 
@@ -24,12 +24,14 @@ export function CreateDossierPanel({
   offer,
   offerRequestId,
   fxRates,
+  feeDefaults,
   disabled,
   disabledReason,
 }: {
   offer: DuffelOffer;
   offerRequestId: string | null;
   fxRates: Record<string, number>;
+  feeDefaults: TicketingFeeDefaults;
   disabled: boolean;
   disabledReason?: string;
 }) {
@@ -44,6 +46,17 @@ export function CreateDossierPanel({
   const fxSource = defaultRate && rateValid && Math.abs(rateNum - defaultRate) < 1e-9 ? "parametres" : "saisi";
   const amount = amountNumber(offer.total_amount);
   const amountMad = useMemo(() => (rateValid ? fxConvert(amount, rateNum) : null), [amount, rateNum, rateValid]);
+
+  // Frais de service : pré-remplis depuis les paramètres, modifiables pour ce dossier.
+  const pax = offer.passengers.length;
+  const [feePerPax, setFeePerPax] = useState<string>(feeDefaults.perPaxMad > 0 ? String(feeDefaults.perPaxMad) : "0");
+  const [feePct, setFeePct] = useState<string>(feeDefaults.pct !== null ? String(feeDefaults.pct) : "");
+  const perPaxNum = Number(String(feePerPax).replace(",", "."));
+  const pctRaw = String(feePct).trim();
+  const pctNum = pctRaw === "" ? null : Number(pctRaw.replace(",", "."));
+  const feeValid = Number.isFinite(perPaxNum) && perPaxNum >= 0 && (pctNum === null || (Number.isFinite(pctNum) && pctNum >= 0 && pctNum <= 100));
+  const serviceFee = amountMad !== null && feeValid ? computeServiceFee({ perPaxMad: perPaxNum, pax, pct: pctNum, baseMad: amountMad }) : null;
+  const salePrice = amountMad !== null && serviceFee !== null ? Math.round((amountMad + serviceFee) * 100) / 100 : null;
 
   useEffect(() => {
     if (state.ok === true) router.push(`/admin/reservations/${state.reservationId}?created=1`);
@@ -100,9 +113,66 @@ export function CreateDossierPanel({
           </p>
         </div>
         <div className="text-right pb-5">
-          <div className="text-[10.5px] uppercase tracking-wide text-[#968F84]">Total dossier</div>
-          <div className="font-display text-[20px] text-[#1A1F2E] tabular-nums">{amountMad !== null ? formatMAD(amountMad) : "—"}</div>
+          <div className="text-[10.5px] uppercase tracking-wide text-[#968F84]">Tarif compagnie</div>
+          <div className="font-display text-[18px] text-[#1A1F2E] tabular-nums">{amountMad !== null ? formatMAD(amountMad) : "—"}</div>
           <div className="text-[10.5px] text-[#968F84] tabular-nums">{formatMoney(offer.total_amount, offer.total_currency)}</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="service_fee_per_pax" className={labelCls}>Frais de service / passager (MAD)</label>
+          <input
+            id="service_fee_per_pax"
+            name="service_fee_per_pax"
+            type="number"
+            step="0.01"
+            min="0"
+            value={feePerPax}
+            onChange={(e) => setFeePerPax(e.target.value)}
+            className={fieldCls}
+          />
+        </div>
+        <div>
+          <label htmlFor="service_fee_pct" className={labelCls}>+ % du tarif (optionnel)</label>
+          <input
+            id="service_fee_pct"
+            name="service_fee_pct"
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            value={feePct}
+            onChange={(e) => setFeePct(e.target.value)}
+            placeholder="—"
+            className={fieldCls}
+          />
+        </div>
+        <p className="col-span-2 -mt-1.5 text-[11px] text-[#968F84]">
+          {feeDefaults.perPaxMad > 0 || feeDefaults.pct !== null
+            ? "Pré-remplis depuis Paramètres › Société › Billetterie — modifiables pour ce dossier."
+            : "Aucun frais par défaut dans Paramètres › Société › Billetterie."}
+        </p>
+      </div>
+
+      {/* Récapitulatif : tarif compagnie + frais = prix de vente */}
+      <div className="rounded-lg px-3 py-2.5 space-y-1 tabular-nums" style={{ backgroundColor: "#FBF9F5", border: "1px solid #EEE9E0" }}>
+        <div className="flex justify-between text-[12.5px] text-[#58524A]">
+          <span>Tarif compagnie</span>
+          <span>{amountMad !== null ? formatMAD(amountMad) : "—"}</span>
+        </div>
+        <div className="flex justify-between text-[12.5px] text-[#58524A]">
+          <span>
+            + Frais de service agence
+            <span className="text-[11px] text-[#968F84]">
+              {" "}({feeValid ? `${perPaxNum} MAD × ${pax} pax${pctNum ? ` + ${pctNum} %` : ""}` : "saisie invalide"})
+            </span>
+          </span>
+          <span>{serviceFee !== null ? formatMAD(serviceFee) : "—"}</span>
+        </div>
+        <div className="flex justify-between items-baseline pt-1 border-t border-[#EEE9E0]">
+          <span className="text-[12.5px] font-medium text-[#1A1F2E]">= Prix de vente</span>
+          <span className="font-display text-[20px] text-[#1A1F2E]">{salePrice !== null ? formatMAD(salePrice) : "—"}</span>
         </div>
       </div>
 
@@ -118,7 +188,7 @@ export function CreateDossierPanel({
 
       <button
         type="submit"
-        disabled={isPending || !customer || !rateValid}
+        disabled={isPending || !customer || !rateValid || !feeValid}
         aria-busy={isPending}
         className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-[#1A1F2E] px-3 text-[13px] font-medium text-white hover:bg-[#2A3142] disabled:opacity-50 disabled:pointer-events-none transition-colors"
       >
