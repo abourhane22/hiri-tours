@@ -1102,6 +1102,7 @@ export default async function ReservationDetailPage({
               departureDate={r.departure_date}
               circuitId={r.circuit_id}
               readOnly={isCancelled}
+              fromDistribution={distribution !== null}
             />
           </InfoCard>
 

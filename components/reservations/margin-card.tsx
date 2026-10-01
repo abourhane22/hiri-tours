@@ -33,6 +33,7 @@ export function MarginCard({
   departureDate,
   circuitId,
   readOnly,
+  fromDistribution = false,
 }: {
   reservationId: string;
   /** Vente nette d'avoirs (lib/credit-notes.ts#netSaleOfReservation). */
@@ -45,6 +46,8 @@ export function MarginCard({
   departureDate: string;
   circuitId: string;
   readOnly: boolean;
+  /** Dossier issu de la distribution aérienne : coût prévisionnel = offre figée, jamais recalculé. */
+  fromDistribution?: boolean;
 }) {
   const real = realCost(expenses);
   const mExp = margin(saleMad, expectedCost);
@@ -112,8 +115,9 @@ export function MarginCard({
         ) : (
           <span className="flex items-start gap-1.5">
             <Info className="size-3.5 shrink-0 mt-px" />
-            Aucun coût figé : pas de tarif d&apos;achat résolu ni de coût interne au moment de la vente. Le bouton ci-dessous réessaie avec les
-            tarifs actuels.
+            {fromDistribution
+              ? "Coût de l'offre non figé sur ce dossier billetterie. Il ne se recalcule pas : signalez-le à l'administrateur."
+              : "Aucun coût figé : pas de tarif d'achat résolu ni de coût interne au moment de la vente. Le bouton ci-dessous réessaie avec les tarifs actuels."}
           </span>
         )}
       </div>
@@ -154,7 +158,10 @@ export function MarginCard({
         )}
       </div>
 
-      {!readOnly && <RefreshCostButton reservationId={reservationId} hasSnapshot={!!snapshot} />}
+      {/* Billetterie (offre figée) : pas de recalcul possible, donc pas de bouton. */}
+      {!readOnly && !fromDistribution && snapshot?.source !== "distribution" && (
+        <RefreshCostButton reservationId={reservationId} hasSnapshot={!!snapshot} />
+      )}
     </div>
   );
 }
