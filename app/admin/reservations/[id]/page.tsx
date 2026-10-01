@@ -230,9 +230,7 @@ export default async function ReservationDetailPage({
     .maybeSingle();
   const distribution = (distributionRow ?? null) as DistributionBooking | null;
 
-  // Marge : dépenses rattachées au dossier + dépenses produit non ventilées de CE départ :
-  // celles qui portent ce départ (departure_date) en priorité, sinon les dépenses sans départ
-  // datées à ± 3 j. Une dépense produit datée pour un AUTRE départ n'est pas comptée ici.
+  // Marge : dépenses rattachées au dossier + dépenses produit non ventilées autour du départ (± 3 j).
   const resaRow = reservation as any; // `r` est déclaré plus bas ; même ligne.
   const [{ data: dossierExpenses }, { data: productExpenses }, saleNet] = await Promise.all([
     supabase.from("expenses").select("id, expense_date, amount_mad, description, cost_categories(name)").eq("reservation_id", id).order("expense_date", { ascending: false }),
@@ -241,9 +239,8 @@ export default async function ReservationDetailPage({
       .select("id, amount_mad")
       .eq("circuit_id", resaRow.circuit_id)
       .is("reservation_id", null)
-      .or(
-        `departure_date.eq.${resaRow.departure_date},and(departure_date.is.null,expense_date.gte.${addDays(resaRow.departure_date, -3)},expense_date.lte.${addDays(resaRow.departure_date, 3)})`,
-      ),
+      .gte("expense_date", addDays(resaRow.departure_date, -3))
+      .lte("expense_date", addDays(resaRow.departure_date, 3)),
     // Vente nette d'avoirs — même règle que le CA des rapports (lib/credit-notes.ts).
     netSaleOfReservation(supabase, id, Number(resaRow.total_amount_mad)),
   ]);

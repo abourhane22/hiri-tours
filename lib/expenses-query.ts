@@ -1,6 +1,6 @@
 // Requêtes de la liste des dépenses (serveur) — partagées par la page et l'export CSV.
 // Filtres appliqués CÔTÉ SERVEUR ; la recherche texte sur des tables jointes (dossier,
-// client, véhicule, fournisseur, produit) se fait en deux temps : résolution des
+// client, véhicule, produit) se fait en deux temps : résolution des
 // identifiants, puis un seul filtre `or()` sur expenses (PostgREST ne filtre pas un
 // `or()` à travers les jointures).
 
@@ -11,9 +11,9 @@ export const EXPENSE_PAGE_SIZE = 50;
 
 export const EXPENSE_LIST_SELECT =
   "id, expense_date, amount_mad, description, notes, receipt_path, payment_method, departure_date, category_id, " +
-  "reservation_id, circuit_id, vehicle_id, supplier_id, " +
+  "reservation_id, circuit_id, vehicle_id, " +
   "cost_categories(name, type), reservation:reservations(reference, status, customers(full_name)), circuit:circuits(title), " +
-  "vehicle:vehicles(registration, make, model), supplier:suppliers(name)";
+  "vehicle:vehicles(registration, make, model)";
 
 export type ExpenseRow = {
   id: string;
@@ -28,12 +28,10 @@ export type ExpenseRow = {
   reservation_id: string | null;
   circuit_id: string | null;
   vehicle_id: string | null;
-  supplier_id: string | null;
   category: { name: string; type: string } | null;
   reservation: { reference: string; status: string; customer: string | null } | null;
   circuit: { title: string } | null;
   vehicle: { registration: string; make: string | null; model: string | null } | null;
-  supplier: { name: string } | null;
 };
 
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
@@ -46,7 +44,6 @@ export function normalizeExpenseRow(r: any): ExpenseRow {
     reservation: resa ? { reference: resa.reference, status: resa.status, customer: one<any>(resa.customers)?.full_name ?? null } : null,
     circuit: one(r.circuit),
     vehicle: one(r.vehicle),
-    supplier: one(r.supplier),
   } as ExpenseRow;
 }
 
@@ -64,11 +61,10 @@ async function resolveSearch(supabase: SupabaseClient, q: string) {
   const s = sanitize(q);
   if (!s) return null;
   const like = `%${s}%`;
-  const [resaRef, customers, vehicles, suppliers, circuits] = await Promise.all([
+  const [resaRef, customers, vehicles, circuits] = await Promise.all([
     supabase.from("reservations").select("id").ilike("reference", like).limit(200),
     supabase.from("customers").select("id").ilike("full_name", like).limit(200),
     supabase.from("vehicles").select("id").or(`registration.ilike.${like},make.ilike.${like},model.ilike.${like}`).limit(100),
-    supabase.from("suppliers").select("id").ilike("name", like).limit(100),
     supabase.from("circuits").select("id").ilike("title", like).limit(100),
   ]);
   const customerIds = ((customers.data ?? []) as { id: string }[]).map((c) => c.id);
@@ -82,7 +78,6 @@ async function resolveSearch(supabase: SupabaseClient, q: string) {
     text: s,
     reservationIds: Array.from(new Set([...ids(resaRef), ...resaByCustomer])),
     vehicleIds: ids(vehicles),
-    supplierIds: ids(suppliers),
     circuitIds: ids(circuits),
   };
 }
@@ -110,7 +105,6 @@ function applyBase(qb: Builder, f: ExpenseFilters, range: { start: string; end: 
     const inList = (col: string, list: string[]) => list.length && parts.push(`${col}.in.(${list.join(",")})`);
     inList("reservation_id", search.reservationIds);
     inList("vehicle_id", search.vehicleIds);
-    inList("supplier_id", search.supplierIds);
     inList("circuit_id", search.circuitIds);
     qb = qb.or(parts.join(","));
   }
@@ -155,8 +149,8 @@ export async function listExpenses(supabase: SupabaseClient, f: ExpenseFilters, 
     previousTotal: sum((prevRes.data ?? []) as { amount_mad: number }[]),
     dossier: sum(period.filter((e) => e.reservation_id)),
     produit: sum(period.filter((e) => e.circuit_id)),
-    // Flotte : toute dépense portant un véhicule, quel que soit son rattachement principal.
-    fleet: sum(period.filter((e) => e.vehicle_id)),
+    // Flotte : dépenses rattachées à un véhicule.
+    fleet: sum(period.filter((e) => attachmentOf(e) === "vehicule")),
     general: sum(period.filter((e) => attachmentOf(e) === "general")),
   };
 

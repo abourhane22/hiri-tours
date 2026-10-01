@@ -25,11 +25,9 @@ import {
   receiptUrl,
   saveExpense,
   searchDossiers,
-  searchSuppliers,
   type DossierImpact,
   type DossierOption,
   type ExpenseFormState,
-  type SupplierOption,
 } from "@/app/admin/finance/depenses/actions";
 
 export type ExpenseCategoryOption = { id: string; name: string; type: string; description: string | null };
@@ -39,14 +37,12 @@ export type ExpenseFormInitial = {
   id: string;
   description: string;
   category_id: string;
-  supplier: SupplierOption | null;
   amount_mad: string;
   expense_date: string;
   payment_method: string;
   attachment: ExpenseAttachment;
   dossier: DossierOption | null;
   circuit_id: string;
-  departure_date: string;
   vehicle_id: string;
   receipt_path: string | null;
   notes: string;
@@ -92,7 +88,6 @@ export function ExpenseForm({
   const [dossier, setDossier] = useState<DossierOption | null>(initial.dossier);
   const [circuitId, setCircuitId] = useState(initial.circuit_id);
   const [vehicleId, setVehicleId] = useState(initial.vehicle_id);
-  const [supplier, setSupplier] = useState<SupplierOption | null>(initial.supplier);
   const [receiptPath, setReceiptPath] = useState<string | null>(initial.receipt_path);
 
   const category = categories.find((c) => c.id === categoryId) ?? null;
@@ -102,7 +97,6 @@ export function ExpenseForm({
     if (state.ok === true && state.again) {
       setExpenseId(newId());
       setAmount("");
-      setSupplier(null);
       setReceiptPath(null);
       setFormKey((k) => k + 1);
       if (againRef.current) againRef.current.value = "";
@@ -116,19 +110,18 @@ export function ExpenseForm({
       <input type="hidden" name="return_to" value={returnTo} />
       <input type="hidden" name="attachment" value={attachment} />
       <input type="hidden" name="reservation_id" value={attachment === "dossier" ? dossier?.id ?? "" : ""} />
-      <input type="hidden" name="supplier_id" value={supplier?.id ?? ""} />
       <input type="hidden" name="receipt_path" value={receiptPath ?? ""} />
       <input ref={againRef} type="hidden" name="again" defaultValue="" />
 
       <div className="space-y-4 min-w-0">
         {/* 1. Nature */}
-        <Section n={1} title="Nature">
+        <Section n={1} title="Nature de la dépense">
           <div>
             <label htmlFor="description" className={label}>Libellé <span className="text-[#C84B31]">*</span></label>
             <input id="description" name="description" required defaultValue={mode === "edit" ? initial.description : ""} className={field} placeholder="Carburant Sprinter — semaine 39" />
             <p className={help}>{EXPENSE_HELP.label}</p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div>
             <div>
               <label htmlFor="category_id" className={label}>Catégorie <span className="text-[#C84B31]">*</span></label>
               <select id="category_id" name="category_id" required value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={field}>
@@ -142,7 +135,6 @@ export function ExpenseForm({
               </select>
               <p className={help} aria-live="polite">{category?.description || "Choisissez la catégorie : sa définition s'affiche ici."}</p>
             </div>
-            <SupplierPicker value={supplier} onChange={setSupplier} />
           </div>
         </Section>
 
@@ -196,29 +188,15 @@ export function ExpenseForm({
             })}
           </div>
 
-          {attachment === "dossier" && (
-            <div className="space-y-4">
-              <DossierPicker value={dossier} onChange={setDossier} />
-              <VehicleSelect vehicles={vehicles} value={vehicleId} onChange={setVehicleId} optional />
-            </div>
-          )}
+          {attachment === "dossier" && <DossierPicker value={dossier} onChange={setDossier} />}
           {attachment === "produit" && (
-            <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_200px]">
-                <div>
-                  <label htmlFor="circuit_id" className={label}>Produit <span className="text-[#C84B31]">*</span></label>
-                  <select id="circuit_id" name="circuit_id" value={circuitId} onChange={(e) => setCircuitId(e.target.value)} className={field}>
-                    <option value="">— Choisir —</option>
-                    {circuits.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="departure_date" className={label}>Départ concerné</label>
-                  <input id="departure_date" name="departure_date" type="date" defaultValue={initial.departure_date} className={field} />
-                </div>
-              </div>
-              <p className={`${help} -mt-2`}>{ATTACHMENT_META.produit.help}</p>
-              <VehicleSelect vehicles={vehicles} value={vehicleId} onChange={setVehicleId} optional />
+            <div>
+              <label htmlFor="circuit_id" className={label}>Produit <span className="text-[#C84B31]">*</span></label>
+              <select id="circuit_id" name="circuit_id" value={circuitId} onChange={(e) => setCircuitId(e.target.value)} className={field}>
+                <option value="">— Choisir —</option>
+                {circuits.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+              <p className={help}>{ATTACHMENT_META.produit.help}</p>
             </div>
           )}
           {attachment === "vehicule" && (
@@ -307,17 +285,14 @@ function Section({ n, title, required, children }: { n: number; title: string; r
   );
 }
 
-function VehicleSelect({ vehicles, value, onChange, optional }: { vehicles: ExpenseOption[]; value: string; onChange: (v: string) => void; optional?: boolean }) {
+function VehicleSelect({ vehicles, value, onChange }: { vehicles: ExpenseOption[]; value: string; onChange: (v: string) => void }) {
   return (
     <div>
-      <label htmlFor="vehicle_id" className={label}>
-        {optional ? "Véhicule utilisé" : <>Véhicule <span className="text-[#C84B31]">*</span></>}
-      </label>
+      <label htmlFor="vehicle_id" className={label}>Véhicule <span className="text-[#C84B31]">*</span></label>
       <select id="vehicle_id" name="vehicle_id" value={value} onChange={(e) => onChange(e.target.value)} className={field}>
-        <option value="">{optional ? "— Aucun —" : "— Choisir —"}</option>
+        <option value="">— Choisir —</option>
         {vehicles.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
       </select>
-      {optional && <p className={help}>{EXPENSE_HELP.vehicleUsed}</p>}
     </div>
   );
 }
@@ -388,47 +363,6 @@ function DossierPicker({ value, onChange }: { value: DossierOption | null; onCha
         </ul>
       )}
       {!loading && dq.trim().length >= 2 && results.length === 0 && <p className="mt-1 text-[12px] text-[#968F84]">Aucun dossier actif ne correspond.</p>}
-    </div>
-  );
-}
-
-function SupplierPicker({ value, onChange }: { value: SupplierOption | null; onChange: (s: SupplierOption | null) => void }) {
-  const [q, setQ] = useState("");
-  const dq = useDebounced(q);
-  const [results, setResults] = useState<SupplierOption[]>([]);
-  useEffect(() => {
-    if (value || dq.trim().length < 2) return setResults([]);
-    let live = true;
-    searchSuppliers(dq).then((r) => live && setResults(r));
-    return () => {
-      live = false;
-    };
-  }, [dq, value]);
-  return (
-    <div className="relative">
-      <label htmlFor="supplier_search" className={label}>Fournisseur</label>
-      {value ? (
-        <div className="flex h-11 items-center justify-between rounded-lg border border-[#E0DACF] bg-[#FBF9F5] px-3 text-[14px]">
-          <span className="truncate text-[#1A1F2E]">{value.name}</span>
-          <button type="button" onClick={() => onChange(null)} aria-label="Retirer le fournisseur" className="-mr-2 inline-flex size-11 items-center justify-center text-[#6B6862] hover:text-[#1A1F2E]">
-            <X className="size-4" />
-          </button>
-        </div>
-      ) : (
-        <input id="supplier_search" name="supplier_search" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" placeholder="Rechercher un fournisseur" className={field} />
-      )}
-      <p className={help}>{EXPENSE_HELP.supplier}</p>
-      {results.length > 0 && (
-        <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-[#E5E0D7] bg-white shadow-lg" style={{ top: "4.6rem" }}>
-          {results.map((s) => (
-            <li key={s.id}>
-              <button type="button" onClick={() => { onChange(s); setQ(""); }} className="flex min-h-[44px] w-full items-center px-3 text-left text-[13px] hover:bg-[#FBF9F5]">
-                {s.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }

@@ -132,7 +132,8 @@ Autres références uniques :
 - Allotements : `lib/allotments.ts`.
 - Dépenses : modèle et textes `lib/expenses.ts`, requêtes de la liste et de l'export `lib/expenses-query.ts`.
   Rattachement **principal exclusif** (dossier XOR produit XOR aucun, `expenses_single_attachment_chk`) ;
-  le véhicule est une dimension **indépendante**. Vente nette d'un dossier : `netSaleOfReservation`
+  le formulaire ne saisit qu'UNE cible par carte (dossier, produit, véhicule ou rien) — `vehicle_id` et
+  `departure_date` historiques sont conservés en modification, `supplier_id` n'est plus utilisé. Vente nette d'un dossier : `netSaleOfReservation`
   (`lib/credit-notes.ts`), nette d'avoirs.
 
 Conventions de code : Server Components par défaut, `"use client"` seulement pour l'interactivité ; mutations en

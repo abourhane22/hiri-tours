@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const s = v === null || v === undefined ? "" : String(v);
     return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const header = ["Date", "Libellé", "Catégorie", "Rattachement", "Cible", "Véhicule", "Fournisseur", "Payée par", "Montant TTC (MAD)", "Justificatif", "Notes"];
+  const header = ["Date", "Libellé", "Catégorie", "Rattachement", "Cible", "Véhicule", "Payée par", "Montant TTC (MAD)", "Justificatif", "Notes"];
   const lines = result.rows.map((e) => {
     const att = attachmentOf(e);
     const target =
@@ -39,7 +39,6 @@ export async function GET(req: NextRequest) {
       ATTACHMENT_META[att].label,
       target,
       e.vehicle ? vehicleLabel(e.vehicle) : "",
-      e.supplier?.name ?? "",
       e.payment_method ? EXPENSE_PAYMENT_LABEL[e.payment_method] ?? e.payment_method : "",
       Number(e.amount_mad).toFixed(2).replace(".", ","),
       e.receipt_path ? "oui" : "à joindre",

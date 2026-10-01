@@ -3,9 +3,9 @@
 //
 // Rattachement PRINCIPAL exclusif (contrainte SQL num_nonnulls(reservation_id, circuit_id) <= 1) :
 //   dossier XOR produit XOR aucun. Le VÉHICULE est une dimension optionnelle indépendante.
-// Les quatre cartes de l'interface :
-//   Dossier (reservation_id [+ véhicule]) · Produit (circuit_id [+ départ] [+ véhicule])
-//   Véhicule (aucun principal + vehicle_id) · Frais généraux (rien).
+// Les quatre cartes de l'interface (une seule cible saisie par carte) :
+//   Dossier (reservation_id) · Produit (circuit_id) · Véhicule (vehicle_id) · Frais généraux (rien).
+// Héritage : 2 dépenses dossier + véhicule conservent leur vehicle_id en modification.
 
 import { addDays, agencyDate } from "@/lib/tz";
 
@@ -57,12 +57,10 @@ export const ATTACHMENT_STYLE: Record<ExpenseAttachment, { bg: string; color: st
 /** Textes d'aide du formulaire (maquette validée). */
 export const EXPENSE_HELP = {
   label: "Ce qui a été payé, tel qu'il apparaîtra dans les listes et les rapports. Soyez précis : « Carburant Sprinter — semaine 39 » plutôt que « carburant ».",
-  supplier: "Relie la dépense à un fournisseur de la base pour suivre tout ce que vous lui payez sur l'année.",
   amount: "Montant TTC réellement payé. Facture en devise : convertissez au taux du jour du paiement.",
   date: "Date de la facture ou du paiement. C'est elle qui range la dépense dans la bonne période des rapports.",
   paidBy: "Facilite le rapprochement avec le relevé bancaire ou la caisse.",
   forWhom: "Le rattachement décide où la dépense compte. C'est le choix le plus important du formulaire.",
-  vehicleUsed: "Optionnel : indiquez le véhicule si la dépense le concerne (carburant, péage).",
   receiptZone: "Glisser la facture ici ou choisir un fichier",
   receiptFormats: "PDF, JPG, PNG ou WEBP · 10 Mo max · une photo prise au téléphone suffit",
   receipt: "Conservé avec la dépense. Les dépenses sans justificatif sont signalées « À joindre » dans la liste.",

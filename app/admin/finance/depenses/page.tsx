@@ -87,7 +87,7 @@ export default async function DepensesPage({ searchParams }: { searchParams: Pro
           delta={delta !== null ? <DeltaPill up={delta <= 0}>{delta > 0 ? "+" : ""}{delta.toLocaleString("fr-FR")} %</DeltaPill> : undefined}
         />
         <KpiCard label="Rattachées aux dossiers" value={formatMAD(kpi.dossier)} sub="entrent dans la marge réelle" />
-        <KpiCard label="Flotte (avec véhicule)" value={formatMAD(kpi.fleet)} sub={`tout rattachement · produits ${formatMAD(kpi.produit)}`} />
+        <KpiCard label="Flotte" value={formatMAD(kpi.fleet)} sub={`rattachées à un véhicule · produits ${formatMAD(kpi.produit)}`} />
         <KpiCard label="Non rattachées (frais généraux)" value={formatMAD(kpi.general)} sub="structure, hors marge des dossiers" />
       </div>
 
@@ -99,7 +99,7 @@ export default async function DepensesPage({ searchParams }: { searchParams: Pro
         <label className="relative block">
           <span className="sr-only">Rechercher</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#968F84]" />
-          <input name="q" defaultValue={f.q} placeholder="Libellé, dossier, client, véhicule, fournisseur…" className={`${field} w-full pl-9`} />
+          <input name="q" defaultValue={f.q} placeholder="Libellé, dossier, client, véhicule, produit…" className={`${field} w-full pl-9`} />
         </label>
         <select name="cat" defaultValue={f.cat} aria-label="Catégorie" className={field}>
           <option value="">Toutes catégories</option>
@@ -221,7 +221,6 @@ function ExpenseLine({ e, back }: { e: ExpenseRow; back: string }) {
         <Link href={editHref} className="font-medium text-[#1A1F2E] hover:text-[#C84B31]">{e.description || "Dépense"}</Link>
         <p className="text-[12px] text-[#6B6862]">
           {e.category?.name ?? "—"}
-          {e.supplier && <> · {e.supplier.name}</>}
         </p>
       </td>
       <td className="px-3 py-2.5">

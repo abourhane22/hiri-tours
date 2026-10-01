@@ -15,7 +15,7 @@ export default async function EditExpensePage({ params, searchParams }: { params
   const supabase = await createClient();
   const { data: row, error } = await supabase
     .from("expenses")
-    .select("*, supplier:suppliers(id, name), reservation:reservations(id, reference, status, departure_date, adults, children, circuits(title), customers(full_name))")
+    .select("*, reservation:reservations(id, reference, status, departure_date, adults, children, circuits(title), customers(full_name))")
     .eq("id", id)
     .maybeSingle();
   if (error && !isNoRowError(error)) {
@@ -46,7 +46,6 @@ export default async function EditExpensePage({ params, searchParams }: { params
           id: e.id,
           description: e.description ?? "",
           category_id: e.category_id,
-          supplier: one(e.supplier) ? { id: one(e.supplier).id, name: one(e.supplier).name } : null,
           amount_mad: String(Number(e.amount_mad)),
           expense_date: e.expense_date,
           payment_method: e.payment_method ?? "",
@@ -63,7 +62,6 @@ export default async function EditExpensePage({ params, searchParams }: { params
               }
             : null,
           circuit_id: e.circuit_id ?? "",
-          departure_date: e.departure_date ?? "",
           vehicle_id: e.vehicle_id ?? "",
           receipt_path: e.receipt_path ?? null,
           notes: e.notes ?? "",

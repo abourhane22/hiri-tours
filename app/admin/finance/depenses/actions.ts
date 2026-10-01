@@ -55,21 +55,30 @@ export async function saveExpense(_prev: ExpenseFormState, fd: FormData): Promis
   if (!DATE.test(expenseDate)) return fail("La date de la dépense est obligatoire.", "expense_date");
   const paymentMethod = str(fd, "payment_method");
   if (paymentMethod && !["transfer", "cash", "card", "cheque"].includes(paymentMethod)) return fail("Moyen de paiement invalide.", "payment_method");
-  const supplierId = str(fd, "supplier_id");
-  if (supplierId && !UUID.test(supplierId)) return fail("Fournisseur invalide.", "supplier_search");
 
   const attachment = str(fd, "attachment") as ExpenseAttachment;
   if (!["dossier", "produit", "vehicule", "general"].includes(attachment)) return fail("Indiquez pour qui est la dépense.", "attachment");
   let reservationId = str(fd, "reservation_id");
   let circuitId = str(fd, "circuit_id");
   let vehicleId = str(fd, "vehicle_id");
-  let departureDate = str(fd, "departure_date");
 
   // Ancienne version (modification) : un dossier déjà rattaché reste accepté même annulé.
   const { data: previous } =
-    mode === "edit" ? await supabase.from("expenses").select("id, reservation_id, receipt_path").eq("id", id).maybeSingle() : { data: null };
+    mode === "edit"
+      ? await supabase.from("expenses").select("id, reservation_id, circuit_id, vehicle_id, departure_date, receipt_path").eq("id", id).maybeSingle()
+      : { data: null };
   if (mode === "edit" && !previous) return fail("Dépense introuvable.");
-  const prev = previous as { reservation_id: string | null; receipt_path: string | null } | null;
+  const prev = previous as {
+    reservation_id: string | null;
+    circuit_id: string | null;
+    vehicle_id: string | null;
+    departure_date: string | null;
+    receipt_path: string | null;
+  } | null;
+  // Plus saisis dans le formulaire (Dossier / Produit) : véhicule et départ concerné. En
+  // modification, la valeur existante est CONSERVÉE telle quelle (2 dépenses dossier +
+  // véhicule historiques) ; une nouvelle dépense Dossier ou Produit n'en porte pas.
+  let departureDate = "";
 
   if (attachment === "dossier") {
     if (!UUID.test(reservationId)) return fail("Choisissez le dossier concerné.", "dossier_search");
@@ -79,21 +88,20 @@ export async function saveExpense(_prev: ExpenseFormState, fd: FormData): Promis
       return fail("Ce dossier est annulé : choisissez un dossier actif.", "dossier_search");
     }
     circuitId = "";
-    departureDate = "";
+    vehicleId = prev?.reservation_id ? prev.vehicle_id ?? "" : "";
   } else if (attachment === "produit") {
     if (!UUID.test(circuitId)) return fail("Choisissez le produit concerné.", "circuit_id");
-    if (departureDate && !DATE.test(departureDate)) return fail("Date de départ invalide.", "departure_date");
     reservationId = "";
+    vehicleId = prev?.circuit_id ? prev.vehicle_id ?? "" : "";
+    departureDate = prev?.circuit_id === circuitId ? prev.departure_date ?? "" : "";
   } else if (attachment === "vehicule") {
     if (!UUID.test(vehicleId)) return fail("Choisissez le véhicule concerné.", "vehicle_id");
     reservationId = "";
     circuitId = "";
-    departureDate = "";
   } else {
     reservationId = "";
     circuitId = "";
     vehicleId = "";
-    departureDate = "";
   }
   if (vehicleId && !UUID.test(vehicleId)) return fail("Véhicule invalide.", "vehicle_id");
 
@@ -107,7 +115,7 @@ export async function saveExpense(_prev: ExpenseFormState, fd: FormData): Promis
     amount_mad: Math.round(amount * 100) / 100,
     expense_date: expenseDate,
     payment_method: paymentMethod || null,
-    supplier_id: supplierId || null,
+    // supplier_id : colonne conservée en base, plus saisie ni modifiée.
     reservation_id: reservationId || null,
     circuit_id: circuitId || null,
     vehicle_id: vehicleId || null,
@@ -123,7 +131,7 @@ export async function saveExpense(_prev: ExpenseFormState, fd: FormData): Promis
   if (error) {
     console.error("[saveExpense]", error);
     if (error.code === "23514" && /single_attachment/.test(error.message)) return fail("Une dépense n'a qu'un rattachement principal : dossier OU produit.", "attachment");
-    if (error.code === "23503") return fail("Élément rattaché introuvable (dossier, produit, véhicule ou fournisseur supprimé).");
+    if (error.code === "23503") return fail("Élément rattaché introuvable (dossier, produit ou véhicule supprimé).");
     if (error.code === "23505") return fail("Cette dépense a déjà été enregistrée — rechargez la page avant d'en saisir une autre.");
     return fail(`Dépense non enregistrée : ${error.message}`);
   }
@@ -235,17 +243,6 @@ export async function loadDossierImpact(reservationId: string, excludeExpenseId?
     expectedCost: row.expected_cost_mad === null || row.expected_cost_mad === undefined ? null : Number(row.expected_cost_mad),
     otherExpenses: ((exp ?? []) as { amount_mad: number }[]).map((e) => ({ amount_mad: Number(e.amount_mad) })),
   };
-}
-
-export type SupplierOption = { id: string; name: string };
-
-export async function searchSuppliers(q: string): Promise<SupplierOption[]> {
-  const ctx = await staff();
-  if (!ctx) return [];
-  const s = q.replace(/[%,()*\\]/g, " ").trim();
-  if (s.length < 2) return [];
-  const { data } = await ctx.supabase.from("suppliers").select("id, name").ilike("name", `%${s}%`).eq("is_active", true).order("name").limit(10);
-  return (data ?? []) as SupplierOption[];
 }
 
 /** Lecture d'un justificatif : URL signée de courte durée (bucket privé). */
