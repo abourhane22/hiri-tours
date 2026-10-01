@@ -45,8 +45,11 @@ export async function updateCategory(id: string, formData: FormData) {
     const name = ((formData.get("name") as string) || "").trim();
     const description = ((formData.get("description") as string) || "").trim() || null;
     if (!name) throw new ActionError("Le nom est obligatoire.", "name");
+    // Types de produit dont cette catégorie couvre le coût fournisseur principal (marge réelle définitive).
+    const TYPES = ["circuit", "excursion", "transfert", "sejour", "hebergement", "billetterie", "prestation"];
+    const mainCostFor = Array.from(new Set(formData.getAll("main_cost_for").map(String))).filter((t) => TYPES.includes(t));
     const supabase = await createClient();
-    const { error } = await supabase.from("cost_categories").update({ name, description }).eq("id", id);
+    const { error } = await supabase.from("cost_categories").update({ name, description, main_cost_for: mainCostFor }).eq("id", id);
     if (error) throw new Error(error.code === "23505" ? "Une catégorie porte déjà ce nom." : `Catégorie non enregistrée : ${error.message}`);
     revalidatePath("/admin/finance/categories");
     revalidatePath("/admin/finance/depenses");

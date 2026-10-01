@@ -154,6 +154,10 @@ server actions qui **valident puis délèguent** (les transactions sensibles son
   (`invoices!invoice_id(…)`), sinon PGRST201.
 - Factures : numéro attribué par trigger (`HT-AAAA-NNNN`, avoirs `AV-AAAA-NNNN`), jamais côté app ; une facture active par
   dossier ; statut `paid` posé par trigger au solde — les factures actives se filtrent par `status in ('issued','paid')`.
+- Marge réelle **provisoire** (`lib/margin.ts#realMarginState`) tant qu'aucune dépense d'une catégorie
+  `cost_categories.main_cost_for` ∋ type du produit n'est saisie ; Rentabilité retient alors le coût prévisionnel.
+- Billetterie : coût réel du billet = dépense AUTOMATIQUE (`source = 'distribution'`), écrite uniquement par
+  `sync_distribution_expense` (trigger `expenses_protect_automatic`) ; jamais modifiable ni supprimable à la main.
 - Stockage : justificatifs de dépenses dans le bucket **privé** `expense-receipts` (URL signées de 5 min).
   ⚠ `vehicle-documents` est public et `staff-documents` n'existe pas : lot sécurité à faire.
 - Le schéma de base de `customers`, `company_settings`, `invoices`, `staff_members`, `vehicles`, `expenses` n'est pas

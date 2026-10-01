@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Plus, Download, Search, X, Info, FileCheck2, FileWarning, Pencil } from "lucide-react";
+import { Plus, Download, Search, X, Info, FileCheck2, FileWarning, Pencil, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ExpenseTabs } from "@/components/report-tabs";
 import { KpiCard, DeltaPill } from "@/components/kpi-card";
@@ -220,6 +220,11 @@ function ExpenseLine({ e, back }: { e: ExpenseRow; back: string }) {
       <td className="px-3 py-2.5 min-w-[220px]">
         <Link href={editHref} className="font-medium text-[#1A1F2E] hover:text-[#C84B31]">{e.description || "Dépense"}</Link>
         <p className="text-[12px] text-[#6B6862]">
+          {e.source === "distribution" && (
+            <span className="mr-1.5 rounded px-1.5 py-px text-[10.5px] font-medium" style={{ backgroundColor: "#E3F0F4", color: "#0C6B8A" }}>
+              Automatique
+            </span>
+          )}
           {e.category?.name ?? "—"}
         </p>
       </td>
@@ -241,7 +246,9 @@ function ExpenseLine({ e, back }: { e: ExpenseRow; back: string }) {
         {att !== "vehicule" && vehicle && <p className="text-[11.5px] text-[#6B6862]">Véhicule : {vehicle}</p>}
       </td>
       <td className="px-3 py-2.5 whitespace-nowrap">
-        {e.receipt_path ? (
+        {e.source === "distribution" ? (
+          <span className="text-[12px] text-[#6B6862]">Ordre de la compagnie</span>
+        ) : e.receipt_path ? (
           <span className="inline-flex items-center gap-1 text-[12px] text-[#085041]">
             <FileCheck2 className="size-3.5" /> {/\.pdf$/i.test(e.receipt_path) ? "PDF joint" : "Photo jointe"}
           </span>
@@ -253,8 +260,12 @@ function ExpenseLine({ e, back }: { e: ExpenseRow; back: string }) {
       </td>
       <td className="px-3 py-2.5 text-right font-medium tabular-nums text-[#1A1F2E] whitespace-nowrap">{formatMAD(e.amount_mad)}</td>
       <td className="px-1 py-1 text-right">
-        <Link href={editHref} aria-label="Modifier la dépense" className="inline-flex size-11 items-center justify-center rounded-lg text-[#6B6862] hover:bg-[#F1EFE8] hover:text-[#1A1F2E]">
-          <Pencil className="size-4" />
+        <Link
+          href={editHref}
+          aria-label={e.source === "distribution" ? "Voir la dépense automatique" : "Modifier la dépense"}
+          className="inline-flex size-11 items-center justify-center rounded-lg text-[#6B6862] hover:bg-[#F1EFE8] hover:text-[#1A1F2E]"
+        >
+          {e.source === "distribution" ? <Eye className="size-4" /> : <Pencil className="size-4" />}
         </Link>
       </td>
     </tr>

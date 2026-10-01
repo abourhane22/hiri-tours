@@ -53,7 +53,7 @@ import { TravelersPanel } from "@/components/travelers-panel";
 import { getDossierProfile, travelersStatus } from "@/lib/dossier-profile";
 import { ArrivalCard, StayCard } from "@/components/reservations/special-cards";
 import { MarginCard, type MarginExpense } from "@/components/reservations/margin-card";
-import type { CostSnapshot } from "@/lib/margin";
+import { hasMainCostExpense, type CostSnapshot } from "@/lib/margin";
 import { TrendingUp } from "lucide-react";
 import type { ReservationTraveler, DistributionBooking } from "@/lib/types";
 import { DistributionCard } from "@/components/distribution-card";
@@ -233,7 +233,7 @@ export default async function ReservationDetailPage({
   // Marge : dépenses rattachées au dossier + dépenses produit non ventilées autour du départ (± 3 j).
   const resaRow = reservation as any; // `r` est déclaré plus bas ; même ligne.
   const [{ data: dossierExpenses }, { data: productExpenses }, saleNet] = await Promise.all([
-    supabase.from("expenses").select("id, expense_date, amount_mad, description, cost_categories(name)").eq("reservation_id", id).order("expense_date", { ascending: false }),
+    supabase.from("expenses").select("id, expense_date, amount_mad, description, source, cost_categories(name, main_cost_for)").eq("reservation_id", id).order("expense_date", { ascending: false }),
     supabase
       .from("expenses")
       .select("id, amount_mad")
@@ -250,7 +250,15 @@ export default async function ReservationDetailPage({
     amount_mad: Number(e.amount_mad),
     description: e.description ?? null,
     category: (Array.isArray(e.cost_categories) ? e.cost_categories[0] : e.cost_categories)?.name ?? null,
+    automatic: e.source === "distribution",
   }));
+  // Coût fournisseur principal saisi ? (cost_categories.main_cost_for ∋ type du produit)
+  const dossierHasMainCost = hasMainCostExpense(
+    ((dossierExpenses ?? []) as any[]).map((e) => ({
+      main_cost_for: (Array.isArray(e.cost_categories) ? e.cost_categories[0] : e.cost_categories)?.main_cost_for ?? [],
+    })),
+    (Array.isArray(resaRow.circuits) ? resaRow.circuits[0] : resaRow.circuits)?.category ?? null,
+  );
   const unallocated = {
     count: (productExpenses ?? []).length,
     total: ((productExpenses ?? []) as any[]).reduce((s, e) => s + Number(e.amount_mad), 0),
@@ -1103,6 +1111,7 @@ export default async function ReservationDetailPage({
               circuitId={r.circuit_id}
               readOnly={isCancelled}
               fromDistribution={distribution !== null}
+              hasMainCost={dossierHasMainCost}
             />
           </InfoCard>
 

@@ -10,13 +10,14 @@ export async function loadExpenseFormData(
   keep: { categoryId?: string | null; circuitId?: string | null; vehicleId?: string | null } = {},
 ): Promise<{ categories: ExpenseCategoryOption[]; circuits: ExpenseOption[]; vehicles: ExpenseOption[] }> {
   const [catRes, circRes, vehRes] = await Promise.all([
-    supabase.from("cost_categories").select("id, name, type, description, is_active, sort_order").order("type").order("sort_order"),
+    supabase.from("cost_categories").select("id, name, type, description, is_active, sort_order, code, main_cost_for").order("type").order("sort_order"),
     supabase.from("circuits").select("id, title, is_active").order("title"),
     supabase.from("vehicles").select("id, registration, make, model, is_active").order("registration"),
   ]);
+  // « Billetterie aérienne » (code flight_ticket) : réservée aux dépenses automatiques.
   const categories = ((catRes.data ?? []) as any[])
-    .filter((c) => c.is_active || c.id === keep.categoryId)
-    .map((c) => ({ id: c.id, name: c.name, type: c.type, description: c.description ?? null }));
+    .filter((c) => (c.is_active && c.code !== "flight_ticket") || c.id === keep.categoryId)
+    .map((c) => ({ id: c.id, name: c.name, type: c.type, description: c.description ?? null, main_cost_for: (c.main_cost_for ?? []) as string[] }));
   const circuits = ((circRes.data ?? []) as any[])
     .filter((c) => c.is_active || c.id === keep.circuitId)
     .map((c) => ({ id: c.id, label: c.is_active ? c.title : `${c.title} (inactif)` }));

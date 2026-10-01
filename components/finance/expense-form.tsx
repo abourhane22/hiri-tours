@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Briefcase, Map as MapIcon, Truck, Building2, Check, Loader2, Upload, FileText, X, Camera, Trash2, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatMAD, formatDateShort } from "@/lib/utils";
-import { margin, variance, realCost, marginTone, varianceTone, formatPct, MARGIN_TONE_STYLE } from "@/lib/margin";
+import { margin, variance, realCost, marginTone, varianceTone, formatPct, hasMainCostExpense, realMarginState, MARGIN_TONE_STYLE } from "@/lib/margin";
 import {
   ATTACHMENTS,
   ATTACHMENT_META,
@@ -30,7 +30,7 @@ import {
   type ExpenseFormState,
 } from "@/app/admin/finance/depenses/actions";
 
-export type ExpenseCategoryOption = { id: string; name: string; type: string; description: string | null };
+export type ExpenseCategoryOption = { id: string; name: string; type: string; description: string | null; main_cost_for?: string[] };
 export type ExpenseOption = { id: string; label: string };
 
 export type ExpenseFormInitial = {
@@ -254,6 +254,7 @@ export function ExpenseForm({
           vehicleName={vehicles.find((v) => v.id === vehicleId)?.label ?? null}
           amount={Number(String(amount).replace(",", ".")) || 0}
           excludeId={mode === "edit" ? initial.id : undefined}
+          categoryMainCostFor={category?.main_cost_for ?? []}
         />
         <div className="rounded-xl border border-[#E5E0D7] bg-white p-4">
           <p className="text-[10.5px] font-medium uppercase tracking-[1.4px] text-[#968F84]">Quel rattachement choisir ?</p>
@@ -467,7 +468,9 @@ function ImpactPanel({
   vehicleName,
   amount,
   excludeId,
+  categoryMainCostFor,
 }: {
+  categoryMainCostFor: string[];
   attachment: ExpenseAttachment;
   dossier: DossierOption | null;
   productName: string | null;
@@ -495,14 +498,18 @@ function ImpactPanel({
     if (!impact) return null;
     const without = realCost(impact.otherExpenses);
     const withThis = realCost([...impact.otherExpenses, ...(amount > 0 ? [{ amount_mad: amount }] : [])]);
+    // Marge réelle provisoire tant qu'aucune dépense (y compris celle-ci) ne couvre le coût fournisseur principal.
+    const hasMain = hasMainCostExpense([...impact.otherExpenses, { main_cost_for: categoryMainCostFor }], impact.productCategory);
+    const provisional = realMarginState({ expectedCost: impact.expectedCost, realCost: withThis, hasMainCost: hasMain }) === "provisional";
     return {
       without,
       withThis,
+      provisional,
       mExp: margin(impact.saleNet, impact.expectedCost),
       mReal: margin(impact.saleNet, withThis),
       v: variance(impact.expectedCost, withThis),
     };
-  }, [impact, amount]);
+  }, [impact, amount, categoryMainCostFor]);
 
   return (
     <div className="rounded-xl border border-[#E5E0D7] bg-white p-4">
@@ -520,12 +527,20 @@ function ImpactPanel({
               <Row k="Coût prévisionnel" v={impact.expectedCost === null ? "—" : formatMAD(impact.expectedCost)} />
               <Row k="Coût réel avec cette dépense" v={live.withThis === null ? "—" : formatMAD(live.withThis)} sub={live.without === null ? "première dépense du dossier" : `dont ${formatMAD(live.without)} déjà saisis`} />
               <ToneRow k="Marge prév." m={live.mExp} tone={marginTone(live.mExp.pct)} />
-              <ToneRow k="Marge réelle" m={live.mReal} tone={marginTone(live.mReal.pct)} />
-              <ToneRow k="Écart réel − prév." m={live.v} tone={varianceTone(live.v)} signed />
+              <ToneRow k={live.provisional ? "Marge réelle provisoire" : "Marge réelle"} m={live.mReal} tone={live.provisional ? "unknown" : marginTone(live.mReal.pct)} />
+              {live.provisional ? (
+                <Row k="Écart réel − prév." v="—" sub="en attente du coût fournisseur" />
+              ) : (
+                <ToneRow k="Écart réel − prév." m={live.v} tone={varianceTone(live.v)} signed />
+              )}
             </dl>
-          ) : (
-            <p className="text-[12px] text-[#791F1F]">Données du dossier indisponibles.</p>
+          ) : null}
+          {impact && live?.provisional && impact.expectedCost !== null && (
+            <p className="mt-2 rounded-lg bg-[#F1EFE8] px-3 py-2 text-[11.5px] text-[#58524A]">
+              Coût fournisseur pas encore saisi : {formatMAD(impact.expectedCost)} prévus.
+            </p>
           )}
+          {!impact && !loading && <p className="text-[12px] text-[#791F1F]">Données du dossier indisponibles.</p>}
         </div>
       )}
     </div>

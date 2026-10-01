@@ -272,3 +272,39 @@ export function formatPct(pct: number | null | undefined): string {
   if (pct === null || pct === undefined || !Number.isFinite(pct)) return "—";
   return `${pct.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`;
 }
+
+// ---------------------------------------------------------------------------
+// Marge réelle provisoire (tous types)
+// ---------------------------------------------------------------------------
+
+export type RealMarginState = "none" | "provisional" | "final";
+
+/**
+ * La marge réelle n'est DÉFINITIVE que si le coût fournisseur principal est saisi.
+ * PROVISOIRE quand : coût prévisionnel connu (> 0), coût réel saisi inférieur au
+ * prévisionnel, et AUCUNE dépense du dossier n'est d'une catégorie « coût fournisseur
+ * principal » pour le type du produit (cost_categories.main_cost_for). Dès qu'une telle
+ * dépense existe, la marge réelle est définitive — même sous le prévisionnel (économie).
+ */
+export function realMarginState(input: { expectedCost: number | null | undefined; realCost: number | null | undefined; hasMainCost: boolean }): RealMarginState {
+  const expected = input.expectedCost === null || input.expectedCost === undefined ? null : Number(input.expectedCost);
+  const real = input.realCost === null || input.realCost === undefined ? null : Number(input.realCost);
+  if (expected !== null && expected > 0 && (real ?? 0) < expected && !input.hasMainCost) return "provisional";
+  return real === null ? "none" : "final";
+}
+
+/** Le dossier porte-t-il une dépense de coût fournisseur principal pour ce type de produit ? */
+export function hasMainCostExpense(expenses: { main_cost_for?: string[] | null }[], productCategory: string | null | undefined): boolean {
+  if (!productCategory) return false;
+  return expenses.some((e) => Array.isArray(e.main_cost_for) && e.main_cost_for.includes(productCategory));
+}
+
+/**
+ * Coût retenu pour les AGRÉGATS (Rentabilité) : un dossier provisoire compte pour son
+ * coût prévisionnel, pour qu'un coût fournisseur non saisi ne gonfle pas les marges.
+ */
+export function retainedCost(input: { expectedCost: number | null | undefined; realCost: number | null | undefined; hasMainCost: boolean }): { cost: number | null; provisional: boolean } {
+  const state = realMarginState(input);
+  if (state === "provisional") return { cost: Number(input.expectedCost), provisional: true };
+  return { cost: input.realCost === null || input.realCost === undefined ? null : Number(input.realCost), provisional: false };
+}

@@ -17,10 +17,26 @@ import { buildOrderPassengers } from "@/lib/distribution";
 import type { DistributionBooking, ReservationTraveler } from "@/lib/types";
 
 export type OrderActionResult =
-  | { ok: true; bookingReference: string | null; documents: number }
+  | { ok: true; bookingReference: string | null; documents: number; warning?: string }
   | { ok: false; error: string; missing?: string[] };
 
 const fail = (error: string, missing?: string[]): OrderActionResult => ({ ok: false, error, missing });
+
+/**
+ * Coût réel du billet : dépense automatique « Billetterie aérienne » rattachée au dossier,
+ * calculée EN BASE depuis les snapshots figés (sync_distribution_expense, idempotente :
+ * une seule dépense par ordre). Renvoie un avertissement si l'écriture échoue — l'ordre,
+ * lui, est déjà émis ou annulé chez Duffel.
+ */
+async function syncTicketExpense(supabase: Awaited<ReturnType<typeof createClient>>, bookingId: string, reservationId: string): Promise<string | undefined> {
+  const { error } = await supabase.rpc("sync_distribution_expense", { p_booking_id: bookingId });
+  revalidatePath("/admin/finance/depenses");
+  revalidatePath("/admin/finance/rentabilite");
+  revalidatePath(`/admin/reservations/${reservationId}`);
+  if (!error) return undefined;
+  console.error("[distribution] dépense automatique du billet :", bookingId, error);
+  return `Coût réel du billet non enregistré (${error.message}). Signalez-le à l'administrateur : la marge du dossier est incomplète.`;
+}
 
 /**
  * Émission de l'ordre Duffel depuis la fiche dossier.
@@ -139,8 +155,9 @@ export async function issueOrderAction(bookingId: string): Promise<OrderActionRe
       return fail(`Ordre émis chez Duffel (${order.booking_reference ?? order.id}) mais impossible de l'enregistrer — contactez l'administrateur avant toute nouvelle tentative.`);
     }
 
+    const warning = await syncTicketExpense(supabase, bookingId, reservation.id);
     revalidatePath(`/admin/reservations/${reservation.id}`);
-    return { ok: true, bookingReference: order.booking_reference, documents: order.documents?.length ?? 0 };
+    return { ok: true, bookingReference: order.booking_reference, documents: order.documents?.length ?? 0, warning };
   } catch (e) {
     const message = duffelErrorMessage(e);
     console.error("[distribution] émission :", e instanceof DuffelApiError ? `${e.status} ${e.requestId ?? ""} ${e.errors.map((x) => x.code).join(",")}` : e);
@@ -151,7 +168,7 @@ export async function issueOrderAction(bookingId: string): Promise<OrderActionRe
 }
 
 export type CancelOrderResult =
-  | { ok: true; refundAmount: string | null; refundCurrency: string | null; refundTo: string | null }
+  | { ok: true; refundAmount: string | null; refundCurrency: string | null; refundTo: string | null; warning?: string }
   | { ok: false; error: string };
 
 /** Annulation : devis puis confirmation immédiate. Le remboursement est figé dans le snapshot. */
@@ -176,8 +193,10 @@ export async function cancelOrderAction(bookingId: string): Promise<CancelOrderR
       .from("distribution_bookings")
       .update({ status: "cancelled", cancellation_snapshot: confirmed, cancelled_at: new Date().toISOString() })
       .eq("id", bookingId);
+    // Coût réel ramené à (ordre − remboursement) × taux figé.
+    const warning = await syncTicketExpense(supabase, bookingId, booking.reservation_id);
     revalidatePath(`/admin/reservations/${booking.reservation_id}`);
-    return { ok: true, refundAmount: confirmed.refund_amount, refundCurrency: confirmed.refund_currency, refundTo: confirmed.refund_to };
+    return { ok: true, refundAmount: confirmed.refund_amount, refundCurrency: confirmed.refund_currency, refundTo: confirmed.refund_to, warning };
   } catch (e) {
     console.error("[distribution] annulation :", e instanceof DuffelApiError ? `${e.status} ${e.requestId ?? ""}` : e);
     return { ok: false, error: duffelErrorMessage(e) };

@@ -7,6 +7,7 @@ import {
   marginTone,
   varianceTone,
   realCost,
+  realMarginState,
   formatPct,
   MARGIN_TONE_STYLE,
   COST_SOURCE_LABEL,
@@ -14,7 +15,15 @@ import {
 } from "@/lib/margin";
 import { RefreshCostButton } from "@/components/reservations/refresh-cost-button";
 
-export type MarginExpense = { id: string; expense_date: string; amount_mad: number; description: string | null; category: string | null };
+export type MarginExpense = {
+  id: string;
+  expense_date: string;
+  amount_mad: number;
+  description: string | null;
+  category: string | null;
+  /** Dépense automatique (billet de l'ordre de distribution) — non modifiable. */
+  automatic?: boolean;
+};
 
 /**
  * Carte « Marge » de la fiche dossier : vente nette, coût prévisionnel figé
@@ -34,6 +43,7 @@ export function MarginCard({
   circuitId,
   readOnly,
   fromDistribution = false,
+  hasMainCost = false,
 }: {
   reservationId: string;
   /** Vente nette d'avoirs (lib/credit-notes.ts#netSaleOfReservation). */
@@ -48,14 +58,18 @@ export function MarginCard({
   readOnly: boolean;
   /** Dossier issu de la distribution aérienne : coût prévisionnel = offre figée, jamais recalculé. */
   fromDistribution?: boolean;
+  /** Une dépense du dossier couvre le coût fournisseur principal du type (cost_categories.main_cost_for). */
+  hasMainCost?: boolean;
 }) {
   const real = realCost(expenses);
   const mExp = margin(saleMad, expectedCost);
   const mReal = margin(saleMad, real);
   const v = variance(expectedCost, real);
   const tExp = MARGIN_TONE_STYLE[marginTone(mExp.pct)];
-  const tReal = MARGIN_TONE_STYLE[marginTone(mReal.pct)];
-  const tVar = MARGIN_TONE_STYLE[varianceTone(v)];
+  // Marge réelle PROVISOIRE (lib/margin.ts#realMarginState) : jamais verte, écart en attente.
+  const provisional = realMarginState({ expectedCost, realCost: real, hasMainCost }) === "provisional";
+  const tReal = provisional ? MARGIN_TONE_STYLE.unknown : MARGIN_TONE_STYLE[marginTone(mReal.pct)];
+  const tVar = provisional ? MARGIN_TONE_STYLE.unknown : MARGIN_TONE_STYLE[varianceTone(v)];
 
   const dep = new Date(departureDate + "T00:00:00");
   const expensesLink = (extra: string) => `/admin/finance/depenses?year=${dep.getFullYear()}&month=${dep.getMonth()}&${extra}`;
@@ -83,9 +97,24 @@ export function MarginCard({
       {/* Marges + écart */}
       <div className="grid grid-cols-3 gap-2">
         <Tone label="Marge prév." amount={mExp.amount} pct={mExp.pct} style={tExp} />
-        <Tone label="Marge réelle" amount={mReal.amount} pct={mReal.pct} style={tReal} />
-        <Tone label="Écart réel − prév." amount={v.amount} pct={v.pct} style={tVar} signed />
+        <Tone label={provisional ? "Marge réelle provisoire" : "Marge réelle"} amount={mReal.amount} pct={mReal.pct} style={tReal} />
+        {provisional ? (
+          <div className="rounded-lg px-2.5 py-2" style={{ backgroundColor: tVar.bg }}>
+            <div className="text-[10px] uppercase tracking-wide" style={{ color: tVar.color }}>Écart réel − prév.</div>
+            <div className="font-display text-[16px] leading-tight mt-0.5" style={{ color: tVar.color }}>—</div>
+            <div className="text-[10.5px]" style={{ color: tVar.color }}>en attente du coût fournisseur</div>
+          </div>
+        ) : (
+          <Tone label="Écart réel − prév." amount={v.amount} pct={v.pct} style={tVar} signed />
+        )}
       </div>
+      {provisional && expectedCost !== null && (
+        <p className="flex items-start gap-1.5 rounded-lg px-3 py-2 text-[12px]" style={{ backgroundColor: "#F1EFE8", color: "#58524A" }}>
+          <Info className="size-3.5 shrink-0 mt-px" />
+          Coût fournisseur pas encore saisi : {formatMAD(expectedCost)} prévus. La marge réelle sera définitive quand la dépense
+          principale (hébergement, billet, transport…) sera rattachée au dossier.
+        </p>
+      )}
 
       {/* Source du coût prévisionnel */}
       <div className="text-[12px] text-[#6B6862] rounded-lg px-3 py-2" style={{ backgroundColor: "#FBF9F5", border: "1px solid #EEE9E0" }}>
@@ -128,6 +157,11 @@ export function MarginCard({
           {expenses.slice(0, 6).map((e) => (
             <li key={e.id} className="flex items-center justify-between gap-2 px-3 py-1.5">
               <span className="min-w-0 truncate text-[#1A1F2E]">
+                {e.automatic && (
+                  <span className="mr-1.5 rounded px-1.5 py-px text-[10.5px] font-medium" style={{ backgroundColor: "#E3F0F4", color: "#0C6B8A" }}>
+                    auto
+                  </span>
+                )}
                 {e.category ?? "Dépense"}
                 {e.description && <span className="text-[#6B6862]"> · {e.description}</span>}
               </span>

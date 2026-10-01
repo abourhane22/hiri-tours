@@ -10,7 +10,7 @@ import { attachmentOf, periodRange, type ExpenseAttachment, type ExpenseFilters 
 export const EXPENSE_PAGE_SIZE = 50;
 
 export const EXPENSE_LIST_SELECT =
-  "id, expense_date, amount_mad, description, notes, receipt_path, payment_method, departure_date, category_id, " +
+  "id, expense_date, amount_mad, description, notes, receipt_path, payment_method, departure_date, category_id, source, " +
   "reservation_id, circuit_id, vehicle_id, " +
   "cost_categories(name, type), reservation:reservations(reference, status, customers(full_name)), circuit:circuits(title), " +
   "vehicle:vehicles(registration, make, model)";
@@ -22,6 +22,8 @@ export type ExpenseRow = {
   description: string | null;
   notes: string | null;
   receipt_path: string | null;
+  /** manual | distribution (billet de l'ordre, automatique et non modifiable). */
+  source: string;
   payment_method: string | null;
   departure_date: string | null;
   category_id: string;

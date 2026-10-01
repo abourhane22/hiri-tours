@@ -65,9 +65,12 @@ export async function saveExpense(_prev: ExpenseFormState, fd: FormData): Promis
   // Ancienne version (modification) : un dossier déjà rattaché reste accepté même annulé.
   const { data: previous } =
     mode === "edit"
-      ? await supabase.from("expenses").select("id, reservation_id, circuit_id, vehicle_id, departure_date, receipt_path").eq("id", id).maybeSingle()
+      ? await supabase.from("expenses").select("id, reservation_id, circuit_id, vehicle_id, departure_date, receipt_path, source").eq("id", id).maybeSingle()
       : { data: null };
   if (mode === "edit" && !previous) return fail("Dépense introuvable.");
+  if ((previous as { source?: string } | null)?.source === "distribution") {
+    return fail("Dépense automatique (billet de l'ordre) : elle n'est pas modifiable à la main.");
+  }
   const prev = previous as {
     reservation_id: string | null;
     circuit_id: string | null;
@@ -155,7 +158,10 @@ export async function saveExpense(_prev: ExpenseFormState, fd: FormData): Promis
 export async function deleteExpense(id: string, returnTo: string): Promise<{ ok: false; error: string }> {
   const ctx = await staff();
   if (!ctx) return { ok: false, error: "Session expirée — reconnectez-vous." };
-  const { data: row } = await ctx.supabase.from("expenses").select("receipt_path, reservation_id").eq("id", id).maybeSingle();
+  const { data: row } = await ctx.supabase.from("expenses").select("receipt_path, reservation_id, source").eq("id", id).maybeSingle();
+  if ((row as { source?: string } | null)?.source === "distribution") {
+    return { ok: false, error: "Dépense automatique (billet de l'ordre) : suppression impossible." };
+  }
   const { error } = await ctx.supabase.from("expenses").delete().eq("id", id);
   if (error) return { ok: false, error: `Suppression impossible : ${error.message}` };
   const r = row as { receipt_path: string | null; reservation_id: string | null } | null;
@@ -217,8 +223,10 @@ export type DossierImpact = DossierOption & {
   saleNet: number;
   credited: number;
   expectedCost: number | null;
+  /** Type du produit du dossier (règle de marge réelle provisoire). */
+  productCategory: string | null;
   /** Dépenses DÉJÀ rattachées au dossier, hors la dépense en cours de modification. */
-  otherExpenses: { amount_mad: number }[];
+  otherExpenses: { amount_mad: number; main_cost_for: string[] }[];
 };
 
 /** Données du dossier pour l'aperçu d'impact — chargées à la sélection ; marges calculées par lib/margin.ts côté client. */
@@ -227,12 +235,12 @@ export async function loadDossierImpact(reservationId: string, excludeExpenseId?
   if (!ctx || !UUID.test(reservationId)) return null;
   const { data: r } = await ctx.supabase
     .from("reservations")
-    .select("id, reference, status, departure_date, adults, children, total_amount_mad, expected_cost_mad, circuits(title), customers(full_name)")
+    .select("id, reference, status, departure_date, adults, children, total_amount_mad, expected_cost_mad, circuits(title, category), customers(full_name)")
     .eq("id", reservationId)
     .maybeSingle();
   if (!r) return null;
   const row = r as any;
-  let q = ctx.supabase.from("expenses").select("id, amount_mad").eq("reservation_id", reservationId);
+  let q = ctx.supabase.from("expenses").select("id, amount_mad, cost_categories(main_cost_for)").eq("reservation_id", reservationId);
   if (excludeExpenseId && UUID.test(excludeExpenseId)) q = q.neq("id", excludeExpenseId);
   const [{ data: exp }, sale] = await Promise.all([q, netSaleOfReservation(ctx.supabase, reservationId, Number(row.total_amount_mad))]);
   return {
@@ -241,7 +249,11 @@ export async function loadDossierImpact(reservationId: string, excludeExpenseId?
     saleNet: sale.net,
     credited: sale.credited,
     expectedCost: row.expected_cost_mad === null || row.expected_cost_mad === undefined ? null : Number(row.expected_cost_mad),
-    otherExpenses: ((exp ?? []) as { amount_mad: number }[]).map((e) => ({ amount_mad: Number(e.amount_mad) })),
+    productCategory: (Array.isArray(row.circuits) ? row.circuits[0] : row.circuits)?.category ?? null,
+    otherExpenses: ((exp ?? []) as any[]).map((e) => ({
+      amount_mad: Number(e.amount_mad),
+      main_cost_for: ((Array.isArray(e.cost_categories) ? e.cost_categories[0] : e.cost_categories)?.main_cost_for ?? []) as string[],
+    })),
   };
 }
 

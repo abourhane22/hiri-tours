@@ -2,6 +2,10 @@ import Link from "next/link";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ExpenseTabs } from "@/components/report-tabs";
 import { createClient } from "@/lib/supabase/server";
+import { CATEGORY_META } from "@/lib/category-fields";
+import type { CircuitCategory } from "@/lib/types";
+
+const PRODUCT_TYPES: CircuitCategory[] = ["circuit", "excursion", "transfert", "sejour", "hebergement", "billetterie", "prestation"];
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge, Card, CardBody } from "@/components/ui/card";
@@ -74,6 +78,11 @@ export default async function CategoriesPage() {
                       <summary className="cursor-pointer list-none">
                         <span className="font-medium">{c.name}</span>
                         <span className="block text-xs text-sand-700 mt-0.5">{c.description || <em>Sans description</em>}</span>
+                        {Array.isArray(c.main_cost_for) && c.main_cost_for.length > 0 && (
+                          <span className="mt-1 block text-[11px] text-[#0C6B8A]">
+                            Coût fournisseur principal : {c.main_cost_for.map((t: string) => CATEGORY_META[t as CircuitCategory]?.label ?? t).join(", ")}
+                          </span>
+                        )}
                         <span className="mt-1 inline-block text-xs font-medium text-[#0C6B8A] hover:underline">Modifier le nom et la description</span>
                       </summary>
                       <form action={updateCategory.bind(null, c.id)} className="mt-3 space-y-2">
@@ -82,6 +91,18 @@ export default async function CategoriesPage() {
                           <Label htmlFor={`desc-${c.id}`}>Description</Label>
                           <textarea id={`desc-${c.id}`} name="description" rows={3} defaultValue={c.description ?? ""} className="w-full rounded-md border border-sand-300 bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-navy-500" />
                         </div>
+                        <fieldset>
+                          <legend className="text-xs font-medium text-sand-800">Coût fournisseur principal pour…</legend>
+                          <p className="text-[11px] text-sand-700">Une dépense de cette catégorie rend la marge réelle d&apos;un dossier de ce type définitive.</p>
+                          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+                            {PRODUCT_TYPES.map((t) => (
+                              <label key={t} className="inline-flex min-h-[32px] items-center gap-1.5 text-xs text-ink">
+                                <input type="checkbox" name="main_cost_for" value={t} defaultChecked={Array.isArray(c.main_cost_for) && c.main_cost_for.includes(t)} className="size-4" />
+                                {CATEGORY_META[t].label}
+                              </label>
+                            ))}
+                          </div>
+                        </fieldset>
                         <SubmitButton size="sm">Enregistrer</SubmitButton>
                       </form>
                     </details>

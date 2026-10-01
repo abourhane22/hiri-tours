@@ -33,7 +33,8 @@ export function DistributionActions({
       const res = await issueOrderAction(bookingId);
       setIssue(res);
       if (res.ok) {
-        toast.success(`Billet émis${res.bookingReference ? ` — réf. ${res.bookingReference}` : ""}`);
+        toast.success(`Billet émis${res.bookingReference ? ` — réf. ${res.bookingReference}` : ""} · coût réel enregistré`);
+        if (res.warning) toast.error(res.warning);
         router.refresh();
       } else toast.error(res.error);
     });
@@ -46,7 +47,8 @@ export function DistributionActions({
       const res = await cancelOrderAction(bookingId);
       setCancel(res);
       if (res.ok) {
-        toast.success("Ordre annulé");
+        toast.success("Ordre annulé · coût réel du billet mis à jour");
+        if (res.warning) toast.error(res.warning);
         router.refresh();
       } else toast.error(res.error);
     });

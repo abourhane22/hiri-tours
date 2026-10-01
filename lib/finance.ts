@@ -1,4 +1,4 @@
-import { margin as computeMargin } from "@/lib/margin";
+import { margin as computeMargin, hasMainCostExpense, realCost, retainedCost } from "@/lib/margin";
 import { creditNotesByReservation } from "@/lib/credit-notes";
 
 export type PnLData = {
@@ -29,7 +29,15 @@ export type CircuitProfitability = {
   /** Revenu des seuls dossiers dont le coût prévisionnel est renseigné (base du % de marge prévisionnelle). */
   coveredRevenue: number;
   missingCount: number;
+  /** Dossiers comptés à leur coût PRÉVISIONNEL : coût fournisseur principal non saisi (marge réelle provisoire). */
+  provisionalCount: number;
 };
+
+/** Catégorie de coût principal d'une dépense (embed cost_categories(main_cost_for)). */
+function mainCostFor(e: any): string[] {
+  const c = Array.isArray(e?.cost_categories) ? e.cost_categories[0] : e?.cost_categories;
+  return Array.isArray(c?.main_cost_for) ? c.main_cost_for : [];
+}
 
 export function computePnL(opts: {
   expenses: any[];
@@ -106,10 +114,25 @@ export function computeCircuitProfitability(opts: {
       );
       const revenue = cReservations.reduce((s, r) => s + Number(r.total_amount_mad || 0), 0);
 
-      const reservationIds = cReservations.map((r) => r.id);
-      const directCosts = expenses
-        .filter((e) => (e.circuit_id === c.id || (e.reservation_id && reservationIds.includes(e.reservation_id))) && inRange(e.expense_date))
+      // Coût réel alloué = dépenses du PRODUIT (non ventilées) + coût RETENU de chaque dossier :
+      // ses dépenses, ou son coût prévisionnel tant que le coût fournisseur principal n'est pas
+      // saisi (lib/margin.ts#retainedCost) — un dossier sans coût ne gonfle pas la marge.
+      const productCosts = expenses
+        .filter((e) => e.circuit_id === c.id && !e.reservation_id && inRange(e.expense_date))
         .reduce((s, e) => s + Number(e.amount_mad), 0);
+      let dossierCosts = 0;
+      let provisionalCount = 0;
+      for (const r of cReservations) {
+        const exps = expenses.filter((e) => e.reservation_id === r.id && inRange(e.expense_date));
+        const kept = retainedCost({
+          expectedCost: r.expected_cost_mad,
+          realCost: realCost(exps),
+          hasMainCost: hasMainCostExpense(exps.map((e) => ({ main_cost_for: mainCostFor(e) })), c.category),
+        });
+        dossierCosts += kept.cost ?? 0;
+        if (kept.provisional) provisionalCount += 1;
+      }
+      const directCosts = Math.round((productCosts + dossierCosts) * 100) / 100;
 
       // Marge réelle et prévisionnelle : une seule autorité, lib/margin.ts.
       const real = computeMargin(revenue, directCosts);
@@ -128,6 +151,7 @@ export function computeCircuitProfitability(opts: {
         expectedCost,
         coveredRevenue,
         missingCount: cReservations.length - covered.length,
+        provisionalCount,
       };
     })
     .filter((c) => c.revenue > 0 || c.directCosts > 0)
