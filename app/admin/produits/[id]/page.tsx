@@ -1,6 +1,7 @@
 ﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { loadHotels } from "@/lib/hotels";
 import { Card, CardBody } from "@/components/ui/card";
 import { SeasonsEditor } from "@/components/seasons-editor";
 import { CategoryFieldsSummary } from "@/components/category-fields-summary";
@@ -30,6 +31,7 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
     .eq("circuit_id", id);
 
   const c = circuit as Circuit;
+  const hotels = await loadHotels(supabase);
   const seasonsList = (seasons as CircuitSeason[]) || [];
 
   // Migration douce : pré-remplit l'itinéraire depuis la colonne legacy si
@@ -100,6 +102,8 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
       <CircuitForm
         mode="edit"
         action={boundUpdate}
+        hotels={hotels}
+        reservationCount={reservationCount ?? 0}
         defaults={{
           title: c.title,
           slug: c.slug,
@@ -119,6 +123,7 @@ export default async function EditCircuitPage({ params }: { params: Promise<{ id
           identityDocumentsRequired: Boolean(c.identity_documents_required),
           internalUnitCost: c.internal_unit_cost_mad != null ? String(c.internal_unit_cost_mad) : "",
           internalChildCost: c.internal_child_cost_mad != null ? String(c.internal_child_cost_mad) : "",
+          supplierId: c.supplier_id ?? null,
         }}
       />
 

@@ -24,11 +24,17 @@ export function CategorySpecificFields({
   seedFields,
   sectionNumber = 3,
   onDayCountChange,
+  replace,
+  locationSeed,
 }: {
   category: CircuitCategory;
   seedFields: AnyCategoryFields;
   sectionNumber?: number;
   onDayCountChange?: (n: number) => void;
+  /** Champs remplacés par un composant dédié (ex. property_name → sélecteur d'établissement). */
+  replace?: Record<string, React.ReactNode>;
+  /** Pré-remplissage d'un champ adresse : `key` change ⇒ le sélecteur de lieu repart de `address`. */
+  locationSeed?: { key: number; address: string } | null;
 }) {
   const meta = CATEGORY_META[category];
   const fields = CATEGORY_FIELDS_CONFIG[category];
@@ -48,14 +54,21 @@ export function CategorySpecificFields({
       </div>
 
       <div key={category} className="grid sm:grid-cols-2 gap-4">
-        {fields.map((f) => (
-          <FieldRenderer
-            key={f.key}
-            config={f}
-            seed={seedFields}
-            onDayCountChange={onDayCountChange}
-          />
-        ))}
+        {fields.map((f) => {
+          if (replace && f.key in replace) return <div key={f.key} className="contents">{replace[f.key]}</div>;
+          const seeded =
+            f.type === "location" && locationSeed
+              ? ({ ...(seedFields as Record<string, unknown>), [f.addressField]: locationSeed.address, [f.latField]: null, [f.lngField]: null } as AnyCategoryFields)
+              : seedFields;
+          return (
+            <FieldRenderer
+              key={f.type === "location" && locationSeed ? `${f.key}-${locationSeed.key}` : f.key}
+              config={f}
+              seed={seeded}
+              onDayCountChange={onDayCountChange}
+            />
+          );
+        })}
       </div>
     </div>
   );

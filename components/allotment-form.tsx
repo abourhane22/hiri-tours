@@ -21,8 +21,8 @@ const fieldCls =
   "h-10 w-full rounded-lg border border-[#E0DACF] bg-white px-3 text-sm text-[#1A1F2E] placeholder:text-sand-400 focus:border-[#1A1F2E] focus:outline-none focus:ring-2 focus:ring-[#1A1F2E]/10 transition-colors disabled:bg-[#FBF9F5] disabled:text-[#968F84]";
 const hintCls = "mt-1.5 flex items-start gap-1.5 text-[11px] text-[#968F84]";
 
-export type ProductOption = { id: string; title: string; max_participants: number };
-export type ContractOption = { id: string; label: string; supplierName: string; releaseDaysDefault: number };
+export type ProductOption = { id: string; title: string; max_participants: number; category?: string; supplier_id?: string | null };
+export type ContractOption = { id: string; label: string; supplierName: string; releaseDaysDefault: number; supplierId?: string | null };
 
 export type AllotmentFormDefaults = {
   productId: string;
@@ -51,6 +51,8 @@ export function AllotmentForm({
   cancelHref,
   /** Édition : le produit est verrouillé, on affiche son titre. */
   productTitle,
+  /** Édition : type et fournisseur du produit verrouillé (filtrage des contrats d'un hébergement). */
+  lockedProduct,
 }: {
   mode: "create" | "edit";
   action: Action;
@@ -59,6 +61,7 @@ export function AllotmentForm({
   contracts: ContractOption[];
   cancelHref: string;
   productTitle?: string;
+  lockedProduct?: { category: string; supplierId: string | null };
 }) {
   const [state, formAction, isPending] = useActionState<AllotmentActionState, FormData>(action, { ok: true });
   useActionFeedback(state, null);
@@ -76,6 +79,11 @@ export function AllotmentForm({
 
   const product = products.find((p) => p.id === productId);
   const capacity = product?.max_participants ?? null;
+
+  // Hébergement : seuls les contrats de SON établissement (circuits.supplier_id) sont proposés.
+  const scope = lockedProduct ?? (product ? { category: product.category ?? "", supplierId: product.supplier_id ?? null } : null);
+  const lodging = scope?.category === "hebergement";
+  const visibleContracts = lodging ? contracts.filter((c) => c.supplierId && c.supplierId === scope?.supplierId) : contracts;
   const quotaNum = Number(quota) || 0;
   const quotaAboveCapacity = capacity !== null && capacity > 0 && quotaNum > capacity;
 
@@ -183,16 +191,26 @@ export function AllotmentForm({
               </label>
               <select id="contract_id" name="contract_id" required value={contractId} onChange={(e) => pickContract(e.target.value)} className={fieldCls}>
                 <option value="" disabled>— Choisir un contrat actif —</option>
-                {contracts.map((c) => (
+                {visibleContracts.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.supplierName} — {c.label}
                   </option>
                 ))}
               </select>
-              {contracts.length === 0 && (
+              {lodging && visibleContracts.length > 0 && (
                 <p className={hintCls}>
                   <Info className="size-3.5 shrink-0 mt-px" />
-                  Aucun contrat actif. Créez-le d&apos;abord dans Fournisseurs &amp; contrats.
+                  Hébergement : seuls les contrats de son établissement ({visibleContracts[0].supplierName}) sont proposés.
+                </p>
+              )}
+              {visibleContracts.length === 0 && (
+                <p className={hintCls}>
+                  <Info className="size-3.5 shrink-0 mt-px" />
+                  {lodging
+                    ? scope?.supplierId
+                      ? "Aucun contrat actif avec l'établissement de cet hébergement. Créez-le dans Fournisseurs & contrats."
+                      : "Cet hébergement n'a pas d'établissement : renseignez-le dans la fiche produit."
+                    : "Aucun contrat actif. Créez-le d'abord dans Fournisseurs & contrats."}
                 </p>
               )}
             </div>

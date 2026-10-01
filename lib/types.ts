@@ -64,6 +64,8 @@ export type Circuit = {
   is_active: boolean;
   category_fields: Record<string, unknown> | null;
   sale_unit: SaleUnit;
+  /** Fournisseur du produit ; OBLIGATOIRE pour un hébergement (l'établissement, contrainte circuits_lodging_supplier_chk). */
+  supplier_id?: string | null;
   pricing_mode: PricingMode;
   /** Force la pièce d'identité des voyageurs quel que soit le type (fournisseur / autorité). */
   identity_documents_required?: boolean;

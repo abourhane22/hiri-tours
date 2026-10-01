@@ -36,7 +36,7 @@ export default async function ContractDetailPage({
 
   const [{ data: rateRows }, { data: productRows }] = await Promise.all([
     supabase.from("purchase_rates").select("*").eq("contract_id", contratId).order("valid_from", { ascending: false }),
-    supabase.from("circuits").select("id, title, base_price_mad, sale_unit").eq("is_active", true).order("title"),
+    supabase.from("circuits").select("id, title, base_price_mad, sale_unit, supplier_id").eq("is_active", true).order("title"),
   ]);
   const rates = (rateRows ?? []) as unknown as PurchaseRate[];
   const products = (productRows ?? []) as unknown as RateProduct[];
@@ -152,6 +152,7 @@ export default async function ContractDetailPage({
           contractId={contratId}
           contractCurrency={c.currency}
           rates={rates}
+          supplierProductIds={products.filter((p) => p.supplier_id === id).map((p) => p.id)}
           products={products}
         />
       </div>

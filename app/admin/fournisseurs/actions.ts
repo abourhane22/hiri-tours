@@ -357,3 +357,35 @@ export async function deletePurchaseRate(
   revalidatePath(`/admin/fournisseurs/${supplierId}/contrats/${contractId}`);
   return { ok: true, savedAt: Date.now(), message: "Tarif d'achat supprimé" };
 }
+
+export type QuickHotelResult =
+  | { ok: true; supplier: { id: string; name: string; address_line: string | null; city: string | null; country: string | null } }
+  | { ok: false; error: string; field?: string | null };
+
+/**
+ * Création rapide d'un établissement (fournisseur de type hôtel) depuis le formulaire
+ * produit, sans quitter la page : mêmes validations que la fiche fournisseur
+ * (readSupplier), type hôtel imposé, paiement « comptant » par défaut. La fiche
+ * complète reste modifiable ensuite dans Fournisseurs.
+ */
+export async function quickCreateHotel(fd: FormData): Promise<QuickHotelResult> {
+  const ctx = await staffClient();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+  fd.set("supplier_type", "hotel");
+  if (!str(fd, "payment_terms")) fd.set("payment_terms", "comptant");
+  fd.set("is_active", "on");
+  const fields = readSupplier(fd);
+  if (!fields.ok) return fields;
+
+  const { data, error } = await ctx.supabase
+    .from("suppliers")
+    .insert({ ...fields.data, created_by: ctx.user.id })
+    .select("id, name, address_line, city, country")
+    .single();
+  if (error || !data) {
+    console.error("[quickCreateHotel]", error);
+    return { ok: false, error: error?.code === "23505" ? "Un fournisseur porte déjà ce nom." : "Impossible de créer l'établissement." };
+  }
+  revalidatePath("/admin/fournisseurs");
+  return { ok: true, supplier: data as QuickHotelResult extends { ok: true; supplier: infer S } ? S : never };
+}

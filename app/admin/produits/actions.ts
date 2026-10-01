@@ -8,9 +8,11 @@ import type { FormFeedback } from "@/lib/flash-shared";
 import {
   parseCategoryFieldsFromForm,
   deriveLegacyColumns,
+  allowedSaleUnits,
+  isSaleUnitAllowed,
   type AnyCategoryFields,
 } from "@/lib/category-fields";
-import { isSaleUnit } from "@/lib/pricing";
+import { isSaleUnit, SALE_UNIT_LABEL } from "@/lib/pricing";
 import type { CircuitCategory, PricingMode } from "@/lib/types";
 
 export type CircuitActionState = { ok: true } | { ok: false; error: string; field?: string | null };
@@ -24,6 +26,33 @@ const VALID_CATEGORIES: readonly CircuitCategory[] = [
   "billetterie",
   "prestation",
 ];
+
+/**
+ * Hébergement : l'établissement est un fournisseur de type hôtel (circuits.supplier_id,
+ * contrainte circuits_lodging_supplier_chk). Obligatoire, de type hôtel, actif (ou déjà
+ * rattaché). Son nom est recopié dans category_fields.property_name (lu par le tunnel,
+ * le voucher, les manifestes). Pour les autres types, supplier_id n'est pas modifié.
+ */
+async function applyLodgingSupplier(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  payload: Record<string, unknown>,
+  formData: FormData,
+  currentSupplierId: string | null,
+): Promise<{ ok: true } | { ok: false; error: string; field: string }> {
+  if (payload.category !== "hebergement") return { ok: true };
+  const supplierId = ((formData.get("supplier_id") as string) || "").trim();
+  if (!/^[0-9a-f-]{36}$/i.test(supplierId)) {
+    return { ok: false, error: "Choisissez l'établissement (fournisseur de type hôtel) ou créez-le.", field: "supplier_search" };
+  }
+  const { data: s } = await supabase.from("suppliers").select("id, name, supplier_type, is_active").eq("id", supplierId).maybeSingle();
+  const sup = s as { id: string; name: string; supplier_type: string; is_active: boolean } | null;
+  if (!sup) return { ok: false, error: "Établissement introuvable.", field: "supplier_search" };
+  if (sup.supplier_type !== "hotel") return { ok: false, error: "L'établissement doit être un fournisseur de type hôtel.", field: "supplier_search" };
+  if (!sup.is_active && sup.id !== currentSupplierId) return { ok: false, error: `L'établissement « ${sup.name} » est inactif.`, field: "supplier_search" };
+  payload.supplier_id = sup.id;
+  payload.category_fields = { ...((payload.category_fields as Record<string, unknown>) ?? {}), property_name: sup.name };
+  return { ok: true };
+}
 
 /** Violation d'unicité du slug → message métier (champ slug). */
 function slugConflict(error: { code?: string; message?: string } | null | undefined): string | null {
@@ -63,6 +92,11 @@ function buildCircuitPayload(
   const saleUnitRaw = formData.get("sale_unit");
   if (!isSaleUnit(saleUnitRaw)) {
     return { ok: false, error: "Unité de vente invalide.", field: "sale_unit" };
+  }
+  // Matrice type → unités (lib/category-fields.ts, source unique).
+  if (!isSaleUnitAllowed(category, saleUnitRaw)) {
+    const allowed = allowedSaleUnits(category).map((u) => SALE_UNIT_LABEL[u].toLowerCase()).join(" ou ");
+    return { ok: false, error: `Unité de vente non permise pour ce type de produit : ${allowed}.`, field: "sale_unit" };
   }
   const pricingModeRaw = (formData.get("pricing_mode") as string) || "fixed";
   if (pricingModeRaw !== "fixed" && pricingModeRaw !== "on_request") {
@@ -119,6 +153,8 @@ export async function createCircuit(
   if (!built.ok) return built;
 
   const supabase = await createClient();
+  const lodging = await applyLodgingSupplier(supabase, built.payload, formData, null);
+  if (!lodging.ok) return lodging;
   const { data, error } = await supabase
     .from("circuits")
     .insert(built.payload)
@@ -143,6 +179,9 @@ export async function updateCircuit(
   if (!built.ok) return built;
 
   const supabase = await createClient();
+  const { data: current } = await supabase.from("circuits").select("supplier_id").eq("id", id).maybeSingle();
+  const lodging = await applyLodgingSupplier(supabase, built.payload, formData, (current as { supplier_id: string | null } | null)?.supplier_id ?? null);
+  if (!lodging.ok) return lodging;
   const { error } = await supabase.from("circuits").update(built.payload).eq("id", id);
   if (error) {
     console.error("[updateCircuit] update error:", error);

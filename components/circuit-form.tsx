@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useActionFeedback } from "@/components/ui/toaster";
 import Link from "next/link";
 import { Check, Info, ShieldCheck, Image as ImageIcon } from "lucide-react";
@@ -10,8 +10,16 @@ import { ImageUpload } from "@/components/image-upload";
 import { GalleryEditor } from "@/components/gallery-editor";
 import { CategorySpecificFields } from "@/components/category-fields-section";
 import type { CircuitActionState } from "@/app/admin/produits/actions";
-import { CATEGORY_META, DEFAULT_SALE_UNIT, type AnyCategoryFields } from "@/lib/category-fields";
-import { SALE_UNITS } from "@/lib/pricing";
+import {
+  CATEGORY_META,
+  DEFAULT_SALE_UNIT,
+  SALE_UNITS_BY_CATEGORY,
+  allowedSaleUnits,
+  categoryFieldFormName,
+  type AnyCategoryFields,
+} from "@/lib/category-fields";
+import { SALE_UNIT_LABEL } from "@/lib/pricing";
+import { HotelPicker, type HotelOption } from "@/components/hotel-picker";
 import type { CircuitCategory, SaleUnit } from "@/lib/types";
 
 const labelCls = "block text-[12px] font-medium text-[#58524A] mb-1.5";
@@ -49,6 +57,16 @@ export type CircuitFormDefaults = {
   /** Capacité propre : coût de revient estimé (même unité que le prix). */
   internalUnitCost: string;
   internalChildCost: string;
+  /** Hébergement : établissement = fournisseur de type hôtel (circuits.supplier_id). */
+  supplierId: string | null;
+};
+
+/** « par personne », « par nuit et par chambre »… — pour la phrase de confirmation. */
+const UNIT_PHRASE: Record<SaleUnit, string> = {
+  per_person: "par personne",
+  per_night_room: "par nuit et par chambre",
+  per_trip: "par trajet",
+  per_unit: "à l'unité",
 };
 
 type Action = (prev: CircuitActionState, formData: FormData) => Promise<CircuitActionState>;
@@ -57,10 +75,16 @@ export function CircuitForm({
   mode,
   action,
   defaults,
+  hotels = [],
+  reservationCount = 0,
 }: {
   mode: "create" | "edit";
   action: Action;
   defaults: CircuitFormDefaults;
+  /** Fournisseurs de type hôtel (sélecteur d'établissement d'un hébergement). */
+  hotels?: HotelOption[];
+  /** Dossiers déjà vendus sur ce produit : changer le type ou l'unité demande confirmation. */
+  reservationCount?: number;
 }) {
   const [state, formAction, isPending] = useActionState<CircuitActionState, FormData>(
     action,
@@ -77,29 +101,60 @@ export function CircuitForm({
   const [dayCount, setDayCount] = useState(defaults.dayCount || 1);
   const [imageUrl, setImageUrl] = useState(defaults.heroImageUrl);
   const [saleUnit, setSaleUnit] = useState<SaleUnit>(defaults.saleUnit);
-  const [saleUnitTouched, setSaleUnitTouched] = useState(false);
+  // Pré-remplissage de l'adresse depuis l'établissement choisi (jamais par-dessus une saisie).
+  const [locationSeed, setLocationSeed] = useState<{ key: number; address: string } | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const categoryChanged = category !== defaults.category;
   const seedFields: AnyCategoryFields = categoryChanged ? {} : defaults.categoryFields;
 
-  // Changer de type propose l'unité usuelle — tant que l'utilisateur ne l'a pas
-  // choisie lui-même. Un produit existant garde toujours la sienne.
+  /**
+   * Produit déjà vendu : tout changement qui modifie l'unité de vente effective (ou le
+   * type) est confirmé. Les dossiers existants gardent leur montant (prix stocké).
+   */
+  function confirmChange(nextUnit: SaleUnit, typeChanged: boolean): boolean {
+    if (mode !== "edit" || reservationCount <= 0) return true;
+    if (!typeChanged && nextUnit === defaults.saleUnit) return true;
+    return window.confirm(
+      `Ce produit est déjà vendu (${reservationCount} dossier${reservationCount > 1 ? "s" : ""}).\n\n` +
+        `Les nouvelles ventes et le prix affiché sur le site seront calculés ${UNIT_PHRASE[nextUnit]}. ` +
+        `Les dossiers existants gardent leur montant.\n\n` +
+        `Vérifiez ses tarifs d'achat : ils sont exprimés dans l'unité de vente.`,
+    );
+  }
+
+  // Changer de type pose l'unité : celle en cours si le nouveau type l'autorise, sinon son unité par défaut.
   function onCategoryChange(next: CircuitCategory) {
+    const nextUnit = allowedSaleUnits(next).includes(saleUnit) ? saleUnit : DEFAULT_SALE_UNIT[next];
+    if (!confirmChange(nextUnit, next !== defaults.category && next !== category)) return;
     setCategory(next);
-    if (!saleUnitTouched) setSaleUnit(DEFAULT_SALE_UNIT[next]);
+    setSaleUnit(nextUnit);
+  }
+
+  function onSaleUnitChange(next: SaleUnit) {
+    if (!confirmChange(next, category !== defaults.category)) return;
+    setSaleUnit(next);
+  }
+
+  function onHotelSelect(h: HotelOption) {
+    const input = formRef.current?.querySelector<HTMLInputElement>(`[name="${categoryFieldFormName("property_address")}"]`);
+    if (input && input.value.trim()) return; // l'agent a déjà saisi une adresse : on n'y touche pas
+    const address = [h.address_line, h.city, h.country].filter(Boolean).join(", ");
+    if (address) setLocationSeed((s) => ({ key: (s?.key ?? 0) + 1, address }));
   }
 
   const priceNum = Number(basePrice) || 0;
   const maxNum = Number(maxParticipants) || 0;
   const meta = CATEGORY_META[category];
-  const saleUnitMeta = SALE_UNITS.find((u) => u.value === saleUnit);
+  const unitsForType = allowedSaleUnits(category);
+  const unitHelp = SALE_UNITS_BY_CATEGORY[category]?.help[saleUnit] ?? null;
   const durationLabel =
     category === "circuit"
       ? `${dayCount || 1} jour${(dayCount || 1) > 1 ? "s" : ""}`
       : meta?.sectionSuffix ?? "—";
 
   return (
-    <form action={formAction} className="grid gap-4 lg:grid-cols-[1fr_250px] items-start">
+    <form ref={formRef} action={formAction} className="grid gap-4 lg:grid-cols-[1fr_250px] items-start">
       <div className="space-y-4">
         {/* Section 1 — Informations générales */}
         <section className="bg-white border border-[#E5E0D7] rounded-xl p-4">
@@ -146,21 +201,23 @@ export function CircuitForm({
                 id="sale_unit"
                 name="sale_unit"
                 value={saleUnit}
-                onChange={(e) => {
-                  setSaleUnit(e.target.value as SaleUnit);
-                  setSaleUnitTouched(true);
-                }}
+                onChange={(e) => onSaleUnitChange(e.target.value as SaleUnit)}
                 required
+                disabled={unitsForType.length === 1}
                 className={fieldCls}
               >
-                {SALE_UNITS.map((u) => (
-                  <option key={u.value} value={u.value}>
-                    {u.label}
+                {unitsForType.map((u) => (
+                  <option key={u} value={u}>
+                    {SALE_UNIT_LABEL[u]}
+                    {u === DEFAULT_SALE_UNIT[category] && unitsForType.length > 1 ? " (par défaut)" : ""}
                   </option>
                 ))}
               </select>
-              {saleUnitMeta && (
-                <p className="mt-1.5 text-[11px] text-[#968F84]">{saleUnitMeta.hint}</p>
+              {/* Un select désactivé n'est pas envoyé : l'unité unique part en champ caché. */}
+              {unitsForType.length === 1 && <input type="hidden" name="sale_unit" value={saleUnit} />}
+              {unitHelp && <p className="mt-1.5 text-[11px] text-[#968F84]">{unitHelp}</p>}
+              {unitsForType.length === 1 && (
+                <p className="mt-0.5 text-[11px] text-[#968F84]">Seule unité possible pour ce type de produit.</p>
               )}
             </div>
 
@@ -332,6 +389,20 @@ export function CircuitForm({
             seedFields={seedFields}
             sectionNumber={3}
             onDayCountChange={setDayCount}
+            locationSeed={category === "hebergement" ? locationSeed : null}
+            replace={
+              category === "hebergement"
+                ? {
+                    property_name: (
+                      <HotelPicker
+                        hotels={hotels}
+                        defaultSupplierId={categoryChanged ? null : defaults.supplierId}
+                        onSelect={onHotelSelect}
+                      />
+                    ),
+                  }
+                : undefined
+            }
           />
           {/* Profil de dossier : force la pièce d'identité des voyageurs (lib/dossier-profile) */}
           <div className="mt-4 pt-4 border-t border-[#EEE9E0] flex items-start justify-between gap-4">

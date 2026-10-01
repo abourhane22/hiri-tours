@@ -13,10 +13,10 @@ export default async function NewAllotmentPage({
   const supabase = await createClient();
 
   const [{ data: productRows }, { data: contractRows }] = await Promise.all([
-    supabase.from("circuits").select("id, title, max_participants").eq("is_active", true).order("title"),
+    supabase.from("circuits").select("id, title, max_participants, category, supplier_id").eq("is_active", true).order("title"),
     supabase
       .from("supplier_contracts")
-      .select("id, label, release_days_default, suppliers(name)")
+      .select("id, label, release_days_default, supplier_id, suppliers(name)")
       .eq("status", "active")
       .order("label"),
   ]);
@@ -27,6 +27,7 @@ export default async function NewAllotmentPage({
     label: c.label,
     supplierName: (Array.isArray(c.suppliers) ? c.suppliers[0] : c.suppliers)?.name ?? "Fournisseur",
     releaseDaysDefault: Number(c.release_days_default) || 0,
+    supplierId: c.supplier_id ?? null,
   }));
 
   const today = new Date();

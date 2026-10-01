@@ -1,10 +1,14 @@
 ﻿import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { CircuitForm } from "@/components/circuit-form";
+import { createClient } from "@/lib/supabase/server";
+import { loadHotels } from "@/lib/hotels";
 import { createCircuit } from "@/app/admin/produits/actions";
 import { DEFAULT_SALE_UNIT } from "@/lib/category-fields";
 
-export default function NewCircuitPage() {
+export default async function NewCircuitPage() {
+  const supabase = await createClient();
+  const hotels = await loadHotels(supabase);
   return (
     <div className="p-8 max-w-5xl mx-auto">
       <Link
@@ -23,6 +27,7 @@ export default function NewCircuitPage() {
       <CircuitForm
         mode="create"
         action={createCircuit}
+        hotels={hotels}
         defaults={{
           title: "",
           slug: "",
@@ -42,6 +47,7 @@ export default function NewCircuitPage() {
           identityDocumentsRequired: false,
           internalUnitCost: "",
           internalChildCost: "",
+          supplierId: null,
         }}
       />
     </div>

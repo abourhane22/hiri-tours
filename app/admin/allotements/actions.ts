@@ -8,7 +8,7 @@ import { isAllotmentCommitment, isAllotmentOnExhausted } from "@/lib/allotments"
 
 export type AllotmentActionState = { ok: true; savedAt?: number; message?: string } | { ok: false; error: string; field?: string | null };
 
-const fail = (error: string): AllotmentActionState => ({ ok: false, error });
+const fail = (error: string, field?: string): AllotmentActionState => ({ ok: false, error, field: field ?? null });
 const str = (fd: FormData, k: string) => ((fd.get(k) as string) || "").trim();
 
 async function staffClient() {
@@ -111,11 +111,33 @@ function readAllotment(
   return { ok: true, data };
 }
 
+/** Hébergement : le contrat doit être celui de SON établissement (circuits.supplier_id). */
+async function checkLodgingContract(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  productId: string | null | undefined,
+  contractId: string | null | undefined,
+): Promise<AllotmentActionState | null> {
+  if (!productId || !contractId) return null;
+  const [{ data: p }, { data: c }] = await Promise.all([
+    supabase.from("circuits").select("category, supplier_id").eq("id", productId).maybeSingle(),
+    supabase.from("supplier_contracts").select("supplier_id, suppliers(name)").eq("id", contractId).maybeSingle(),
+  ]);
+  const prod = p as { category: string; supplier_id: string | null } | null;
+  if (!prod || prod.category !== "hebergement") return null;
+  if (!prod.supplier_id) return fail("Cet hébergement n'a pas d'établissement : renseignez-le dans la fiche produit.", "contract_id");
+  if ((c as { supplier_id: string } | null)?.supplier_id !== prod.supplier_id) {
+    return fail("Ce contrat n'est pas celui de l'établissement de cet hébergement.", "contract_id");
+  }
+  return null;
+}
+
 export async function createAllotment(_prev: AllotmentActionState, fd: FormData): Promise<AllotmentActionState> {
   const ctx = await staffClient();
   if (!ctx.ok) return ctx;
   const fields = readAllotment(fd, true);
   if (!fields.ok) return fields;
+  const lodgingErr = await checkLodgingContract(ctx.supabase, fields.data.product_id as string, fields.data.contract_id as string | null);
+  if (lodgingErr) return lodgingErr;
 
   // Le trigger allotments_sync_days matérialise les compteurs dans la même
   // transaction ; ses refus remontent ici avec leur message.
@@ -140,6 +162,9 @@ export async function updateAllotment(id: string, _prev: AllotmentActionState, f
   // withProduct = false : product_id n'est jamais dans le payload.
   const fields = readAllotment(fd, false);
   if (!fields.ok) return fields;
+  const { data: existing } = await ctx.supabase.from("allotments").select("product_id").eq("id", id).maybeSingle();
+  const lodgingErr = await checkLodgingContract(ctx.supabase, (existing as { product_id: string } | null)?.product_id, fields.data.contract_id as string | null);
+  if (lodgingErr) return lodgingErr;
 
   const { error } = await ctx.supabase.from("allotments").update(fields.data).eq("id", id);
   if (error) {

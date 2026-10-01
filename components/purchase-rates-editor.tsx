@@ -14,7 +14,7 @@ const fieldCls =
 const th = "px-3 py-2 text-[10.5px] tracking-[1px] uppercase font-medium text-[#58524A]";
 
 /** Produit du catalogue, avec son prix de vente courant pour la marge indicative. */
-export type RateProduct = { id: string; title: string; base_price_mad: number; sale_unit: string };
+export type RateProduct = { id: string; title: string; base_price_mad: number; sale_unit: string; supplier_id?: string | null };
 
 export function PurchaseRatesEditor({
   supplierId,
@@ -22,12 +22,15 @@ export function PurchaseRatesEditor({
   contractCurrency,
   rates,
   products,
+  supplierProductIds = [],
 }: {
   supplierId: string;
   contractId: string;
   contractCurrency: string;
   rates: PurchaseRate[];
   products: RateProduct[];
+  /** Produits rattachés au fournisseur du contrat (circuits.supplier_id) : proposés en premier. */
+  supplierProductIds?: string[];
 }) {
   const [open, setOpen] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
@@ -169,9 +172,24 @@ export function PurchaseRatesEditor({
               <label htmlFor="product_id" className={labelCls}>Produit</label>
               <select id="product_id" name="product_id" defaultValue="" className={fieldCls}>
                 <option value="">Tous les produits du contrat (tarif générique)</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>{p.title}</option>
-                ))}
+                {supplierProductIds.length > 0 ? (
+                  <>
+                    <optgroup label="Produits de ce fournisseur">
+                      {products.filter((p) => supplierProductIds.includes(p.id)).map((p) => (
+                        <option key={p.id} value={p.id}>{p.title}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Autres produits">
+                      {products.filter((p) => !supplierProductIds.includes(p.id)).map((p) => (
+                        <option key={p.id} value={p.id}>{p.title}</option>
+                      ))}
+                    </optgroup>
+                  </>
+                ) : (
+                  products.map((p) => (
+                    <option key={p.id} value={p.id}>{p.title}</option>
+                  ))
+                )}
               </select>
             </div>
             <div>

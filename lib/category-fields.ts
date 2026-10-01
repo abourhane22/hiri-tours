@@ -142,7 +142,7 @@ export const CATEGORY_META: Record<
     label: "Billetterie",
     sectionSuffix: "Titre de transport ou d'entrée",
     badgeStyle: { backgroundColor: "#E3F0F5", color: "#0C447C" },
-    hint: "Vol, bus, train, ferry, spectacle ou entrée de site. Vendu par personne (un billet par voyageur).",
+    hint: "Vol, bus, train, ferry, spectacle ou entrée de site. Vendu à l'unité (le billet ou le lot) ou par personne.",
   },
   prestation: {
     label: "Prestation",
@@ -152,16 +152,66 @@ export const CATEGORY_META: Record<
   },
 };
 
-/** Unité de vente proposée par défaut à la création d'un produit de ce type. */
-export const DEFAULT_SALE_UNIT: Record<CircuitCategory, SaleUnit> = {
-  circuit: "per_person",
-  excursion: "per_person",
-  transfert: "per_trip",
-  sejour: "per_person",
-  hebergement: "per_night_room",
-  billetterie: "per_person",
-  prestation: "per_unit",
+/**
+ * MATRICE type → unités de vente — SOURCE UNIQUE. Le formulaire produit en tire ses
+ * options et son aide ; `buildCircuitPayload` (app/admin/produits/actions.ts) refuse
+ * toute unité hors matrice. La première unité est l'unité par défaut.
+ */
+export const SALE_UNITS_BY_CATEGORY: Record<CircuitCategory, { units: SaleUnit[]; help: Partial<Record<SaleUnit, string>> }> = {
+  circuit: {
+    units: ["per_person"],
+    help: { per_person: "Par personne : le prix affiché est celui d'un participant ; le total suit le nombre d'adultes et d'enfants." },
+  },
+  sejour: {
+    units: ["per_person"],
+    help: { per_person: "Par personne : forfait packagé par participant ; le total suit le nombre d'adultes et d'enfants." },
+  },
+  excursion: {
+    units: ["per_person", "per_unit"],
+    help: {
+      per_person: "Par personne : excursion en groupe, le total suit le nombre de participants.",
+      per_unit: "À l'unité : privatisation — le prix est celui du véhicule ou du groupe entier, quel que soit le nombre de participants.",
+    },
+  },
+  transfert: {
+    units: ["per_trip", "per_person"],
+    help: {
+      per_trip: "Par trajet : prix du véhicule pour le trajet, quel que soit le nombre de passagers.",
+      per_person: "Par personne : navette partagée, le total suit le nombre de passagers.",
+    },
+  },
+  hebergement: {
+    units: ["per_night_room"],
+    help: { per_night_room: "Par nuit et par chambre : total = nuits × chambres, indépendant du nombre d'occupants." },
+  },
+  billetterie: {
+    units: ["per_unit", "per_person"],
+    help: {
+      per_unit: "À l'unité : prix d'un billet ou d'un lot ; total = quantité × prix unitaire.",
+      per_person: "Par personne : un billet par voyageur, le total suit le nombre d'adultes et d'enfants.",
+    },
+  },
+  prestation: {
+    units: ["per_unit", "per_person"],
+    help: {
+      per_unit: "À l'unité : prix du service (location, guide seul, forfait) ; total = quantité × prix unitaire.",
+      per_person: "Par personne : le service est facturé à chaque participant.",
+    },
+  },
 };
+
+export function allowedSaleUnits(category: CircuitCategory): SaleUnit[] {
+  return SALE_UNITS_BY_CATEGORY[category]?.units ?? ["per_person"];
+}
+
+export function isSaleUnitAllowed(category: CircuitCategory, unit: SaleUnit): boolean {
+  return allowedSaleUnits(category).includes(unit);
+}
+
+/** Unité de vente proposée par défaut à la création d'un produit de ce type (première de la matrice). */
+export const DEFAULT_SALE_UNIT: Record<CircuitCategory, SaleUnit> = Object.fromEntries(
+  (Object.keys(SALE_UNITS_BY_CATEGORY) as CircuitCategory[]).map((c) => [c, SALE_UNITS_BY_CATEGORY[c].units[0]]),
+) as Record<CircuitCategory, SaleUnit>;
 
 // -------- Field configuration --------
 

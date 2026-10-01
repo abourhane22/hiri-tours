@@ -36,7 +36,9 @@ let lastForm: HTMLFormElement | null = null;
 export function highlightField(name: string | null | undefined, scope?: ParentNode | null) {
   if (!name || typeof document === "undefined") return;
   const root: ParentNode = scope ?? (lastForm && document.contains(lastForm) ? lastForm : document);
-  const sel = `[name="${typeof CSS !== "undefined" && CSS.escape ? CSS.escape(name) : name}"]`;
+  const esc = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(name) : name;
+  // `data-name` : groupes sans champ natif (cartes de choix, zone de dépôt, fenêtre sans `name`).
+  const sel = `[name="${esc}"], [data-name="${esc}"]`;
   const el = root.querySelector<HTMLElement>(sel) ?? document.querySelector<HTMLElement>(sel);
   if (!el) return;
   el.setAttribute("aria-invalid", "true");

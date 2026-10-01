@@ -12,7 +12,10 @@ import { updateAllotment } from "../actions";
 import type { Allotment, AllotmentDay, AllotmentMovement } from "@/lib/types";
 
 type Row = Allotment & {
-  circuits: { title: string; max_participants: number } | { title: string; max_participants: number }[] | null;
+  circuits:
+    | { title: string; max_participants: number; category?: string; supplier_id?: string | null }
+    | { title: string; max_participants: number; category?: string; supplier_id?: string | null }[]
+    | null;
   supplier_contracts:
     | { label: string; suppliers: { name: string } | { name: string }[] | null }
     | { label: string; suppliers: { name: string } | { name: string }[] | null }[]
@@ -37,7 +40,7 @@ export default async function AllotmentDetailPage({
 
   const { data: row } = await supabase
     .from("allotments")
-    .select("*, circuits(title, max_participants), supplier_contracts(label, suppliers(name))")
+    .select("*, circuits(title, max_participants, category, supplier_id), supplier_contracts(label, suppliers(name))")
     .eq("id", id)
     .single();
   if (!row) notFound();
@@ -56,7 +59,7 @@ export default async function AllotmentDetailPage({
   const [{ data: monthDays }, { data: futureDays }, { data: contractRows }, { data: allDayIds }] = await Promise.all([
     supabase.from("allotment_days").select("*").eq("allotment_id", id).gte("day", start).lte("day", end).order("day"),
     supabase.from("allotment_days").select("quota, sold, released").eq("allotment_id", id).gte("day", todayStr),
-    supabase.from("supplier_contracts").select("id, label, release_days_default, suppliers(name)").eq("status", "active").order("label"),
+    supabase.from("supplier_contracts").select("id, label, release_days_default, supplier_id, suppliers(name)").eq("status", "active").order("label"),
     supabase.from("allotment_days").select("id").eq("allotment_id", id),
   ]);
 
@@ -104,6 +107,7 @@ export default async function AllotmentDetailPage({
     label: c.label,
     supplierName: one<{ name: string }>(c.suppliers)?.name ?? "Fournisseur",
     releaseDaysDefault: Number(c.release_days_default) || 0,
+    supplierId: c.supplier_id ?? null,
   }));
 
   const cardLabel = "flex items-center gap-1.5 text-[10.5px] tracking-[1.4px] uppercase text-[#968F84] font-medium";
@@ -231,6 +235,7 @@ export default async function AllotmentDetailPage({
           products={[]}
           contracts={contracts}
           productTitle={product?.title}
+          lockedProduct={product ? { category: product.category ?? "", supplierId: product.supplier_id ?? null } : undefined}
           defaults={{
             productId: a.product_id,
             origin: a.contract_id ? "contract" : "own",
