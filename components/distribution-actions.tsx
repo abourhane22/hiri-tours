@@ -27,7 +27,7 @@ export function DistributionActions({
   const toast = useToast();
 
   function onIssue() {
-    if (!confirm("Émettre l'ordre auprès de Duffel avec les voyageurs du dossier ?\n\nEnvironnement de test : aucun billet réel, aucun paiement.")) return;
+    if (!confirm("Émettre le billet auprès de la compagnie avec les voyageurs du dossier ?\n\nEnvironnement de test : aucun billet réel, aucun paiement.")) return;
     setIssue(null);
     startTransition(async () => {
       const res = await issueOrderAction(bookingId);
@@ -41,7 +41,7 @@ export function DistributionActions({
   }
 
   function onCancel() {
-    if (!confirm("Annuler l'ordre Duffel ? Un devis d'annulation est demandé puis confirmé immédiatement.")) return;
+    if (!confirm("Annuler le billet ? La compagnie calcule le remboursement, puis l'annulation est confirmée immédiatement.")) return;
     setCancel(null);
     startTransition(async () => {
       const res = await cancelOrderAction(bookingId);

@@ -2,16 +2,7 @@
 
 import { Clock, Luggage, RefreshCw, Undo2, AlertTriangle, ChevronRight, CircleCheck } from "lucide-react";
 import { formatDateShort } from "@/lib/utils";
-import {
-  baggageSummary,
-  formatMinutes,
-  formatMoney,
-  isoDurationToMinutes,
-  offerIsExpired,
-  sliceMinutes,
-  type DuffelOffer,
-  type DuffelSlice,
-} from "@/lib/duffel-types";
+import { cabinLabel, passengersLabel, baggageSummary, formatMinutes, formatMoney, isoDurationToMinutes, offerIsExpired, sliceMinutes, type DuffelOffer, type DuffelSlice } from "@/lib/duffel-types";
 
 /** "2026-10-12T10:35:00" → "10:35" (heure locale de l'aéroport, telle que fournie). */
 export const hhmm = (iso: string) => iso.slice(11, 16);
@@ -122,8 +113,8 @@ export function SliceRow({ slice, compact }: { slice: DuffelSlice; compact?: boo
               {s.operating_carrier && s.operating_carrier.iata_code !== s.marketing_carrier.iata_code && (
                 <span className="text-[#968F84]">opéré par {s.operating_carrier.name}</span>
               )}
-              {s.passengers?.[0]?.cabin_class_marketing_name && (
-                <span className="text-[#968F84]">{s.passengers[0].cabin_class_marketing_name}</span>
+              {cabinLabel(s.passengers?.[0]?.cabin_class, s.passengers?.[0]?.cabin_class_marketing_name) && (
+                <span className="text-[#968F84]">{cabinLabel(s.passengers?.[0]?.cabin_class, s.passengers?.[0]?.cabin_class_marketing_name)}</span>
               )}
             </li>
           ))}
@@ -203,7 +194,7 @@ export function OfferCard({
             {formatMoney(offer.total_amount, offer.total_currency)}
           </div>
           <div className="text-[10.5px] text-[#968F84] mt-1">
-            {offer.passengers.length} passager{offer.passengers.length > 1 ? "s" : ""} · conversion MAD au lot D1b
+            {passengersLabel(offer.passengers)} · converti en MAD à la création du dossier
           </div>
         </div>
       </div>

@@ -258,3 +258,41 @@ export function formatMoney(amount: string | number, currency: string): string {
     return `${n.toFixed(2)} ${currency}`;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Libellés français (aucun terme technique de l'API à l'écran)
+// ---------------------------------------------------------------------------
+
+/** « 1 adulte » · « 2 adultes · 1 enfant (7 ans) » · « 1 adulte · 1 bébé (sans siège) ». */
+export function passengersLabel(passengers: { type?: string | null; age?: number | null }[]): string {
+  const adults = passengers.filter((p) => (p.type ?? (p.age !== null && p.age !== undefined && p.age < 18 ? "child" : "adult")) === "adult").length;
+  const infants = passengers.filter((p) => p.type === "infant_without_seat");
+  const children = passengers.filter((p) => {
+    const t = p.type ?? (p.age !== null && p.age !== undefined && p.age < 18 ? "child" : "adult");
+    return t !== "adult" && t !== "infant_without_seat";
+  });
+  const ages = (list: { age?: number | null }[]) => {
+    const a = list.map((p) => p.age).filter((x): x is number => x !== null && x !== undefined).sort((x, y) => x - y);
+    if (a.length === 0) return "";
+    const txt = a.length === 1 ? `${a[0]} ans` : `${a.slice(0, -1).join(", ")} et ${a[a.length - 1]} ans`;
+    return ` (${txt})`;
+  };
+  const parts: string[] = [];
+  if (adults > 0) parts.push(`${adults} adulte${adults > 1 ? "s" : ""}`);
+  if (children.length > 0) parts.push(`${children.length} enfant${children.length > 1 ? "s" : ""}${ages(children)}`);
+  if (infants.length > 0) parts.push(`${infants.length} bébé${infants.length > 1 ? "s" : ""} (sans siège)`);
+  return parts.join(" · ") || "—";
+}
+
+/** Type de document de voyage émis par la compagnie. */
+export function documentTypeLabel(type: string | null | undefined): string {
+  if (type === "electronic_ticket") return "Billet électronique";
+  if (type === "electronic_miscellaneous_document_associated" || type === "electronic_miscellaneous_document_standalone") return "Document annexe";
+  return type ? type.replace(/_/g, " ") : "Document";
+}
+
+/** Libellé français d'une classe de cabine (repli sur le nom commercial de la compagnie). */
+export function cabinLabel(cabinClass: string | null | undefined, marketingName?: string | null): string | null {
+  const known = CABIN_CLASSES.find((c) => c.value === cabinClass)?.label;
+  return known ?? marketingName ?? null;
+}

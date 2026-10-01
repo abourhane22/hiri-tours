@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useActionFeedback, useToast } from "@/components/ui/toaster";
 import { useRouter } from "next/navigation";
 import { Check, Loader2, Info, Lock } from "lucide-react";
@@ -11,6 +12,7 @@ import { computeServiceFee, fxConvert, type TicketingFeeDefaults } from "@/lib/d
 import { createDossierFromOfferAction, type CreateDossierState } from "@/app/admin/billetterie/actions";
 import type { Customer } from "@/lib/types";
 
+const FORM_ID = "create-dossier-form";
 const labelCls = "block text-[12px] font-medium text-[#58524A] mb-1.5";
 const fieldCls =
   "h-10 w-full rounded-lg border border-[#E0DACF] bg-white px-3 text-sm text-[#1A1F2E] placeholder:text-sand-400 focus:border-[#1A1F2E] focus:outline-none focus:ring-2 focus:ring-[#1A1F2E]/10 transition-colors";
@@ -28,6 +30,7 @@ export function CreateDossierPanel({
   feeDefaults,
   disabled,
   disabledReason,
+  footer,
 }: {
   offer: DuffelOffer;
   offerRequestId: string | null;
@@ -35,6 +38,8 @@ export function CreateDossierPanel({
   feeDefaults: TicketingFeeDefaults;
   disabled: boolean;
   disabledReason?: string;
+  /** Pied collant du panneau « Détail de l'offre » : le récapitulatif et le bouton y sont rendus. */
+  footer?: HTMLElement | null;
 }) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState<CreateDossierState, FormData>(createDossierFromOfferAction, { ok: null });
@@ -68,7 +73,7 @@ export function CreateDossierPanel({
   }, [state, router, toast]);
 
   if (disabled) {
-    return (
+    const locked = (
       <button
         type="button"
         disabled
@@ -78,10 +83,11 @@ export function CreateDossierPanel({
         <Lock className="size-4" /> Créer le dossier
       </button>
     );
+    return footer ? createPortal(locked, footer) : locked;
   }
 
-  return (
-    <form action={formAction} className="rounded-lg p-3 space-y-3" style={{ border: "1px dashed #C9C4BA" }}>
+  const form = (
+    <form id={FORM_ID} action={formAction} className="rounded-lg p-3 space-y-3" style={{ border: "1px dashed #C9C4BA" }}>
       <input type="hidden" name="offer_id" value={offer.id} />
       <input type="hidden" name="offer_request_id" value={offerRequestId ?? ""} />
       <input type="hidden" name="customer_id" value={customer?.id ?? ""} />
@@ -160,46 +166,59 @@ export function CreateDossierPanel({
         </p>
       </div>
 
-      {/* Récapitulatif : tarif compagnie + frais = prix de vente */}
-      <div className="rounded-lg px-3 py-2.5 space-y-1 tabular-nums" style={{ backgroundColor: "#FBF9F5", border: "1px solid #EEE9E0" }}>
-        <div className="flex justify-between text-[12.5px] text-[#58524A]">
-          <span>Tarif compagnie</span>
-          <span>{amountMad !== null ? formatMAD(amountMad) : "—"}</span>
-        </div>
-        <div className="flex justify-between text-[12.5px] text-[#58524A]">
-          <span>
-            + Frais de service agence
-            <span className="text-[11px] text-[#968F84]">
-              {" "}({feeValid ? `${perPaxNum} MAD × ${pax} pax${pctNum ? ` + ${pctNum} %` : ""}` : "saisie invalide"})
-            </span>
-          </span>
-          <span>{serviceFee !== null ? formatMAD(serviceFee) : "—"}</span>
-        </div>
-        <div className="flex justify-between items-baseline pt-1 border-t border-[#EEE9E0]">
-          <span className="text-[12.5px] font-medium text-[#1A1F2E]">= Prix de vente</span>
-          <span className="font-display text-[20px] text-[#1A1F2E]">{salePrice !== null ? formatMAD(salePrice) : "—"}</span>
-        </div>
-      </div>
-
       <p className="flex items-start gap-1.5 text-[11px] text-[#968F84] leading-snug">
         <Info className="size-3.5 shrink-0 mt-px" />
         Crée un produit billetterie inactif (jamais en vitrine), un dossier au forfait pour {offer.passengers.length} passager
-        {offer.passengers.length > 1 ? "s" : ""}, et les voyageurs à compléter. L&apos;ordre Duffel s&apos;émet ensuite depuis la fiche.
+        {offer.passengers.length > 1 ? "s" : ""}, et les voyageurs à compléter. Le billet s&apos;émet ensuite depuis la fiche du dossier.
       </p>
 
-      {state.ok === false && (
-        <p className="text-[12px] text-[#791F1F] bg-[#FCEBEB] border border-[#F7C1C1] rounded-lg px-3 py-2">{state.error}</p>
-      )}
-
-      <button
-        type="submit"
-        disabled={isPending || !customer || !rateValid || !feeValid}
-        aria-busy={isPending}
-        className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-[#1A1F2E] px-3 text-[13px] font-medium text-white hover:bg-[#2A3142] disabled:opacity-50 disabled:pointer-events-none transition-colors"
-      >
-        {isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-        {isPending ? "Création du dossier…" : "Créer le dossier"}
-      </button>
     </form>
+  );
+
+  // Pied collant du panneau (récapitulatif + bouton toujours visibles) ; repli dans le flux sans pied.
+  const footerContent = (
+    <div className="space-y-2.5">
+        {/* Récapitulatif : tarif compagnie + frais = prix de vente */}
+        <div className="rounded-lg px-3 py-2.5 space-y-1 tabular-nums" style={{ backgroundColor: "#FBF9F5", border: "1px solid #EEE9E0" }}>
+          <div className="flex justify-between text-[12.5px] text-[#58524A]">
+            <span>Tarif compagnie</span>
+            <span>{amountMad !== null ? formatMAD(amountMad) : "—"}</span>
+          </div>
+          <div className="flex justify-between text-[12.5px] text-[#58524A]">
+            <span>
+              + Frais de service agence
+              <span className="text-[11px] text-[#968F84]">
+                {" "}({feeValid ? `${perPaxNum} MAD × ${pax} pax${pctNum ? ` + ${pctNum} %` : ""}` : "saisie invalide"})
+              </span>
+            </span>
+            <span>{serviceFee !== null ? formatMAD(serviceFee) : "—"}</span>
+          </div>
+          <div className="flex justify-between items-baseline pt-1 border-t border-[#EEE9E0]">
+            <span className="text-[12.5px] font-medium text-[#1A1F2E]">= Prix de vente</span>
+            <span className="font-display text-[20px] text-[#1A1F2E]">{salePrice !== null ? formatMAD(salePrice) : "—"}</span>
+          </div>
+        </div>
+
+        {state.ok === false && (
+          <p className="text-[12px] text-[#791F1F] bg-[#FCEBEB] border border-[#F7C1C1] rounded-lg px-3 py-2">{state.error}</p>
+        )}
+
+        <button
+          type="submit"
+          form={FORM_ID}
+          disabled={isPending || !customer || !rateValid || !feeValid}
+          aria-busy={isPending}
+          className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-[#1A1F2E] px-3 text-[13px] font-medium text-white hover:bg-[#2A3142] disabled:opacity-50 disabled:pointer-events-none transition-colors"
+        >
+          {isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+          {isPending ? "Création du dossier…" : "Créer le dossier"}
+        </button>
+    </div>
+  );
+  return (
+    <>
+      {form}
+      {footer ? createPortal(footerContent, footer) : footerContent}
+    </>
   );
 }

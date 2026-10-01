@@ -75,3 +75,9 @@ export function weekdayShort(ymd: string): string {
   const wd = new Intl.DateTimeFormat("fr-FR", { weekday: "long", timeZone: "UTC" }).format(dt);
   return `${wd} ${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
 }
+
+/** « 03/10/2026 à 00:20 » — date et heure (sans secondes) à Casablanca. */
+export function agencyDateTime(at: Date | number | string): string {
+  const ymd = agencyDate(at);
+  return `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)} à ${agencyTime(at)}`;
+}

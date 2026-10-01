@@ -4,7 +4,8 @@ import { useActionState, useEffect, useMemo, useState, useTransition } from "rea
 import { Search, Loader2, ArrowLeftRight, Users, X, AlertTriangle, Info, FileText, Lock, RefreshCw } from "lucide-react";
 import { formatDateShort } from "@/lib/utils";
 import { searchOffersAction, getOfferAction, type SearchState, type OfferDetailResult } from "@/app/admin/billetterie/actions";
-import { CABIN_CLASSES, formatMoney, offerTotalMinutes, amountNumber, formatMinutes, type DuffelOffer, type DuffelMode } from "@/lib/duffel-types";
+import { CABIN_CLASSES, formatMoney, offerTotalMinutes, amountNumber, formatMinutes, passengersLabel, type DuffelOffer, type DuffelMode } from "@/lib/duffel-types";
+import { agencyDateTime } from "@/lib/tz";
 import { PlaceInput } from "@/components/billetterie/place-input";
 import { OfferCard, SliceRow, ConditionChips, AirlineBadge, countdownLabel } from "@/components/billetterie/offer-card";
 import { CreateDossierPanel } from "@/components/billetterie/create-dossier-panel";
@@ -30,6 +31,8 @@ export function FlightSearch({
   const [children, setChildren] = useState(0);
   const [sort, setSort] = useState<Sort>("price");
   const [now, setNow] = useState(() => Date.now());
+  // Pied collant du panneau de détail : cible du portail de CreateDossierPanel.
+  const [footerEl, setFooterEl] = useState<HTMLDivElement | null>(null);
 
   // Sélection / détail
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -196,7 +199,7 @@ export function FlightSearch({
                   {" · "}{CABIN_CLASSES.find((c) => c.value === state.input.cabinClass)?.label}
                   {" · "}
                   <span style={{ color: state.result.liveMode ? "#791F1F" : "#7A4B00" }} className="font-medium">
-                    {state.result.liveMode ? "LIVE" : "TEST"}
+                    {state.result.liveMode ? "RÉEL" : "TEST"}
                   </span>
                 </p>
               </div>
@@ -235,18 +238,26 @@ export function FlightSearch({
             )}
           </div>
 
-          {/* Détail */}
-          <div className="bg-white border border-[#E5E0D7] rounded-xl p-4 lg:sticky lg:top-20">
-            <div className="flex items-center justify-between gap-2 mb-3">
+          {/* Détail — hauteur bornée à la fenêtre (moins le bandeau), contenu qui défile,
+              en-tête et pied collants ; plein écran sur mobile quand une offre est ouverte. */}
+          <div
+            className={`flex flex-col overflow-hidden bg-white lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:rounded-xl lg:border lg:border-[#E5E0D7] ${
+              selectedId ? "fixed inset-0 z-50 lg:static lg:inset-auto lg:z-auto" : "rounded-xl border border-[#E5E0D7]"
+            }`}
+            role={selectedId ? "dialog" : undefined}
+            aria-label="Détail de l'offre"
+          >
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#EEE9E0] px-4 py-2">
               <span className="flex items-center gap-1.5 text-[10.5px] tracking-[1.4px] uppercase text-[#968F84] font-medium">
                 <FileText className="size-3.5" /> Détail de l&apos;offre
               </span>
               {selectedId && (
-                <button type="button" onClick={() => { setSelectedId(null); setDetail(null); }} aria-label="Fermer" className="text-[#968F84] hover:text-[#1A1F2E]">
+                <button type="button" onClick={() => { setSelectedId(null); setDetail(null); }} aria-label="Fermer le détail" className="inline-flex size-10 items-center justify-center rounded-md text-[#968F84] hover:bg-[#FBF9F5] hover:text-[#1A1F2E]">
                   <X className="size-4" />
                 </button>
               )}
             </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
 
             {!selectedId ? (
               <p className="text-[13px] text-[#968F84]">Sélectionnez une offre pour relire son prix à jour et voir le détail des vols.</p>
@@ -272,8 +283,12 @@ export function FlightSearch({
                 fxRates={fxRates}
                 feeDefaults={feeDefaults}
                 offerRequestId={state.ok === true ? state.result.offerRequestId : null}
+                footer={footerEl}
               />
             )}
+            </div>
+            {/* Pied collant : récapitulatif (tarif + frais = prix de vente) et « Créer le dossier ». */}
+            <div ref={setFooterEl} className={`shrink-0 border-t border-[#EEE9E0] bg-white p-4 empty:hidden ${detail?.ok ? "" : "hidden"}`} />
           </div>
         </div>
       )}
@@ -288,7 +303,9 @@ function OfferDetail({
   fxRates,
   feeDefaults,
   offerRequestId,
+  footer,
 }: {
+  footer: HTMLElement | null;
   detail: Extract<OfferDetailResult, { ok: true }>;
   now: number;
   mode: DuffelMode;
@@ -315,7 +332,7 @@ function OfferDetail({
       )}
       {(liveOffer || mode === "live") && (
         <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-[12.5px]" style={{ backgroundColor: "#FCEBEB", border: "1px solid #F7C1C1", color: "#791F1F" }}>
-          <Lock className="size-4 shrink-0 mt-px" /> Offre LIVE : ce démonstrateur n&apos;émet pas de vrais billets. Lecture seule.
+          <Lock className="size-4 shrink-0 mt-px" /> Offre réelle : ce démonstrateur n&apos;émet pas de vrais billets. Lecture seule.
         </div>
       )}
 
@@ -332,7 +349,7 @@ function OfferDetail({
             {offer.tax_amount && <> · Taxes {formatMoney(offer.tax_amount, offer.total_currency)}</>}
           </div>
         )}
-        <div className="text-[11px] text-[#968F84] mt-1">Conversion en MAD au taux figé : lot D1b.</div>
+        <div className="text-[11px] text-[#968F84] mt-1">Converti en MAD au taux figé à la création du dossier.</div>
         <div className="text-[11px] mt-1.5 tabular-nums" style={{ color: expired ? "#791F1F" : "#B25F0B" }}>{countdownLabel(offer.expires_at, now)}</div>
       </div>
 
@@ -351,24 +368,25 @@ function OfferDetail({
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11.5px]">
         <dt className="text-[#968F84]">Paiement</dt>
-        <dd className="text-[#1A1F2E]">{pr.requires_instant_payment === false ? "Réservation en attente possible (hold)" : "Immédiat"}</dd>
+        {/* Paiement différé : information seulement, le mode n'est pas encore proposé dans la plateforme. */}
+        <dd className="text-[#1A1F2E]">{pr.requires_instant_payment === false ? "Paiement différé possible chez la compagnie" : "Paiement immédiat à l'émission"}</dd>
         {pr.price_guarantee_expires_at && (
           <>
             <dt className="text-[#968F84]">Prix garanti jusqu&apos;au</dt>
-            <dd className="text-[#1A1F2E] tabular-nums">{new Date(pr.price_guarantee_expires_at).toLocaleString("fr-FR")}</dd>
+            <dd className="text-[#1A1F2E] tabular-nums">{agencyDateTime(pr.price_guarantee_expires_at)}</dd>
           </>
         )}
         {pr.payment_required_by && (
           <>
             <dt className="text-[#968F84]">Paiement requis avant</dt>
-            <dd className="text-[#1A1F2E] tabular-nums">{new Date(pr.payment_required_by).toLocaleString("fr-FR")}</dd>
+            <dd className="text-[#1A1F2E] tabular-nums">{agencyDateTime(pr.payment_required_by)}</dd>
           </>
         )}
         <dt className="text-[#968F84]">Passagers</dt>
         <dd className="text-[#1A1F2E]">
-          {offer.passengers.map((p) => (p.type ?? (p.age !== null && p.age !== undefined ? `${p.age} ans` : "?"))).join(", ")}
+          {passengersLabel(offer.passengers)}
         </dd>
-        <dt className="text-[#968F84]">Identifiant</dt>
+        <dt className="text-[#968F84]">Référence de l&apos;offre</dt>
         <dd className="font-mono text-[11px] text-[#6B6862] break-all">{offer.id}</dd>
       </dl>
 
@@ -377,11 +395,12 @@ function OfferDetail({
         offerRequestId={offerRequestId}
         fxRates={fxRates}
         feeDefaults={feeDefaults}
+        footer={footer}
         disabled={nowExpired || liveOffer || mode === "live"}
         disabledReason={
           nowExpired
             ? "Offre expirée — relancez la recherche."
-            : "Offre ou identifiant LIVE : ce démonstrateur ne crée pas de dossier sur de vrais vols."
+            : "Offre réelle (identifiant de production) : ce démonstrateur ne crée pas de dossier sur de vrais vols."
         }
       />
     </div>

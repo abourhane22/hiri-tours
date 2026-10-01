@@ -85,7 +85,7 @@ function ModeBanner({ mode }: { mode: DuffelMode }) {
       <div className="mb-4 flex items-start gap-2.5 rounded-xl px-4 py-3 text-[13px]" style={{ backgroundColor: "#FFF4E0", border: "1px solid #EF9F27", color: "#7A4B00" }}>
         <FlaskConical className="size-4 shrink-0 mt-px" />
         <div>
-          <span className="font-medium">Environnement de test Duffel</span> · offres sandbox, horaires et prix non réels ·
+          <span className="font-medium">Environnement de test Duffel</span> · offres de démonstration, horaires et prix non réels ·
           aucune réservation réelle, aucun paiement.
           <span className="block text-[11.5px] mt-0.5 opacity-80">
             Plusieurs compagnies apparaissent, mais seule la compagnie fictive{" "}
@@ -103,11 +103,11 @@ function ModeBanner({ mode }: { mode: DuffelMode }) {
       <div className="mb-4 flex items-start gap-2.5 rounded-xl px-4 py-3 text-[13px]" style={{ backgroundColor: "#FCEBEB", border: "1px solid #F7C1C1", color: "#791F1F" }}>
         <Lock className="size-4 shrink-0 mt-px" />
         <div>
-          <span className="font-medium">Identifiant LIVE détecté.</span> La recherche reste possible en lecture seule ;{" "}
+          <span className="font-medium">Identifiant de production détecté.</span> La recherche reste possible en lecture seule ;{" "}
           <span className="font-medium">aucune émission d&apos;ordre ne sera autorisée</span> depuis ce démonstrateur. Remplacez-le par un token de test.
         </div>
         <span className="ml-auto inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-wide shrink-0" style={{ backgroundColor: "#791F1F", color: "#FCEBEB" }}>
-          LIVE
+          RÉEL
         </span>
       </div>
     );
@@ -117,7 +117,7 @@ function ModeBanner({ mode }: { mode: DuffelMode }) {
       <HelpCircle className="size-4 shrink-0 mt-px" />
       <div>
         Préfixe de token non reconnu (ni <code className="font-mono text-[12px]">duffel_test_</code> ni <code className="font-mono text-[12px]">duffel_live_</code>).
-        Le mode sera confirmé par le champ <code className="font-mono text-[12px]">live_mode</code> de la première réponse ; toute émission d&apos;ordre est refusée tant qu&apos;il n&apos;est pas prouvé « test ».
+        Le mode sera confirmé par la première réponse de la compagnie ; toute émission de billet est refusée tant qu&apos;il n&apos;est pas prouvé « test ».
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { FlaskConical, Lock, Ticket, FileText } from "lucide-react";
 import { formatMAD, formatDate } from "@/lib/utils";
-import { formatMoney, offerIsExpired, type DuffelDocument, type DuffelOrder } from "@/lib/duffel-types";
+import { documentTypeLabel, formatMoney, offerIsExpired, type DuffelDocument, type DuffelOrder } from "@/lib/duffel-types";
+import { agencyDateTime } from "@/lib/tz";
 import { DISTRIBUTION_STATUS_LABEL, DISTRIBUTION_STATUS_STYLE, FX_SOURCE_LABEL, offerFromSnapshot, serviceFeeBreakdown } from "@/lib/distribution";
 import { SliceRow, AirlineBadge, ConditionChips } from "@/components/billetterie/offer-card";
 import { DistributionActions } from "@/components/distribution-actions";
@@ -35,7 +36,7 @@ export function DistributionCard({
   const canIssue = booking.status === "draft" && !liveBlocked && !reservationCancelled && !expired && !paymentBlocked;
   const canCancel = booking.status === "ordered" && !liveBlocked;
   const blockedReason = liveBlocked
-    ? "Identifiant ou offre LIVE : ce démonstrateur n'émet ni n'annule de vrais billets."
+    ? "Identifiant ou offre réels (production) : ce démonstrateur n'émet ni n'annule de vrais billets."
     : booking.status === "draft" && expired
       ? "L'offre a expiré : ce dossier ne peut plus être émis. Relancez une recherche et créez un nouveau dossier."
       : booking.status === "draft" && reservationCancelled
@@ -66,11 +67,11 @@ export function DistributionCard({
         </span>
         {booking.live_mode ? (
           <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold" style={{ backgroundColor: "#791F1F", color: "#FCEBEB" }}>
-            <Lock className="size-3" /> LIVE
+            <Lock className="size-3" /> RÉEL
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold" style={{ backgroundColor: "#7A4B00", color: "#FFF4E0" }}>
-            <FlaskConical className="size-3" /> TEST · Duffel
+            <FlaskConical className="size-3" /> TEST
           </span>
         )}
       </div>
@@ -83,7 +84,7 @@ export function DistributionCard({
             <span className="font-mono text-[18px] tracking-wider text-[#1A1F2E]">{booking.booking_reference ?? "—"}</span>
           </div>
           <div className="text-[11px] mt-1" style={{ color: "#085041" }}>
-            Ordre Duffel <span className="font-mono">{booking.order_id}</span>
+            Ordre <span className="font-mono">{booking.order_id}</span>
             {booking.ordered_at && <> · émis le {formatDate(booking.ordered_at)}</>}
           </div>
           {docs.length > 0 && (
@@ -92,14 +93,14 @@ export function DistributionCard({
                 <li key={i} className="flex items-center gap-1.5 text-[12px] text-[#1A1F2E]">
                   <Ticket className="size-3.5 text-[#085041]" />
                   <span className="font-mono">{d.unique_identifier}</span>
-                  <span className="text-[11px] text-[#6B6862]">· {d.type.replace(/_/g, " ")}</span>
+                  <span className="text-[11px] text-[#6B6862]">· {documentTypeLabel(d.type)}</span>
                 </li>
               ))}
             </ul>
           )}
           {order?.payment_status?.awaiting_payment && (
             <p className="text-[11px] mt-1.5" style={{ color: "#B25F0B" }}>
-              En attente de paiement Duffel{order.payment_status.payment_required_by ? ` avant le ${formatDate(order.payment_status.payment_required_by)}` : ""}.
+              En attente de paiement à la compagnie{order.payment_status.payment_required_by ? ` avant le ${agencyDateTime(order.payment_status.payment_required_by)}` : ""}.
             </p>
           )}
         </div>
@@ -148,7 +149,7 @@ export function DistributionCard({
           <p className="text-[11px] text-[#968F84] tabular-nums">
             Offre <span className="font-mono">{offer.id}</span>
             {booking.status === "draft" && (
-              <> · {expired ? <span style={{ color: "#791F1F" }}>expirée</span> : <>valable jusqu&apos;au {new Date(offer.expires_at).toLocaleString("fr-FR")}</>}</>
+              <> · {expired ? <span style={{ color: "#791F1F" }}>expirée</span> : <>valable jusqu&apos;au {agencyDateTime(offer.expires_at)}</>}</>
             )}
           </p>
         </div>
