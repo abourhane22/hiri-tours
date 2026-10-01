@@ -1,216 +1,263 @@
 import Link from "next/link";
-import { ExpenseTabs } from "@/components/report-tabs";
 import { redirect } from "next/navigation";
+import { Plus, Download, Search, X, Info, FileCheck2, FileWarning, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Plus, ChevronRight, ArrowLeft } from "lucide-react";
+import { ExpenseTabs } from "@/components/report-tabs";
+import { KpiCard, DeltaPill } from "@/components/kpi-card";
+import { QueryErrorPanel } from "@/components/query-error";
+import { AutoSubmitForm } from "@/components/finance/auto-submit-form";
 import { formatMAD, formatDateShort } from "@/lib/utils";
+import {
+  ATTACHMENTS,
+  ATTACHMENT_META,
+  ATTACHMENT_STYLE,
+  LIST_LEGEND,
+  attachmentOf,
+  filtersToSearch,
+  hasActiveFilter,
+  parseExpenseFilters,
+} from "@/lib/expenses";
+import { EXPENSE_PAGE_SIZE, listExpenses, vehicleLabel, type ExpenseRow } from "@/lib/expenses-query";
 
-const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-
-export default async function DepensesPage({ searchParams }: { searchParams: Promise<{ year?: string; month?: string; type?: string; reservation?: string; circuit?: string }> }) {
-  const params = await searchParams;
-  // Filtres de rattachement (liens depuis la carte Marge d'un dossier).
-  const reservationFilter = params.reservation || "";
-  const circuitFilter = params.circuit || "";
-  const now = new Date();
-  const year = params.year ? parseInt(params.year, 10) : now.getFullYear();
-  const month = params.month !== undefined ? parseInt(params.month, 10) : now.getMonth();
-  const typeFilter = params.type || "all";
+// Liste des dépenses — filtres TOUS dans l'URL (partageables, conservés au retour),
+// requêtes et pagination côté serveur (lib/expenses-query.ts).
+export default async function DepensesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const sp = await searchParams;
+  const f = parseExpenseFilters(sp);
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/login");
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-  const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${lastDay}`;
-
-  const { data: categories } = await supabase
-    .from("cost_categories")
-    .select("id, name, type, sort_order")
-    .order("type", { ascending: true })
-    .order("sort_order", { ascending: true });
-
-  let expQuery = supabase
-    .from("expenses")
-    .select(`id, expense_date, amount_mad, description, notes, category_id,
-             vehicle:vehicles(registration, make, model),
-             reservation:reservations(reference),
-             circuit:circuits(title)`)
-    .gte("expense_date", startDate)
-    .lte("expense_date", endDate)
-    .order("expense_date", { ascending: false });
-  if (reservationFilter) expQuery = expQuery.eq("reservation_id", reservationFilter);
-  if (circuitFilter) expQuery = expQuery.eq("circuit_id", circuitFilter).is("reservation_id", null);
-  const { data: rawExpenses } = await expQuery;
-  const firstRow = (rawExpenses ?? [])[0] as any;
-  const one = (v: any) => (Array.isArray(v) ? v[0] : v);
-  const filterLabel = reservationFilter
-    ? `dossier ${one(firstRow?.reservation)?.reference ?? ""}`.trim()
-    : circuitFilter
-      ? `produit ${one(firstRow?.circuit)?.title ?? ""} (non ventilées)`.trim()
-      : null;
-
-  const cats = categories || [];
-  const expenses = rawExpenses || [];
-
-  const filteredCats = typeFilter === "all" ? cats : cats.filter(c => c.type === typeFilter);
-  const allowedCatIds = new Set(filteredCats.map(c => c.id));
-  const filteredExpenses = typeFilter === "all" ? expenses : expenses.filter(e => allowedCatIds.has(e.category_id));
-
-  const byCategory: Record<string, typeof filteredExpenses> = {};
-  for (const e of filteredExpenses) {
-    if (!byCategory[e.category_id]) byCategory[e.category_id] = [];
-    byCategory[e.category_id].push(e);
+  const [result, catRes, vehRes] = await Promise.all([
+    listExpenses(supabase, f),
+    supabase.from("cost_categories").select("id, name, type, sort_order").order("type").order("sort_order"),
+    supabase.from("vehicles").select("id, registration, make, model").order("registration"),
+  ]);
+  if (result.error) {
+    console.error("[dépenses] liste :", result.error);
+    return <QueryErrorPanel title="Impossible de charger les dépenses" error={result.error} />;
   }
+  const { rows, kpi, range, attachmentCounts, filteredCount, filteredTotal } = result;
+  const categories = (catRes.data ?? []) as { id: string; name: string; type: string }[];
+  const vehicles = (vehRes.data ?? []) as { id: string; registration: string; make: string | null; model: string | null }[];
 
-  const grandTotal = filteredExpenses.reduce((s, e) => s + Number(e.amount_mad), 0);
-  const directTotal = expenses.filter(e => cats.find(c => c.id === e.category_id)?.type === "direct").reduce((s, e) => s + Number(e.amount_mad), 0);
-  const overheadTotal = expenses.filter(e => cats.find(c => c.id === e.category_id)?.type === "overhead").reduce((s, e) => s + Number(e.amount_mad), 0);
-
-  const buildLink = (overrides: Record<string, any>) => {
-    const sp = new URLSearchParams();
-    const merged = { year, month, type: typeFilter, reservation: reservationFilter, circuit: circuitFilter, ...overrides };
-    if (merged.year !== now.getFullYear()) sp.set("year", String(merged.year));
-    if (merged.month !== now.getMonth()) sp.set("month", String(merged.month));
-    if (merged.type && merged.type !== "all") sp.set("type", merged.type);
-    if (merged.reservation) sp.set("reservation", merged.reservation);
-    if (merged.circuit) sp.set("circuit", merged.circuit);
-    const s = sp.toString();
-    return s ? `?${s}` : "/admin/finance/depenses";
-  };
-
-  const prevMonth = month === 0 ? { y: year - 1, m: 11 } : { y: year, m: month - 1 };
-  const nextMonth = month === 11 ? { y: year + 1, m: 0 } : { y: year, m: month + 1 };
+  const here = `/admin/finance/depenses${filtersToSearch(f)}`;
+  const href = (over: Parameters<typeof filtersToSearch>[1]) => `/admin/finance/depenses${filtersToSearch(f, { page: 1, ...over })}`;
+  const pages = Math.max(1, Math.ceil(filteredCount / EXPENSE_PAGE_SIZE));
+  const delta = kpi.previousTotal > 0 ? Math.round(((kpi.total - kpi.previousTotal) / kpi.previousTotal) * 1000) / 10 : null;
+  const chip = (active: boolean) =>
+    `inline-flex h-11 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition-colors ${
+      active ? "border-[#1A1F2E] bg-[#1A1F2E] text-white" : "border-[#E0DACF] bg-white text-[#58524A] hover:border-[#C9C4BA]"
+    }`;
+  const field = "h-11 rounded-lg border border-[#E0DACF] bg-white px-3 text-[13.5px] text-[#1A1F2E] focus:border-[#1A1F2E] focus:outline-none focus:ring-2 focus:ring-[#1A1F2E]/10";
+  const th = "px-3 py-2.5 text-[10.5px] tracking-[1px] uppercase font-medium text-[#58524A] text-left";
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <Link href="/admin/finance" className="inline-flex items-center gap-1 text-sm text-sand-700 hover:text-ink mb-4">
-        <ArrowLeft className="size-4" /> Retour à Finance
-      </Link>
-
-      <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto">
+      {/* En-tête */}
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
-          <p className="eyebrow mb-2">Finance</p>
-          <h1 className="font-display text-3xl text-ink">Dépenses</h1>
-          <p className="text-sm text-sand-700 mt-1">{MONTHS[month]} {year} · {filteredExpenses.length} ligne{filteredExpenses.length > 1 ? "s" : ""}</p>
+          <p className="text-[10px] tracking-[2px] uppercase text-[#C84B31] font-medium">Finance · coûts</p>
+          <h1 className="font-display text-3xl tracking-[-0.02em] text-[#1A1F2E] mt-1">Dépenses</h1>
+          <p className="text-[13px] text-[#6B6862] mt-1">
+            Ce que l&apos;agence paie, et pour qui : dossiers, produits, flotte ou structure · {range.label}
+          </p>
         </div>
-        <Link href="/admin/finance/depenses/new"><Button><Plus className="size-4" />Nouvelle dépense</Button></Link>
+        <div className="flex flex-wrap gap-2">
+          <a href={`/admin/finance/depenses/export${filtersToSearch(f, { page: 1 })}`} className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-[#E0DACF] bg-white px-3.5 text-[13px] font-medium text-[#1A1F2E] hover:bg-[#FAF5F0]">
+            <Download className="size-4" /> Exporter (CSV)
+          </a>
+          <Link href={`/admin/finance/depenses/new?back=${encodeURIComponent(here)}`} className="inline-flex h-11 items-center gap-1.5 rounded-lg bg-[#1A1F2E] px-4 text-[13px] font-medium text-white hover:bg-[#2A3142]">
+            <Plus className="size-4" /> Nouvelle dépense
+          </Link>
+        </div>
       </div>
 
       <ExpenseTabs active="depenses" />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-        <Card>
-          <div className="px-4 py-3">
-            <div className="text-xs text-sand-700 uppercase tracking-wider">Total mois</div>
-            <div className="font-display text-2xl text-ink tabular-nums mt-1">{formatMAD(grandTotal)}</div>
-          </div>
-        </Card>
-        <Card>
-          <div className="px-4 py-3">
-            <div className="text-xs text-sand-700 uppercase tracking-wider">Coûts directs</div>
-            <div className="font-display text-2xl text-atlantic-700 tabular-nums mt-1">{formatMAD(directTotal)}</div>
-          </div>
-        </Card>
-        <Card>
-          <div className="px-4 py-3">
-            <div className="text-xs text-sand-700 uppercase tracking-wider">Charges overhead</div>
-            <div className="font-display text-2xl text-amber-700 tabular-nums mt-1">{formatMAD(overheadTotal)}</div>
-          </div>
-        </Card>
+      {/* KPI de la période */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <KpiCard
+          label="Total de la période"
+          value={formatMAD(kpi.total)}
+          sub={`période précédente ${formatMAD(kpi.previousTotal)}`}
+          delta={delta !== null ? <DeltaPill up={delta <= 0}>{delta > 0 ? "+" : ""}{delta.toLocaleString("fr-FR")} %</DeltaPill> : undefined}
+        />
+        <KpiCard label="Rattachées aux dossiers" value={formatMAD(kpi.dossier)} sub="entrent dans la marge réelle" />
+        <KpiCard label="Flotte (avec véhicule)" value={formatMAD(kpi.fleet)} sub={`tout rattachement · produits ${formatMAD(kpi.produit)}`} />
+        <KpiCard label="Non rattachées (frais généraux)" value={formatMAD(kpi.general)} sub="structure, hors marge des dossiers" />
       </div>
 
-      <div className="bg-white border border-sand-200 rounded-lg p-3 mb-6 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <Link href={buildLink({ year: prevMonth.y, month: prevMonth.m })}
-            className="size-8 inline-flex items-center justify-center rounded border border-sand-300 hover:bg-sand-50 text-sm">‹</Link>
-          <div className="font-medium text-sm min-w-[140px] text-center">{MONTHS[month]} {year}</div>
-          <Link href={buildLink({ year: nextMonth.y, month: nextMonth.m })}
-            className="size-8 inline-flex items-center justify-center rounded border border-sand-300 hover:bg-sand-50 text-sm">›</Link>
-        </div>
-
-        {filterLabel !== null && (
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#E0DACF] bg-[#FBF9F5] px-3 h-8 text-[12px] text-[#58524A]">
-            Filtre : {filterLabel || "rattachement"}
-            <Link href={buildLink({ reservation: "", circuit: "" })} className="text-[#0C6B8A] hover:underline">retirer</Link>
-          </span>
+      {/* Filtres */}
+      <AutoSubmitForm action="/admin/finance/depenses" className="rounded-xl border border-[#E5E0D7] bg-white p-3 mb-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_180px_170px_170px_auto] items-center">
+        {f.att && <input type="hidden" name="att" value={f.att} />}
+        {f.reservation && <input type="hidden" name="reservation" value={f.reservation} />}
+        {f.circuit && <input type="hidden" name="circuit" value={f.circuit} />}
+        <label className="relative block">
+          <span className="sr-only">Rechercher</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#968F84]" />
+          <input name="q" defaultValue={f.q} placeholder="Libellé, dossier, client, véhicule, fournisseur…" className={`${field} w-full pl-9`} />
+        </label>
+        <select name="cat" defaultValue={f.cat} aria-label="Catégorie" className={field}>
+          <option value="">Toutes catégories</option>
+          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <select name="period" defaultValue={f.period} aria-label="Période" className={field}>
+          <option value="month">Ce mois</option>
+          <option value="prev">Mois dernier</option>
+          <option value="quarter">Ce trimestre</option>
+          <option value="custom">Dates personnalisées</option>
+        </select>
+        <select name="vehicle" defaultValue={f.vehicle} aria-label="Véhicule" className={field}>
+          <option value="">Tous véhicules</option>
+          {vehicles.map((v) => <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>)}
+        </select>
+        <label className="inline-flex h-11 items-center gap-2 px-1 text-[13px] text-[#1A1F2E] whitespace-nowrap">
+          <input type="checkbox" name="sans_justif" value="1" defaultChecked={f.noReceipt} className="size-4" /> Sans justificatif
+        </label>
+        {f.period === "custom" && (
+          <div className="md:col-span-5 flex flex-wrap items-center gap-2">
+            <label className="text-[12.5px] text-[#58524A]">Du <input type="date" name="from" defaultValue={range.start} className={`${field} ml-1`} /></label>
+            <label className="text-[12.5px] text-[#58524A]">au <input type="date" name="to" defaultValue={range.end} className={`${field} ml-1`} /></label>
+          </div>
         )}
-        <div className="inline-flex gap-0.5 bg-sand-100 p-0.5 rounded-md">
-          {[
-            { v: "all",      l: "Tous" },
-            { v: "direct",   l: "Coûts directs" },
-            { v: "overhead", l: "Overhead" },
-          ].map(opt => (
-            <Link key={opt.v} href={buildLink({ type: opt.v })}
-              className={`px-3 py-1 text-sm rounded transition ${typeFilter === opt.v ? "bg-white shadow-sm font-medium text-ink" : "text-sand-700 hover:text-ink"}`}>
-              {opt.l}
-            </Link>
-          ))}
-        </div>
+        <button type="submit" className="sr-only">Filtrer</button>
+      </AutoSubmitForm>
+
+      <div className="flex flex-wrap items-center gap-1.5 mb-3">
+        <span className="mr-1 text-[12px] text-[#6B6862]">Rattachée à :</span>
+        <Link href={href({ att: "" })} className={chip(!f.att)}>
+          Tout <span className={!f.att ? "text-white/80" : "text-[#968F84]"}>{attachmentCounts.all}</span>
+        </Link>
+        {ATTACHMENTS.map((a) => (
+          <Link key={a} href={href({ att: a })} className={chip(f.att === a)}>
+            {ATTACHMENT_META[a].label} <span className={f.att === a ? "text-white/80" : "text-[#968F84]"}>{attachmentCounts[a]}</span>
+          </Link>
+        ))}
+        {hasActiveFilter(f) && (
+          <Link href="/admin/finance/depenses" className="ml-auto inline-flex h-11 items-center gap-1 px-2 text-[13px] font-medium text-[#C84B31] hover:underline">
+            <X className="size-3.5" /> Effacer les filtres
+          </Link>
+        )}
       </div>
 
-      {filteredExpenses.length === 0 ? (
-        <Card><div className="p-8 text-center text-sand-700">Aucune dépense pour cette période.</div></Card>
+      <p className="mb-4 flex items-start gap-2 rounded-lg border border-[#EEE9E0] bg-[#FBF9F5] px-3 py-2 text-[12px] text-[#58524A]">
+        <Info className="mt-px size-3.5 shrink-0 text-[#968F84]" /> {LIST_LEGEND}
+      </p>
+
+      {/* Tableau */}
+      {rows.length === 0 ? (
+        <div className="rounded-xl border border-[#E5E0D7] bg-white px-6 py-14 text-center">
+          <p className="font-display text-xl tracking-[-0.02em] text-[#1A1F2E]">Aucune dépense</p>
+          <p className="text-[13px] text-[#6B6862] mt-1">
+            {hasActiveFilter(f) ? "Aucune dépense ne correspond à ces filtres." : `Aucune dépense saisie pour ${range.label}.`}
+          </p>
+          <Link href={`/admin/finance/depenses/new?back=${encodeURIComponent(here)}`} className="mt-4 inline-flex h-11 items-center gap-1.5 rounded-lg bg-[#1A1F2E] px-4 text-[13px] font-medium text-white hover:bg-[#2A3142]">
+            <Plus className="size-4" /> Nouvelle dépense
+          </Link>
+        </div>
       ) : (
-        filteredCats
-          .filter(cat => (byCategory[cat.id]?.length || 0) > 0)
-          .map(cat => {
-            const list = byCategory[cat.id];
-            const catTotal = list.reduce((s, e) => s + Number(e.amount_mad), 0);
-            const isDirect = cat.type === "direct";
-            return (
-              <details key={cat.id} open
-                className="bg-white border border-sand-200 rounded-lg mb-3 overflow-hidden group [&_summary::-webkit-details-marker]:hidden">
-                <summary className="px-4 py-3 bg-sand-50 cursor-pointer flex items-center justify-between hover:bg-sand-100 list-none">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <ChevronRight className="size-4 text-sand-600 transition-transform group-open:rotate-90" />
-                    <h3 className="font-display text-base text-ink m-0">{cat.name}</h3>
-                    <span className={`text-[10px] uppercase font-medium px-1.5 py-0.5 rounded ${isDirect ? "bg-atlantic-50 text-atlantic-800" : "bg-amber-50 text-amber-800"}`}>
-                      {isDirect ? "Direct" : "Overhead"}
-                    </span>
-                    <span className="text-xs text-sand-700">{list.length} ligne{list.length > 1 ? "s" : ""}</span>
-                  </div>
-                  <div className="text-sm font-medium text-ink tabular-nums">{formatMAD(catTotal)}</div>
-                </summary>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-sand-50/50 border-y border-sand-200">
-                      <tr>
-                        <th className="text-left px-4 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Date</th>
-                        <th className="text-left px-3 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Description</th>
-                        <th className="text-left px-3 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Lié à</th>
-                        <th className="text-right px-4 py-2 text-[11px] font-medium text-sand-700 uppercase tracking-wider">Montant</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {list.map(e => {
-                        const v = e.vehicle as any;
-                        const r = e.reservation as any;
-                        const ci = e.circuit as any;
-                        const linkLabel = v ? `${v.make} ${v.model} · ${v.registration}` : r ? r.reference : ci ? ci.title : "—";
-                        return (
-                          <tr key={e.id} className="border-t border-sand-100 hover:bg-sand-50/50">
-                            <td className="px-4 py-2.5 text-sand-800 whitespace-nowrap">
-                              <Link href={`/admin/finance/depenses/${e.id}`} className="hover:text-terracotta-700">{formatDateShort(e.expense_date)}</Link>
-                            </td>
-                            <td className="px-3 py-2.5 text-ink">
-                              <Link href={`/admin/finance/depenses/${e.id}`} className="hover:text-terracotta-700">{e.description || "—"}</Link>
-                            </td>
-                            <td className="px-3 py-2.5 text-xs text-sand-700">{linkLabel}</td>
-                            <td className="px-4 py-2.5 text-right tabular-nums font-medium">{formatMAD(e.amount_mad)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </details>
-            );
-          })
+        <div className="rounded-xl border border-[#E5E0D7] bg-white overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead className="border-b border-[#E5E0D7]" style={{ backgroundColor: "#FBF9F5" }}>
+              <tr>
+                <th className={th}>Date</th>
+                <th className={th}>Libellé</th>
+                <th className={th}>Rattachement</th>
+                <th className={th}>Justificatif</th>
+                <th className={`${th} text-right`}>Montant</th>
+                <th className={th}><span className="sr-only">Modifier</span></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F1EDE5]">
+              {rows.map((e) => (
+                <ExpenseLine key={e.id} e={e} back={here} />
+              ))}
+            </tbody>
+            <tfoot className="border-t border-[#E5E0D7]" style={{ backgroundColor: "#FBF9F5" }}>
+              <tr>
+                <td colSpan={4} className="px-3 py-2.5 text-[12.5px] text-[#58524A]">
+                  {filteredCount} dépense{filteredCount > 1 ? "s" : ""}
+                  {pages > 1 && <> · page {f.page} / {pages} ({rows.length} affichées)</>}
+                </td>
+                <td className="px-3 py-2.5 text-right font-medium tabular-nums text-[#1A1F2E]">{formatMAD(filteredTotal)}</td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {pages > 1 && (
+        <nav className="mt-3 flex items-center justify-end gap-2" aria-label="Pagination">
+          {f.page > 1 && (
+            <Link href={`/admin/finance/depenses${filtersToSearch(f, { page: f.page - 1 })}`} className="inline-flex h-11 items-center rounded-lg border border-[#E0DACF] bg-white px-3.5 text-[13px] hover:bg-[#FAF5F0]">
+              Précédente
+            </Link>
+          )}
+          {f.page < pages && (
+            <Link href={`/admin/finance/depenses${filtersToSearch(f, { page: f.page + 1 })}`} className="inline-flex h-11 items-center rounded-lg border border-[#E0DACF] bg-white px-3.5 text-[13px] hover:bg-[#FAF5F0]">
+              Suivante
+            </Link>
+          )}
+        </nav>
       )}
     </div>
+  );
+}
+
+function ExpenseLine({ e, back }: { e: ExpenseRow; back: string }) {
+  const att = attachmentOf(e);
+  const st = ATTACHMENT_STYLE[att];
+  const editHref = `/admin/finance/depenses/${e.id}?back=${encodeURIComponent(back)}`;
+  const vehicle = e.vehicle ? vehicleLabel(e.vehicle) : null;
+  return (
+    <tr className="hover:bg-[#FBF9F5] align-top">
+      <td className="px-3 py-2.5 tabular-nums text-[#6B6862] whitespace-nowrap">{formatDateShort(e.expense_date)}</td>
+      <td className="px-3 py-2.5 min-w-[220px]">
+        <Link href={editHref} className="font-medium text-[#1A1F2E] hover:text-[#C84B31]">{e.description || "Dépense"}</Link>
+        <p className="text-[12px] text-[#6B6862]">
+          {e.category?.name ?? "—"}
+          {e.supplier && <> · {e.supplier.name}</>}
+        </p>
+      </td>
+      <td className="px-3 py-2.5">
+        <span className="inline-flex rounded-full px-2.5 py-0.5 text-[11.5px] font-medium" style={{ backgroundColor: st.bg, color: st.color }}>
+          {ATTACHMENT_META[att].label}
+        </span>
+        <p className="mt-0.5 text-[12px] text-[#1A1F2E]">
+          {att === "dossier" && e.reservation && (
+            <Link href={`/admin/reservations/${e.reservation_id}`} className="font-mono text-[12px] hover:text-[#C84B31]">
+              {e.reservation.reference}
+            </Link>
+          )}
+          {att === "dossier" && e.reservation?.customer && <span className="text-[#6B6862]"> · {e.reservation.customer}</span>}
+          {att === "produit" && <>{e.circuit?.title ?? "Produit"}{e.departure_date && <span className="text-[#6B6862]"> · départ {formatDateShort(e.departure_date)}</span>}</>}
+          {att === "vehicule" && vehicle}
+          {att === "general" && <span className="text-[#6B6862]">Agence</span>}
+        </p>
+        {att !== "vehicule" && vehicle && <p className="text-[11.5px] text-[#6B6862]">Véhicule : {vehicle}</p>}
+      </td>
+      <td className="px-3 py-2.5 whitespace-nowrap">
+        {e.receipt_path ? (
+          <span className="inline-flex items-center gap-1 text-[12px] text-[#085041]">
+            <FileCheck2 className="size-3.5" /> {/\.pdf$/i.test(e.receipt_path) ? "PDF joint" : "Photo jointe"}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[12px] text-[#B25F0B]">
+            <FileWarning className="size-3.5" /> À joindre
+          </span>
+        )}
+      </td>
+      <td className="px-3 py-2.5 text-right font-medium tabular-nums text-[#1A1F2E] whitespace-nowrap">{formatMAD(e.amount_mad)}</td>
+      <td className="px-1 py-1 text-right">
+        <Link href={editHref} aria-label="Modifier la dépense" className="inline-flex size-11 items-center justify-center rounded-lg text-[#6B6862] hover:bg-[#F1EFE8] hover:text-[#1A1F2E]">
+          <Pencil className="size-4" />
+        </Link>
+      </td>
+    </tr>
   );
 }

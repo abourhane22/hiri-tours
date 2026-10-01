@@ -36,6 +36,8 @@ import { InvoiceGenerateForm } from "@/components/invoice-generate-form";
 import { RegularizeCancelledForm } from "@/components/credit-note-forms";
 import { missingLegalMentions } from "@/lib/invoices";
 import { rectificationContext } from "@/lib/rectification";
+import { netSaleOfReservation } from "@/lib/credit-notes";
+import { addDays } from "@/lib/tz";
 import { CREDIT_NOTE_REASON_LABEL, CREDIT_NOTE_STATUS_LABEL, CREDIT_NOTE_STATUS_STYLE } from "@/lib/credit-notes";
 import type { AvailableCreditNote } from "@/components/payment-collector";
 import type { CompanySettings, CreditNote } from "@/lib/types";
@@ -228,17 +230,22 @@ export default async function ReservationDetailPage({
     .maybeSingle();
   const distribution = (distributionRow ?? null) as DistributionBooking | null;
 
-  // Marge : dépenses rattachées au dossier + dépenses produit non ventilées autour du départ (± 3 j).
+  // Marge : dépenses rattachées au dossier + dépenses produit non ventilées de CE départ :
+  // celles qui portent ce départ (departure_date) en priorité, sinon les dépenses sans départ
+  // datées à ± 3 j. Une dépense produit datée pour un AUTRE départ n'est pas comptée ici.
   const resaRow = reservation as any; // `r` est déclaré plus bas ; même ligne.
-  const depDate = new Date(resaRow.departure_date + "T00:00:00");
-  const around = (d: number) => {
-    const x = new Date(depDate);
-    x.setDate(depDate.getDate() + d);
-    return x.toISOString().slice(0, 10);
-  };
-  const [{ data: dossierExpenses }, { data: productExpenses }] = await Promise.all([
+  const [{ data: dossierExpenses }, { data: productExpenses }, saleNet] = await Promise.all([
     supabase.from("expenses").select("id, expense_date, amount_mad, description, cost_categories(name)").eq("reservation_id", id).order("expense_date", { ascending: false }),
-    supabase.from("expenses").select("id, amount_mad").eq("circuit_id", resaRow.circuit_id).is("reservation_id", null).gte("expense_date", around(-3)).lte("expense_date", around(3)),
+    supabase
+      .from("expenses")
+      .select("id, amount_mad")
+      .eq("circuit_id", resaRow.circuit_id)
+      .is("reservation_id", null)
+      .or(
+        `departure_date.eq.${resaRow.departure_date},and(departure_date.is.null,expense_date.gte.${addDays(resaRow.departure_date, -3)},expense_date.lte.${addDays(resaRow.departure_date, 3)})`,
+      ),
+    // Vente nette d'avoirs — même règle que le CA des rapports (lib/credit-notes.ts).
+    netSaleOfReservation(supabase, id, Number(resaRow.total_amount_mad)),
   ]);
   const marginExpenses: MarginExpense[] = ((dossierExpenses ?? []) as any[]).map((e) => ({
     id: e.id,
@@ -1089,7 +1096,8 @@ export default async function ReservationDetailPage({
           <InfoCard icon={TrendingUp} label="Marge">
             <MarginCard
               reservationId={id}
-              saleMad={totalAmount}
+              saleMad={saleNet.net}
+              credited={saleNet.credited}
               expectedCost={r.expected_cost_mad === null || r.expected_cost_mad === undefined ? null : Number(r.expected_cost_mad)}
               snapshot={(r.cost_snapshot ?? null) as CostSnapshot | null}
               expenses={marginExpenses}

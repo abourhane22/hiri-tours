@@ -653,6 +653,13 @@ export type Expense = {
   reservation_id: string | null;
   circuit_id: string | null;
   vehicle_id: string | null;
+  /** Fournisseur payé (optionnel). */
+  supplier_id: string | null;
+  payment_method: "transfer" | "cash" | "card" | "cheque" | null;
+  /** Dépense produit : départ concerné (prioritaire pour la carte Marge). */
+  departure_date: string | null;
+  /** Justificatif : `{expense_id}/{fichier}` dans le bucket privé expense-receipts. */
+  receipt_path: string | null;
   notes: string | null;
   created_by: string | null;
   created_at: string;

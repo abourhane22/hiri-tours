@@ -130,6 +130,10 @@ Autres références uniques :
 - Distribution aérienne : `lib/duffel.ts` (serveur) / `lib/duffel-types.ts` (client-safe) / `lib/distribution.ts`.
 - Factures : `lib/invoices.ts` ; rectification d'avoir : `lib/rectification.ts`.
 - Allotements : `lib/allotments.ts`.
+- Dépenses : modèle et textes `lib/expenses.ts`, requêtes de la liste et de l'export `lib/expenses-query.ts`.
+  Rattachement **principal exclusif** (dossier XOR produit XOR aucun, `expenses_single_attachment_chk`) ;
+  le véhicule est une dimension **indépendante**. Vente nette d'un dossier : `netSaleOfReservation`
+  (`lib/credit-notes.ts`), nette d'avoirs.
 
 Conventions de code : Server Components par défaut, `"use client"` seulement pour l'interactivité ; mutations en
 server actions qui **valident puis délèguent** (les transactions sensibles sont des fonctions plpgsql avec verrou
@@ -149,6 +153,8 @@ server actions qui **valident puis délèguent** (les transactions sensibles son
   (`invoices!invoice_id(…)`), sinon PGRST201.
 - Factures : numéro attribué par trigger (`HT-AAAA-NNNN`, avoirs `AV-AAAA-NNNN`), jamais côté app ; une facture active par
   dossier ; statut `paid` posé par trigger au solde — les factures actives se filtrent par `status in ('issued','paid')`.
+- Stockage : justificatifs de dépenses dans le bucket **privé** `expense-receipts` (URL signées de 5 min).
+  ⚠ `vehicle-documents` est public et `staff-documents` n'existe pas : lot sécurité à faire.
 - Le schéma de base de `customers`, `company_settings`, `invoices`, `staff_members`, `vehicles`, `expenses` n'est pas
   entièrement versionné (créé dans le SQL Editor) : vérifier en base avant de supposer une colonne ou un index.
 

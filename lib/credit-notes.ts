@@ -111,3 +111,18 @@ export function netRevenue(
   }
   return { gross, credited, net: gross - credited };
 }
+
+/**
+ * Vente nette d'avoirs d'UN dossier — même règle que le CA des rapports
+ * (creditNotesByReservation : avoirs nets des imputations de rectification, un avoir
+ * ne rend jamais la vente négative). Carte Marge et panneau d'impact des dépenses.
+ */
+export async function netSaleOfReservation(
+  supabase: SupabaseClient,
+  reservationId: string,
+  totalMad: number,
+): Promise<{ net: number; credited: number }> {
+  const credits = await creditNotesByReservation(supabase, [reservationId]);
+  const credited = Math.min(Number(totalMad), credits.get(reservationId) ?? 0);
+  return { net: Math.round((Number(totalMad) - credited) * 100) / 100, credited };
+}

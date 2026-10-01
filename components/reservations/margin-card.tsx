@@ -25,6 +25,7 @@ export type MarginExpense = { id: string; expense_date: string; amount_mad: numb
 export function MarginCard({
   reservationId,
   saleMad,
+  credited = 0,
   expectedCost,
   snapshot,
   expenses,
@@ -34,7 +35,9 @@ export function MarginCard({
   readOnly,
 }: {
   reservationId: string;
+  /** Vente nette d'avoirs (lib/credit-notes.ts#netSaleOfReservation). */
   saleMad: number;
+  credited?: number;
   expectedCost: number | null;
   snapshot: CostSnapshot | null;
   expenses: MarginExpense[];
@@ -65,7 +68,7 @@ export function MarginCard({
     <div className="space-y-3">
       {/* Trois montants */}
       <div className="grid grid-cols-3 gap-2">
-        <Amount label="Vente nette" value={formatMAD(saleMad)} />
+        <Amount label="Vente nette" value={formatMAD(saleMad)} sub={credited > 0 ? `après avoirs (− ${formatMAD(credited)})` : undefined} />
         <Amount
           label="Coût prévisionnel"
           value={expectedCost !== null ? formatMAD(expectedCost) : "—"}
@@ -134,9 +137,16 @@ export function MarginCard({
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-[12px]">
-        <Link href={expensesLink(`reservation=${reservationId}`)} className="text-[#0C6B8A] hover:underline">
-          Dépenses du dossier →
-        </Link>
+        <span className="inline-flex flex-wrap items-center gap-3">
+          <Link href={expensesLink(`reservation=${reservationId}`)} className="text-[#0C6B8A] hover:underline">
+            Dépenses du dossier →
+          </Link>
+          {!readOnly && (
+            <Link href={`/admin/finance/depenses/new?reservation=${reservationId}`} className="font-medium text-[#1A1F2E] hover:text-[#C84B31]">
+              + Ajouter une dépense
+            </Link>
+          )}
+        </span>
         {unallocated.count > 0 && (
           <Link href={expensesLink(`circuit=${circuitId}`)} className="text-[#B25F0B] hover:underline">
             {unallocated.count} dépense{unallocated.count > 1 ? "s" : ""} produit non ventilée{unallocated.count > 1 ? "s" : ""} ({formatMAD(unallocated.total)}) →

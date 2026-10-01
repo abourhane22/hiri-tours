@@ -1,84 +1,72 @@
 import Link from "next/link";
-import { SubmitButton } from "@/components/ui/submit-button";
-import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { randomUUID } from "crypto";
 import { ArrowLeft } from "lucide-react";
-import { createExpense } from "../actions";
+import { createClient } from "@/lib/supabase/server";
+import { agencyDate } from "@/lib/tz";
+import { loadExpenseFormData } from "@/lib/expense-form-data";
+import { ExpenseForm } from "@/components/finance/expense-form";
+import type { DossierOption } from "@/app/admin/finance/depenses/actions";
 
-export default async function NewExpensePage() {
+// Nouvelle dépense. `?reservation=<id>` (lien « Ajouter une dépense » de la carte Marge)
+// pré-remplit le rattachement Dossier et ramène sur la fiche après enregistrement.
+export default async function NewExpensePage({ searchParams }: { searchParams: Promise<{ reservation?: string; back?: string }> }) {
+  const params = await searchParams;
   const supabase = await createClient();
-  const [catRes, circuitsRes, vehiclesRes, reservationsRes] = await Promise.all([
-    supabase.from("cost_categories").select("*").eq("is_active", true).order("sort_order"),
-    supabase.from("circuits").select("id, title").eq("is_active", true).order("title"),
-    supabase.from("vehicles").select("id, registration, make, model").eq("is_active", true).order("registration"),
-    supabase.from("reservations").select("id, reference, departure_date, circuits(title)").order("departure_date", { ascending: false }).limit(80),
-  ]);
+  const data = await loadExpenseFormData(supabase);
 
-  const categories = (catRes.data || []) as any[];
-  const today = new Date().toISOString().split("T")[0];
+  let dossier: DossierOption | null = null;
+  if (params.reservation && /^[0-9a-f-]{36}$/i.test(params.reservation)) {
+    const { data: r } = await supabase
+      .from("reservations")
+      .select("id, reference, status, departure_date, adults, children, circuits(title), customers(full_name)")
+      .eq("id", params.reservation)
+      .maybeSingle();
+    if (r) {
+      const row = r as any;
+      const one = (v: any) => (Array.isArray(v) ? v[0] : v);
+      dossier = {
+        id: row.id,
+        reference: row.reference,
+        status: row.status,
+        customer: one(row.customers)?.full_name ?? null,
+        product: one(row.circuits)?.title ?? null,
+        departure_date: row.departure_date,
+        pax: Number(row.adults) + Number(row.children),
+      };
+    }
+  }
+  const returnTo = dossier ? `/admin/reservations/${dossier.id}` : params.back?.startsWith("/admin/finance/depenses") ? params.back : "/admin/finance/depenses";
 
   return (
-    <div className="p-8 max-w-2xl mx-auto">
-      <Link href="/admin/finance/depenses" className="inline-flex items-center gap-1 text-sm text-sand-700 hover:text-ink mb-4">
-        <ArrowLeft className="size-4" /> Retour aux dépenses
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
+      <Link href={returnTo} className="inline-flex h-11 items-center gap-1 text-[13px] text-[#6B6862] hover:text-[#1A1F2E]">
+        <ArrowLeft className="size-4" /> {dossier ? `Retour au dossier ${dossier.reference}` : "Retour aux dépenses"}
       </Link>
-      <div className="mb-8">
-        <p className="eyebrow mb-2">États financiers</p>
-        <h1 className="font-display text-3xl text-ink">Nouvelle dépense</h1>
+      <div className="mb-6">
+        <p className="text-[10px] tracking-[2px] uppercase text-[#C84B31] font-medium">Finance · coûts</p>
+        <h1 className="font-display text-3xl tracking-[-0.02em] text-[#1A1F2E] mt-1">Nouvelle dépense</h1>
       </div>
-
-      <form action={createExpense} className="bg-white border border-sand-200 rounded-lg p-6 space-y-5">
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div><Label htmlFor="expense_date">Date *</Label><Input id="expense_date" name="expense_date" type="date" required defaultValue={today} /></div>
-          <div><Label htmlFor="amount_mad">Montant (MAD) *</Label><Input id="amount_mad" name="amount_mad" type="number" min="0" step="0.01" required /></div>
-        </div>
-        <div>
-          <Label htmlFor="category_id">Catégorie *</Label>
-          <Select id="category_id" name="category_id" required>
-            <option value="">— Choisir —</option>
-            <optgroup label="Coûts directs">
-              {categories.filter((c) => c.type === "direct").map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </optgroup>
-            <optgroup label="Frais généraux">
-              {categories.filter((c) => c.type === "overhead").map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </optgroup>
-          </Select>
-        </div>
-        <div><Label htmlFor="description">Description</Label><Input id="description" name="description" placeholder="Ex: Plein de gasoil van VAN-001" /></div>
-
-        <div className="pt-3 border-t border-sand-200 space-y-4">
-          <p className="text-xs text-sand-600 uppercase tracking-wide font-medium">Lier à un élément (optionnel)</p>
-          <div>
-            <Label htmlFor="reservation_id">Réservation</Label>
-            <Select id="reservation_id" name="reservation_id" defaultValue="">
-              <option value="">— Aucune —</option>
-              {((reservationsRes.data || []) as any[]).map((r) => <option key={r.id} value={r.id}>{r.reference} · {(r.circuits as any)?.title} · {r.departure_date}</option>)}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="circuit_id">Circuit (sans réservation spécifique)</Label>
-            <Select id="circuit_id" name="circuit_id" defaultValue="">
-              <option value="">— Aucun —</option>
-              {((circuitsRes.data || []) as any[]).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="vehicle_id">Véhicule</Label>
-            <Select id="vehicle_id" name="vehicle_id" defaultValue="">
-              <option value="">— Aucun —</option>
-              {((vehiclesRes.data || []) as any[]).map((v) => <option key={v.id} value={v.id}>{v.registration}{v.make ? ` · ${v.make} ${v.model || ""}` : ""}</option>)}
-            </Select>
-          </div>
-        </div>
-
-        <div><Label htmlFor="notes">Notes internes</Label><Textarea id="notes" name="notes" rows={2} /></div>
-
-        <div className="flex justify-end gap-3 pt-3 border-t border-sand-200">
-          <Link href="/admin/finance/depenses"><Button type="button" variant="secondary">Annuler</Button></Link>
-          <SubmitButton>Enregistrer la dépense</SubmitButton>
-        </div>
-      </form>
+      <ExpenseForm
+        mode="create"
+        returnTo={returnTo}
+        {...data}
+        initial={{
+          id: randomUUID(),
+          description: "",
+          category_id: "",
+          supplier: null,
+          amount_mad: "",
+          expense_date: agencyDate(),
+          payment_method: "",
+          attachment: dossier ? "dossier" : "general",
+          dossier,
+          circuit_id: "",
+          departure_date: "",
+          vehicle_id: "",
+          receipt_path: null,
+          notes: "",
+        }}
+      />
     </div>
   );
 }

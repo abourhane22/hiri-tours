@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge, Card, CardBody } from "@/components/ui/card";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
-import { createCategory, toggleCategory, deleteCategory } from "./actions";
+import { createCategory, toggleCategory, deleteCategory, updateCategory } from "./actions";
 
 export default async function CategoriesPage() {
   const supabase = await createClient();
@@ -45,6 +45,10 @@ export default async function CategoriesPage() {
               </Select>
             </div>
             <SubmitButton><Plus className="size-4" />Ajouter</SubmitButton>
+            <div className="sm:col-span-3">
+              <Label htmlFor="description">Description (aide affichée sous le champ Catégorie)</Label>
+              <Input id="description" name="description" placeholder="Ce que couvre cette catégorie, avec un ou deux exemples" />
+            </div>
           </form>
         </CardBody>
       </Card>
@@ -65,7 +69,23 @@ export default async function CategoriesPage() {
               const deleteBound = deleteCategory.bind(null, c.id);
               return (
                 <tr key={c.id} className="hover:bg-sand-50">
-                  <td className="px-5 py-3 text-ink">{c.name}</td>
+                  <td className="px-5 py-3 text-ink align-top">
+                    <details>
+                      <summary className="cursor-pointer list-none">
+                        <span className="font-medium">{c.name}</span>
+                        <span className="block text-xs text-sand-700 mt-0.5">{c.description || <em>Sans description</em>}</span>
+                        <span className="mt-1 inline-block text-xs font-medium text-[#0C6B8A] hover:underline">Modifier le nom et la description</span>
+                      </summary>
+                      <form action={updateCategory.bind(null, c.id)} className="mt-3 space-y-2">
+                        <div><Label htmlFor={`name-${c.id}`}>Nom *</Label><Input id={`name-${c.id}`} name="name" required defaultValue={c.name} /></div>
+                        <div>
+                          <Label htmlFor={`desc-${c.id}`}>Description</Label>
+                          <textarea id={`desc-${c.id}`} name="description" rows={3} defaultValue={c.description ?? ""} className="w-full rounded-md border border-sand-300 bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-navy-500" />
+                        </div>
+                        <SubmitButton size="sm">Enregistrer</SubmitButton>
+                      </form>
+                    </details>
+                  </td>
                   <td className="px-5 py-3"><Badge tone={c.type === "direct" ? "info" : "neutral"}>{c.type === "direct" ? "Direct" : "Overhead"}</Badge></td>
                   <td className="px-5 py-3"><Badge tone={c.is_active ? "success" : "neutral"}>{c.is_active ? "Actif" : "Inactif"}</Badge></td>
                   <td className="px-5 py-3 text-right">

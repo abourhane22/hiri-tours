@@ -38,3 +38,17 @@ export async function deleteCategory(id: string) {
     return "/admin/finance/categories";
   });
 }
+
+/** Nom et description (texte d'aide affiché sous le champ Catégorie du formulaire de dépense). */
+export async function updateCategory(id: string, formData: FormData) {
+  return formAction("Catégorie mise à jour", async () => {
+    const name = ((formData.get("name") as string) || "").trim();
+    const description = ((formData.get("description") as string) || "").trim() || null;
+    if (!name) throw new ActionError("Le nom est obligatoire.", "name");
+    const supabase = await createClient();
+    const { error } = await supabase.from("cost_categories").update({ name, description }).eq("id", id);
+    if (error) throw new Error(error.code === "23505" ? "Une catégorie porte déjà ce nom." : `Catégorie non enregistrée : ${error.message}`);
+    revalidatePath("/admin/finance/categories");
+    revalidatePath("/admin/finance/depenses");
+  });
+}
