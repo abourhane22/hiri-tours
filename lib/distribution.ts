@@ -102,6 +102,27 @@ export function computeServiceFee(input: { perPaxMad: number; pax: number; pct: 
   return Math.round((fixed + variable) * 100) / 100;
 }
 
+/**
+ * Décomposition lisible des frais figés (service_fee_detail) :
+ * « 2 × 1 000 MAD + 10 % du tarif = 4 128,70 MAD · saisis à la création ».
+ */
+export function serviceFeeBreakdown(
+  detail: { per_pax_mad?: number | null; pax?: number | null; pct?: number | null; from_defaults?: boolean | null } | null | undefined,
+  totalMad: number,
+): string | null {
+  if (!detail) return null;
+  const mad = (n: number) => `${n.toLocaleString("fr-FR", { minimumFractionDigits: n % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })} MAD`;
+  const parts: string[] = [];
+  const perPax = Number(detail.per_pax_mad) || 0;
+  const pax = Number(detail.pax) || 0;
+  if (perPax > 0 && pax > 0) parts.push(`${pax} × ${mad(perPax)}`);
+  const pct = detail.pct === null || detail.pct === undefined ? 0 : Number(detail.pct);
+  if (pct > 0) parts.push(`${pct.toLocaleString("fr-FR")} % du tarif`);
+  if (parts.length === 0) return null;
+  const total = `${Number(totalMad).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MAD`;
+  return `${parts.join(" + ")} = ${total} · ${detail.from_defaults ? "paramètres par défaut" : "saisis à la création"}`;
+}
+
 const ymd = (iso: string) => iso.slice(0, 10);
 
 function slugify(s: string): string {

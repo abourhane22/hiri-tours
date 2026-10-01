@@ -1,7 +1,7 @@
 import { FlaskConical, Lock, Ticket, FileText } from "lucide-react";
 import { formatMAD, formatDate } from "@/lib/utils";
 import { formatMoney, offerIsExpired, type DuffelDocument, type DuffelOrder } from "@/lib/duffel-types";
-import { DISTRIBUTION_STATUS_LABEL, DISTRIBUTION_STATUS_STYLE, FX_SOURCE_LABEL, offerFromSnapshot } from "@/lib/distribution";
+import { DISTRIBUTION_STATUS_LABEL, DISTRIBUTION_STATUS_STYLE, FX_SOURCE_LABEL, offerFromSnapshot, serviceFeeBreakdown } from "@/lib/distribution";
 import { SliceRow, AirlineBadge, ConditionChips } from "@/components/billetterie/offer-card";
 import { DistributionActions } from "@/components/distribution-actions";
 import { TicketingStepper } from "@/components/billetterie/ticketing-stepper";
@@ -24,6 +24,7 @@ export function DistributionCard({
   paymentDue: number | null;
 }) {
   const offer = offerFromSnapshot(booking.offer_snapshot);
+  const feeBreakdown = serviceFeeBreakdown(booking.service_fee_detail, Number(booking.service_fee_mad));
   const order = (booking.order_snapshot ?? null) as DuffelOrder | null;
   const docs = (Array.isArray(booking.documents) ? booking.documents : []) as DuffelDocument[];
   const st = DISTRIBUTION_STATUS_STYLE[booking.status];
@@ -129,6 +130,7 @@ export function DistributionCard({
               <span>+ Frais de service agence</span>
               <span>{formatMAD(booking.service_fee_mad)}</span>
             </div>
+            {feeBreakdown && <p className="text-[11px] text-[#968F84]">Frais de service : {feeBreakdown}</p>}
             <div className="flex justify-between font-medium text-[#1A1F2E]">
               <span>= Prix de vente</span>
               <span>{formatMAD(Number(booking.amount_mad) + Number(booking.service_fee_mad))}</span>
