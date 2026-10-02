@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { foldAccents } from "@/lib/utils";
+import { getDossierProfile } from "@/lib/dossier-profile";
+import { CUSTOMER_IDENTITY_COLUMNS, customerFieldsFromTraveler, travelerFieldsFromCustomer } from "@/lib/traveler-identity";
 import type { TravelerType } from "@/lib/types";
 
 // `savedAt` change à chaque succès : le formulaire client s'en sert pour se
@@ -23,7 +25,7 @@ async function staffContext(reservationId: string) {
 
   const { data: resa } = await supabase
     .from("reservations")
-    .select("id, status, adults, children, customers(full_name, country)")
+    .select(`id, status, adults, children, customer_id, circuits(category, identity_documents_required), customers(id, full_name, ${CUSTOMER_IDENTITY_COLUMNS})`)
     .eq("id", reservationId)
     .single();
   if (!resa) return { ok: false as const, error: "Réservation introuvable." };
@@ -125,6 +127,27 @@ export async function updateTraveler(
     console.error("[updateTraveler]", error);
     return { ok: false, error: "Impossible de modifier le voyageur." };
   }
+
+  // Sens inverse : le voyageur est le client payeur et la case est cochée → les champs SAISIS
+  // sont recopiés sur la fiche client (copie : les autres dossiers ne changent pas).
+  if (formData.get("save_to_customer") === "on") {
+    const { data: trav } = await ctx.supabase.from("reservation_travelers").select("is_payer").eq("id", travelerId).maybeSingle();
+    const customerId = ctx.resa.customer_id as string | null;
+    if ((trav as { is_payer?: boolean } | null)?.is_payer && customerId) {
+      const patch = customerFieldsFromTraveler(fields.data as Record<string, string | null>);
+      if (Object.keys(patch).length > 0) {
+        const { error: cErr } = await ctx.supabase.from("customers").update(patch).eq("id", customerId);
+        if (cErr) {
+          console.error("[updateTraveler] fiche client :", cErr);
+          revalidate(reservationId);
+          return { ok: false, error: "Voyageur enregistré, mais la fiche client n'a pas pu être complétée." };
+        }
+        revalidatePath(`/admin/clients/${customerId}`);
+        revalidate(reservationId);
+        return { ok: true, savedAt: Date.now(), message: "Voyageur mis à jour · fiche client complétée" };
+      }
+    }
+  }
   revalidate(reservationId);
   return { ok: true, savedAt: Date.now(), message: "Voyageur mis à jour" };
 }
@@ -165,11 +188,16 @@ export async function addPayerAsTraveler(reservationId: string): Promise<Travele
     return { ok: false, error: `${fullName} figure déjà parmi les voyageurs.` };
   }
 
+  // Copie (jamais lien) de l'identité de la fiche client, limitée à ce que le profil exige.
+  // Nationalité = customers.nationality, jamais le pays de résidence.
+  const product = Array.isArray(ctx.resa.circuits) ? ctx.resa.circuits[0] : ctx.resa.circuits;
+  const profile = getDossierProfile(product);
   const { error } = await ctx.supabase.from("reservation_travelers").insert({
     reservation_id: reservationId,
     full_name: fullName,
     traveler_type: "adult",
-    nationality: customer?.country || null,
+    is_payer: true,
+    ...travelerFieldsFromCustomer(customer, profile),
   });
   if (error) {
     console.error("[addPayerAsTraveler]", error);

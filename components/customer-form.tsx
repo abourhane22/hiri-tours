@@ -7,6 +7,7 @@ import { Check, AlertTriangle } from "lucide-react";
 import { AlertBanner } from "@/components/ui/alert-banner";
 import { useActionFeedback } from "@/components/ui/toaster";
 import { CountrySelect } from "@/components/country-select";
+import { CustomerIdentitySection } from "@/components/customer-identity-section";
 import { formatDateShort } from "@/lib/utils";
 import {
   findPotentialDuplicates,
@@ -51,6 +52,12 @@ export type CustomerFormDefaults = {
   source: string;
   language: string;
   notes: string;
+  /** Identité du voyageur (facultative). */
+  dateOfBirth: string;
+  gender: string;
+  idDocumentType: string;
+  idDocumentNumber: string;
+  idDocumentExpiresOn: string;
 };
 
 type Action = (
@@ -237,9 +244,22 @@ export function CustomerForm({
         {detect && showEmailAlert && emailMatch && <DuplicateAlert kind="email" match={emailMatch} />}
       </section>
 
-      {/* Section 3 — Acquisition & notes */}
+      {/* Section 3 — Identité du voyageur (facultative) */}
+      <CustomerIdentitySection
+        sectionNumber={3}
+        defaults={{
+          nationality: defaults.nationality,
+          dateOfBirth: defaults.dateOfBirth,
+          gender: defaults.gender,
+          idDocumentType: defaults.idDocumentType,
+          idDocumentNumber: defaults.idDocumentNumber,
+          idDocumentExpiresOn: defaults.idDocumentExpiresOn,
+        }}
+      />
+
+      {/* Section 4 — Acquisition & notes */}
       <section className="bg-white border border-[#E5E0D7] rounded-xl p-4">
-        <SectionHeader n={3} title="Acquisition & notes" />
+        <SectionHeader n={4} title="Acquisition & notes" />
         <div className="grid sm:grid-cols-2 gap-4 mt-4">
           <div>
             <label htmlFor="acquisition_source" className={labelCls}>

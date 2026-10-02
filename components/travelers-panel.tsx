@@ -24,12 +24,21 @@ const fieldCls =
 const iconBtn =
   "inline-flex items-center justify-center size-7 rounded-md border border-[#E5E0D7] bg-white text-[#6B6862] hover:text-[#1A1F2E] hover:bg-[#FAF5F0] disabled:opacity-50 transition-colors";
 
+/** Voyageur déjà enregistré sur un AUTRE dossier du même client (lecture seule, aucune table dédiée). */
+export type HabitualTraveler = Pick<
+  ReservationTraveler,
+  "full_name" | "traveler_type" | "date_of_birth" | "nationality" | "passport_number" | "gender" | "passport_expires_on" | "id_document_type"
+>;
+
 type Props = {
   reservationId: string;
   travelers: ReservationTraveler[];
   expectedAdults: number;
   expectedChildren: number;
-  payer: { fullName: string; country: string | null } | null;
+  /** identityEmpty : la fiche client n'a pas encore d'identité (case « Enregistrer aussi » cochée par défaut). */
+  payer: { fullName: string; country: string | null; identityEmpty?: boolean } | null;
+  /** Personnes déjà voyageuses sur les dossiers précédents de ce client (dédoublonnées). */
+  habitual?: HabitualTraveler[];
   readOnly: boolean;
   /** Profil du dossier (lib/dossier-profile) : champs affichés / requis. */
   profile: DossierProfile;
@@ -37,7 +46,7 @@ type Props = {
   expectedProfiles?: { type: TravelerType; age: number | null }[];
 };
 
-export function TravelersPanel({ reservationId, travelers, expectedAdults, expectedChildren, payer, readOnly, profile, expectedProfiles }: Props) {
+export function TravelersPanel({ reservationId, travelers, expectedAdults, expectedChildren, payer, habitual = [], readOnly, profile, expectedProfiles }: Props) {
   // Voyageur i du type X ↔ profil i du type X (même appariement que l'émission d'ordre).
   const expectedFor = (t: ReservationTraveler): { type: TravelerType; age: number | null } | null => {
     if (!expectedProfiles) return null;
@@ -51,6 +60,10 @@ export function TravelersPanel({ reservationId, travelers, expectedAdults, expec
   const [rowError, setRowError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const toast = useToast();
+  // Pré-remplissage depuis un voyageur habituel : la clé remonte le formulaire avec ces valeurs.
+  const [prefill, setPrefill] = useState<{ key: number; values: HabitualTraveler } | null>(null);
+  const already = new Set(travelers.map((t) => foldAccents(t.full_name).toLowerCase().trim()));
+  const habitualToOffer = habitual.filter((h) => !already.has(foldAccents(h.full_name).toLowerCase().trim()));
 
   const adultsFilled = travelers.filter((t) => t.traveler_type === "adult").length;
   const defaultType: TravelerType = adultsFilled >= expectedAdults && expectedChildren > 0 ? "child" : "adult";
@@ -102,6 +115,7 @@ export function TravelersPanel({ reservationId, travelers, expectedAdults, expec
           <TravelerForm
             key={t.id}
             mode="edit"
+            payerIdentityEmpty={payer?.identityEmpty}
             reservationId={reservationId}
             traveler={t}
             defaultType={t.traveler_type}
@@ -131,15 +145,38 @@ export function TravelersPanel({ reservationId, travelers, expectedAdults, expec
         <p className="text-[12px] text-[#791F1F] bg-[#FCEBEB] border border-[#F7C1C1] rounded-lg px-3 py-2">{rowError}</p>
       )}
 
+      {!readOnly && adding && habitualToOffer.length > 0 && (
+        <div className="rounded-lg px-3 py-2" style={{ backgroundColor: "#FBF9F5", border: "1px solid #EEE9E0" }}>
+          <p className="text-[11px] font-medium text-[#58524A]">Voyageurs habituels de ce client — pré-remplir en un clic :</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {habitualToOffer.map((h, i) => (
+              <button
+                key={`${h.full_name}-${h.date_of_birth ?? i}`}
+                type="button"
+                onClick={() => setPrefill((p) => ({ key: (p?.key ?? 0) + 1, values: h }))}
+                className="inline-flex min-h-[32px] items-center gap-1 rounded-full border border-[#E0DACF] bg-white px-2.5 text-[12px] text-[#1A1F2E] hover:border-[#1A1F2E]"
+              >
+                <UserPlus className="size-3" /> {h.full_name}
+                {h.date_of_birth && <span className="text-[#968F84]">· {formatDateShort(h.date_of_birth)}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {!readOnly && adding && (
         <TravelerForm
-          key={`add-${travelers.length}`}
+          key={`add-${travelers.length}-${prefill?.key ?? 0}`}
           mode="create"
           reservationId={reservationId}
-          defaultType={defaultType}
+          defaultType={prefill?.values.traveler_type ?? defaultType}
           profile={profile}
-          onDone={() => setAdding(false)}
-          onCancel={travelers.length > 0 ? () => setAdding(false) : undefined}
+          prefill={prefill?.values}
+          onDone={() => {
+            setPrefill(null);
+            setAdding(false);
+          }}
+          onCancel={travelers.length > 0 ? () => { setPrefill(null); setAdding(false); } : undefined}
         />
       )}
 
@@ -303,6 +340,8 @@ function TravelerForm({
   profile,
   onDone,
   onCancel,
+  prefill,
+  payerIdentityEmpty,
 }: {
   mode: "create" | "edit";
   reservationId: string;
@@ -311,7 +350,13 @@ function TravelerForm({
   profile: DossierProfile;
   onDone: () => void;
   onCancel?: () => void;
+  /** Création depuis un voyageur habituel : valeurs initiales (copie). */
+  prefill?: HabitualTraveler;
+  /** Voyageur = client payeur : la fiche client est-elle vide ? (coche par défaut « Enregistrer aussi »). */
+  payerIdentityEmpty?: boolean;
 }) {
+  // Valeur initiale d'un champ : le voyageur en modification, sinon le pré-remplissage.
+  const init = traveler ?? prefill;
   const show = (f: "gender" | "date_of_birth" | "nationality" | "id_document" | "passport_expires_on") => profile.travelerFields.includes(f);
   const req = (f: "gender" | "date_of_birth" | "nationality" | "id_document" | "passport_expires_on") =>
     profile.travelerRequired.includes(f) ? <span className="text-red-600"> *</span> : null;
@@ -352,7 +397,7 @@ function TravelerForm({
             type="text"
             required
             autoFocus
-            defaultValue={traveler?.full_name ?? ""}
+            defaultValue={init?.full_name ?? ""}
             placeholder={show("id_document") ? "Tel qu'il figure sur la pièce d'identité" : "Prénom et nom"}
             className={fieldCls}
           />
@@ -380,7 +425,7 @@ function TravelerForm({
                 name="date_of_birth"
                 type="date"
                 max={today}
-                defaultValue={traveler?.date_of_birth ?? ""}
+                defaultValue={init?.date_of_birth ?? ""}
                 className={fieldCls}
               />
             </div>
@@ -388,7 +433,7 @@ function TravelerForm({
           {show("nationality") && (
             <div>
               <label className={labelCls}>Nationalité{req("nationality")}</label>
-              <CountrySelect name="nationality" defaultValue={traveler?.nationality ?? ""} />
+              <CountrySelect name="nationality" defaultValue={init?.nationality ?? ""} />
             </div>
           )}
           {show("gender") && (
@@ -396,7 +441,7 @@ function TravelerForm({
               <label htmlFor={`gender-${traveler?.id ?? "new"}`} className={labelCls}>
                 Genre{req("gender")}
               </label>
-              <select id={`gender-${traveler?.id ?? "new"}`} name="gender" defaultValue={traveler?.gender ?? ""} className={fieldCls}>
+              <select id={`gender-${traveler?.id ?? "new"}`} name="gender" defaultValue={init?.gender ?? ""} className={fieldCls}>
                 <option value="">—</option>
                 <option value="m">Homme</option>
                 <option value="f">Femme</option>
@@ -415,7 +460,7 @@ function TravelerForm({
               <label htmlFor={`doctype-${traveler?.id ?? "new"}`} className={labelCls}>
                 Type de pièce{req("id_document")}
               </label>
-              <select id={`doctype-${traveler?.id ?? "new"}`} name="id_document_type" defaultValue={traveler?.id_document_type ?? ""} className={fieldCls}>
+              <select id={`doctype-${traveler?.id ?? "new"}`} name="id_document_type" defaultValue={init?.id_document_type ?? ""} className={fieldCls}>
                 <option value="">—</option>
                 {profile.idDocumentTypes.map((k) => (
                   <option key={k} value={k}>{ID_DOCUMENT_TYPE_LABEL[k]}</option>
@@ -432,7 +477,7 @@ function TravelerForm({
               name="passport_number"
               type="text"
               autoComplete="off"
-              defaultValue={traveler?.passport_number ?? ""}
+              defaultValue={init?.passport_number ?? ""}
               className={`${fieldCls} font-mono`}
             />
           </div>
@@ -445,7 +490,7 @@ function TravelerForm({
                 id={`passport-exp-${traveler?.id ?? "new"}`}
                 name="passport_expires_on"
                 type="date"
-                defaultValue={traveler?.passport_expires_on ?? ""}
+                defaultValue={init?.passport_expires_on ?? ""}
                 className={fieldCls}
               />
             </div>
@@ -468,6 +513,18 @@ function TravelerForm({
           />
         </div>
       </div>
+
+      {mode === "edit" && traveler?.is_payer && (
+        <label className="flex items-start gap-2 text-[12px] text-[#1A1F2E]">
+          <input type="checkbox" name="save_to_customer" defaultChecked={!!payerIdentityEmpty} className="mt-0.5 size-4" />
+          <span>
+            Enregistrer aussi sur la fiche client
+            <span className="block text-[11px] text-[#968F84]">
+              Ce voyageur est le client payeur : son identité pré-remplira ses prochaines réservations (copie — les autres dossiers ne changent pas).
+            </span>
+          </span>
+        </label>
+      )}
 
       <div className="flex items-center gap-2 pt-0.5">
         <button

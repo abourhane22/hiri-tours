@@ -114,6 +114,11 @@ export default async function ClientDetailPage({
               source: customer.acquisition_source ?? "",
               language: customer.preferred_language ?? "fr",
               notes: customer.internal_notes ?? "",
+              dateOfBirth: customer.date_of_birth ?? "",
+              gender: customer.gender ?? "",
+              idDocumentType: customer.id_document_type ?? "",
+              idDocumentNumber: customer.id_document_number ?? "",
+              idDocumentExpiresOn: customer.id_document_expires_on ?? "",
             }}
           />
 

@@ -22,6 +22,8 @@ import {
 import { buildProductFromOffer, computeServiceFee, fxConvert, offerPax } from "@/lib/distribution";
 import { storeDistributionCost } from "@/lib/cost-snapshot";
 import { createReservation } from "@/app/admin/reservations/new/actions";
+import { getDossierProfile } from "@/lib/dossier-profile";
+import { CUSTOMER_IDENTITY_COLUMNS, travelerFieldsFromCustomer } from "@/lib/traveler-identity";
 
 // Toutes les actions passent par le serveur : le token ne quitte jamais
 // lib/duffel.ts. Lot D1a : lecture seule, aucune écriture en base.
@@ -204,7 +206,13 @@ export async function createDossierFromOfferAction(_prev: CreateDossierState, fd
     return { ok: false, error: "Offre LIVE : ce démonstrateur ne crée pas de dossier sur de vrais vols. Utilisez un token de test." };
   }
 
-  const { data: customer } = await supabase.from("customers").select("id, full_name").eq("id", customerId).maybeSingle();
+  const { data: customer } = await supabase
+    .from("customers")
+    .select(`id, full_name, ${CUSTOMER_IDENTITY_COLUMNS}`)
+    .eq("id", customerId)
+    .maybeSingle();
+  // « Le client payeur fait partie des passagers » (cochée par défaut) : le premier adulte est pré-rempli.
+  const payerTravels = fd.get("payer_travels") === "on";
   if (!customer) return { ok: false, error: "Client introuvable." };
 
   const amount = amountNumber(offer.total_amount);
@@ -272,9 +280,22 @@ export async function createDossierFromOfferAction(_prev: CreateDossierState, fd
   // 4) Voyageurs pré-créés — un par passager de l'offre, à compléter avant émission.
   let adultIdx = 0;
   let childIdx = 0;
+  // Profil « vol » : la copie depuis la fiche client se limite à ce qu'il exige (passeport seulement, jamais une CIN).
+  const flightProfile = getDossierProfile({ category: "billetterie" });
   const travelers = offer.passengers.map((p) => {
     const isAdult = (p.type ?? "adult") === "adult";
     const n = isAdult ? ++adultIdx : ++childIdx;
+    if (isAdult && n === 1 && payerTravels && customer) {
+      const c = customer as unknown as { full_name: string } & Record<string, unknown>;
+      return {
+        reservation_id: resa.id,
+        full_name: c.full_name,
+        traveler_type: "adult",
+        is_payer: true,
+        ...travelerFieldsFromCustomer(c as never, flightProfile),
+        notes: "Client payeur — vérifiez le nom exact du passeport avant l'émission.",
+      };
+    }
     return {
       reservation_id: resa.id,
       full_name: isAdult ? `Adulte ${n}` : `Enfant ${n}`,

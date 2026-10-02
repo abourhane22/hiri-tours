@@ -36,6 +36,11 @@ export default async function NewClientPage() {
           source: "",
           language: "fr",
           notes: "",
+          dateOfBirth: "",
+          gender: "",
+          idDocumentType: "",
+          idDocumentNumber: "",
+          idDocumentExpiresOn: "",
         }}
       />
     </div>

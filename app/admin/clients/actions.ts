@@ -31,6 +31,24 @@ function readCustomerFields(
   // full_name reste synchronisé : tout le reste de l'app l'affiche.
   const fullName = `${firstName} ${lastName}`.trim();
 
+  // Identité du voyageur (facultative) : un champ ABSENT du formulaire n'est jamais
+  // écrit (pas d'effacement silencieux, ex. la nationalité) ; un champ présent et vide → null.
+  const identity: Record<string, string | null> = {};
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  for (const key of ["nationality", "date_of_birth", "gender", "id_document_type", "id_document_number", "id_document_expires_on"]) {
+    if (!formData.has(key)) continue;
+    identity[key] = ((formData.get(key) as string) || "").trim() || null;
+  }
+  if (identity.gender && !["m", "f"].includes(identity.gender)) return { ok: false, error: "Sexe invalide.", field: "gender" };
+  if (identity.id_document_type && !["cin", "passeport"].includes(identity.id_document_type))
+    return { ok: false, error: "Type de pièce invalide.", field: "id_document_type" };
+  if (identity.date_of_birth && (!DATE_RE.test(identity.date_of_birth) || identity.date_of_birth > new Date().toISOString().slice(0, 10)))
+    return { ok: false, error: "Date de naissance invalide.", field: "date_of_birth" };
+  if (identity.id_document_expires_on && !DATE_RE.test(identity.id_document_expires_on))
+    return { ok: false, error: "Date d'expiration invalide.", field: "id_document_expires_on" };
+  if (identity.id_document_number && !identity.id_document_type)
+    return { ok: false, error: "Précisez le type de pièce (CIN ou passeport).", field: "id_document_type" };
+
   return {
     ok: true,
     data: {
@@ -41,12 +59,12 @@ function readCustomerFields(
       phone: phone || null,
       phone_normalized: normalizePhone(phone),
       country: country || null,
-      nationality: (formData.get("nationality") as string) || null,
       city: (formData.get("city") as string) || null,
       preferred_language:
         ((formData.get("preferred_language") as string) || "fr") as CustomerLanguage,
       acquisition_source: (source || "other") as CustomerSource,
       internal_notes: (formData.get("internal_notes") as string) || null,
+      ...identity,
     },
   };
 }

@@ -140,6 +140,8 @@ export type ReservationTraveler = {
   passport_expires_on: string | null;
   /** Type de la pièce dont le numéro est dans passport_number. */
   id_document_type?: "cin" | "passeport" | null;
+  /** Ce voyageur est le client payeur (raccourci, billetterie) : propose « Enregistrer aussi sur la fiche client ». */
+  is_payer?: boolean;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -181,6 +183,12 @@ export type Customer = {
   city: string | null;
   country: string | null;
   nationality: string | null;
+  /** Identité du voyageur (facultative, backoffice uniquement) : pré-remplit les voyageurs — copie, jamais lien. */
+  date_of_birth?: string | null;
+  gender?: "m" | "f" | null;
+  id_document_type?: "cin" | "passeport" | null;
+  id_document_number?: string | null;
+  id_document_expires_on?: string | null;
   preferred_language: CustomerLanguage;
   acquisition_source: CustomerSource;
   internal_notes: string | null;

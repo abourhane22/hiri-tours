@@ -50,7 +50,8 @@ import { WhatsAppButton } from "@/components/whatsapp-button";
 import { ReservationStatusForm } from "@/components/reservation-status-form";
 import { PaymentCollector } from "@/components/payment-collector";
 import { SuiviLinkButton } from "@/components/suivi-link-button";
-import { TravelersPanel } from "@/components/travelers-panel";
+import { TravelersPanel, type HabitualTraveler } from "@/components/travelers-panel";
+import { customerIdentityEmpty, habitualKey } from "@/lib/traveler-identity";
 import { getDossierProfile, travelersStatus } from "@/lib/dossier-profile";
 import { ArrivalCard, StayCard } from "@/components/reservations/special-cards";
 import { MarginCard, type MarginExpense } from "@/components/reservations/margin-card";
@@ -153,7 +154,7 @@ export default async function ReservationDetailPage({
   const { data: reservation } = await supabase
     .from("reservations")
     .select(
-      "*, circuits(title, slug, category, meeting_point, sale_unit, identity_documents_required), customers(id, full_name, email, phone, country)",
+      "*, circuits(title, slug, category, meeting_point, sale_unit, identity_documents_required), customers(id, full_name, email, phone, country, date_of_birth, gender, id_document_number, id_document_expires_on)",
     )
     .eq("id", id)
     .single();
@@ -274,6 +275,33 @@ export default async function ReservationDetailPage({
     .eq("reservation_id", id)
     .order("created_at", { ascending: true });
   const travelers = (travelersData ?? []) as ReservationTraveler[];
+
+  // Voyageurs habituels : personnes déjà voyageuses sur les AUTRES dossiers de ce client
+  // (lecture seule, dédoublonnées par nom + date de naissance, la plus récente gardée).
+  const customerIdForHabitual = (reservation as any).customer_id as string | null;
+  let habitualTravelers: HabitualTraveler[] = [];
+  if (customerIdForHabitual) {
+    const { data: otherResas } = await supabase.from("reservations").select("id").eq("customer_id", customerIdForHabitual).neq("id", id).limit(100);
+    const ids = ((otherResas ?? []) as { id: string }[]).map((x) => x.id);
+    if (ids.length > 0) {
+      const { data: past } = await supabase
+        .from("reservation_travelers")
+        .select("full_name, traveler_type, date_of_birth, nationality, passport_number, gender, passport_expires_on, id_document_type, created_at")
+        .in("reservation_id", ids)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      const seen = new Set<string>();
+      for (const t of (past ?? []) as (HabitualTraveler & { created_at: string })[]) {
+        if (!t.full_name?.trim() || /^(Adulte|Enfant) \d+$/.test(t.full_name.trim())) continue; // ignorer les places fictives de la billetterie
+        const k = habitualKey(t.full_name, t.date_of_birth);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        const { created_at: _c, ...h } = t;
+        habitualTravelers.push(h);
+      }
+      habitualTravelers = habitualTravelers.slice(0, 12);
+    }
+  }
 
   // Lien de paiement actif (staff read via RLS).
   const { data: activeLinkRow } = await supabase
@@ -828,7 +856,8 @@ export default async function ReservationDetailPage({
               travelers={travelers}
               expectedAdults={r.adults}
               expectedChildren={r.children}
-              payer={customer ? { fullName: customer.full_name, country: customer.country ?? null } : null}
+              payer={customer ? { fullName: customer.full_name, country: customer.country ?? null, identityEmpty: customerIdentityEmpty(customer) } : null}
+              habitual={habitualTravelers}
               readOnly={isCancelled}
               profile={profile}
               expectedProfiles={(() => {

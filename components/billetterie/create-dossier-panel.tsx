@@ -96,6 +96,15 @@ export function CreateDossierPanel({
       <div>
         <span className={labelCls}>Client payeur <span className="text-red-600">*</span></span>
         <CustomerPicker selectedCustomer={customer} onSelect={setCustomer} />
+        <label className="mt-2 flex items-start gap-2 text-[12px] text-[#1A1F2E]">
+          <input type="checkbox" name="payer_travels" defaultChecked className="mt-0.5 size-4" />
+          <span>
+            Le client payeur fait partie des passagers
+            <span className="block text-[11px] text-[#968F84]">
+              Le premier adulte est pré-rempli depuis sa fiche (nom, et selon le vol : date de naissance, sexe, nationalité, passeport). Décochée : rien n&apos;est pré-rempli.
+            </span>
+          </span>
+        </label>
       </div>
 
       <div className="grid grid-cols-[1fr_auto] gap-3 items-end">

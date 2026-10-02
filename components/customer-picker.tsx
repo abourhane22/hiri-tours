@@ -10,6 +10,10 @@ import { findPotentialDuplicates, type DuplicateMatch } from "@/app/admin/client
 import type { Customer } from "@/lib/types";
 import { useToast } from "@/components/ui/toaster";
 
+// Colonnes utiles au sélecteur : jamais les données d'identité (pièce, naissance…).
+const PICKER_COLUMNS =
+  "id, full_name, email, phone, address_line, city, country, nationality, preferred_language, acquisition_source, internal_notes, linked_profile_id, created_at, updated_at";
+
 type Props = { selectedCustomer: Customer | null; onSelect: (c: Customer | null) => void };
 
 export function CustomerPicker({ selectedCustomer, onSelect }: Props) {
@@ -37,7 +41,7 @@ export function CustomerPicker({ selectedCustomer, onSelect }: Props) {
     setSearching(true);
     const timer = setTimeout(async () => {
       const q = query.trim().replace(/[%,]/g, "");
-      const { data } = await supabase.from("customers").select("*")
+      const { data } = await supabase.from("customers").select(PICKER_COLUMNS)
         .or(`full_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`).limit(8);
       setResults((data as Customer[]) || []);
       setSearching(false);
@@ -67,7 +71,7 @@ export function CustomerPicker({ selectedCustomer, onSelect }: Props) {
   /** « Utiliser ce client » : sélectionne la fiche existante et revient au formulaire appelant. */
   async function selectExisting(id: string) {
     setUsing(true); setError(null);
-    const { data, error: readError } = await supabase.from("customers").select("*").eq("id", id).single();
+    const { data, error: readError } = await supabase.from("customers").select(PICKER_COLUMNS).eq("id", id).single();
     setUsing(false);
     if (readError || !data) { setError("Impossible de charger ce client."); return; }
     onSelect(data as Customer);
@@ -82,7 +86,7 @@ export function CustomerPicker({ selectedCustomer, onSelect }: Props) {
     const phone = newPhone.trim() || null;
     const { data, error: insertError } = await supabase.from("customers")
       .insert({ full_name: newName.trim(), email: newEmail.trim() || null, phone, phone_normalized: normalizePhone(phone) })
-      .select("*").single();
+      .select(PICKER_COLUMNS).single();
     if (insertError) {
       const msg = customerDuplicateMessage(insertError) ?? `Client non créé : ${insertError.message}`;
       setError(msg);
