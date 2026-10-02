@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { regularizationState } from "@/lib/regularization";
 import { isCreditNoteReason, isRefundMethod } from "@/lib/credit-notes";
 import { imputableRectificative, imputeRectification } from "@/lib/rectification";
 import type { CompanySettings, CreditNoteSnapshot, Invoice } from "@/lib/types";
@@ -125,8 +126,19 @@ export async function regularizeCancelledReservation(
   const r = reservation as any;
   if (r.status !== "cancelled") return fail("Ce dossier n'est pas annulé — utilisez l'émission de facture normale.");
 
-  const paid = Number(r.paid_amount_mad);
-  if (paid <= 0) return fail("Aucun encaissement à régulariser sur ce dossier.");
+  // Montant réellement à régulariser : encaissé net (remboursements et utilisations
+  // ailleurs déduits) moins les avoirs encore ouverts — jamais paid_amount_mad brut,
+  // sinon un avoir déjà remboursé produirait un crédit fantôme.
+  const regul = await regularizationState(supabase, reservationId);
+  if (!regul.ok) return fail("Vérification des encaissements et des avoirs impossible — réessayez.");
+  const paid = regul.toRegularize;
+  if (paid <= 0) {
+    return fail(
+      regul.netCollected <= 0.009
+        ? "Rien à régulariser : l'encaissement de ce dossier a déjà été remboursé ou utilisé."
+        : "Rien à régulariser : un avoir ouvert couvre déjà l'encaissement de ce dossier.",
+    );
+  }
 
   const { data: existing } = await supabase
     .from("invoices")

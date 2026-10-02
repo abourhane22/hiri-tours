@@ -36,6 +36,7 @@ import { InvoiceGenerateForm } from "@/components/invoice-generate-form";
 import { RegularizeCancelledForm } from "@/components/credit-note-forms";
 import { missingLegalMentions } from "@/lib/invoices";
 import { rectificationContext } from "@/lib/rectification";
+import { regularizationState } from "@/lib/regularization";
 import { netSaleOfReservation } from "@/lib/credit-notes";
 import { addDays } from "@/lib/tz";
 import { CREDIT_NOTE_REASON_LABEL, CREDIT_NOTE_STATUS_LABEL, CREDIT_NOTE_STATUS_STYLE } from "@/lib/credit-notes";
@@ -175,6 +176,8 @@ export default async function ReservationDetailPage({
   const missingLegal = missingLegalMentions(companySettings as CompanySettings | null);
   // Facture précédente annulée par avoir → prochaine facture = rectificative (proposition d'imputation).
   const rectification = await rectificationContext(supabase, id);
+  // Dossier annulé : montant réellement à régulariser (lib/regularization.ts), jamais paid_amount_mad brut.
+  const regularization = (reservation as any).status === "cancelled" ? await regularizationState(supabase, id) : null;
 
   const [vehiclesResult, staffResult, conflictsResult] = await Promise.all([
     supabase.from("vehicles").select("id, registration, make, model, capacity").eq("is_active", true).order("registration"),
@@ -1046,8 +1049,36 @@ export default async function ReservationDetailPage({
                 <CreditNotesList notes={dossierCreditNotes} />
               </div>
             ) : isCancelled ? (
-              totalPaid > 0 ? (
-                <RegularizeCancelledForm reservationId={id} paid={totalPaid} />
+              regularization && regularization.toRegularize > 0 ? (
+                <RegularizeCancelledForm reservationId={id} paid={regularization.toRegularize} />
+              ) : regularization && regularization.history.length > 0 ? (
+                // Chaîne existante, sans bouton : l'encaissement est déjà couvert (avoir remboursé, utilisé ou ouvert).
+                <div className="space-y-1.5">
+                  {regularization.history.map((h) => (
+                    <p key={h.creditNoteId} className="rounded-lg px-3 py-2 text-[12px]" style={{ backgroundColor: "#FBF9F5", border: "1px solid #EEE9E0", color: "#58524A" }}>
+                      {h.invoiceNumber ? (
+                        <>
+                          Facture{" "}
+                          {h.invoiceId ? (
+                            <Link href={`/admin/factures/${h.invoiceId}`} className="font-mono text-[#1A1F2E] hover:text-[#C84B31]">{h.invoiceNumber}</Link>
+                          ) : (
+                            <span className="font-mono">{h.invoiceNumber}</span>
+                          )}{" "}
+                          annulée par l&apos;avoir{" "}
+                        </>
+                      ) : (
+                        <>Avoir </>
+                      )}
+                      <Link href={`/admin/avoirs/${h.creditNoteId}`} className="font-mono text-[#1A1F2E] hover:text-[#C84B31]">{h.creditNoteNumber}</Link>
+                      {h.refunded > 0 && h.refundedAt && <> · remboursé le {formatDateShort(h.refundedAt)} ({formatMAD(h.refunded)})</>}
+                      {h.usedElsewhere > 0 && <> · utilisé sur un autre dossier ({formatMAD(h.usedElsewhere)})</>}
+                      {h.status === "issued" && h.remaining > 0 && <> · crédit client ouvert {formatMAD(h.remaining)}</>}
+                    </p>
+                  ))}
+                  <p className="text-[11.5px] text-[#968F84]">Rien à régulariser : l&apos;encaissement de ce dossier est déjà couvert.</p>
+                </div>
+              ) : regularization && !regularization.ok ? (
+                <p className="text-[12px] text-[#791F1F]">Vérification des encaissements et des avoirs impossible — rechargez la page.</p>
               ) : (
                 <p className="text-[12px] text-[#968F84]">
                   Dossier annulé sans encaissement — aucune facture ni avoir à émettre.
